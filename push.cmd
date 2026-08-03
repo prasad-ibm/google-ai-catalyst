@@ -1,122 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign in — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<style>
-  :root{
-    --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC04; --g-green:#34A853;
-    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2230;
-    --border:#2a3140; --text:#e6edf3; --muted:#8b97a7;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:'Roboto',system-ui,sans-serif;background:var(--bg);color:var(--text);
-    min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background-image:radial-gradient(circle at 15% 20%,rgba(66,133,244,.10),transparent 40%),
-      radial-gradient(circle at 85% 80%,rgba(52,168,83,.08),transparent 40%);
-  }
-  .card{
-    width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
-    border-radius:16px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.45);
-  }
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .g-logo{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
-  .g-logo .b{color:var(--g-blue)} .g-logo .r{color:var(--g-red)}
-  .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
-  .brand h1{font-size:16px;font-weight:500}
-  .brand h1 span{color:var(--muted);font-weight:400}
-  .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
-  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
-  .field{margin-bottom:18px}
-  input{
-    width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
-    border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;
-  }
-  input:focus{outline:none;border-color:var(--g-blue);box-shadow:0 0 0 3px rgba(66,133,244,.25)}
-  button{
-    width:100%;background:var(--g-blue);color:#fff;border:none;border-radius:8px;
-    padding:13px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s;
-    margin-top:4px;
-  }
-  button:hover{background:#3574e0}
-  button:disabled{opacity:.6;cursor:default}
-  .err{
-    display:none;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);
-    color:#ff9b90;font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:16px;
-  }
-  .err.show{display:block}
-  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);font-family:'Roboto Mono',monospace}
-  .bar{height:4px;border-radius:4px;margin-bottom:26px;display:flex;overflow:hidden}
-  .bar i{flex:1} .bar .b{background:var(--g-blue)} .bar .r{background:var(--g-red)}
-  .bar .y{background:var(--g-yellow)} .bar .g{background:var(--g-green)}
-</style>
-</head>
-<body>
-  <div class="card">
-    <div class="brand">
-      <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
-      <h1>AI Catalyst <span>· Sign in</span></h1>
-    </div>
-    <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
-    <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
+@echo off
+REM ============================================================================
+REM  Google AI Catalyst - one-shot push to GitHub (Windows Command Prompt)
+REM  Double-click this file, or run:  push.cmd
+REM ============================================================================
+setlocal
 
-    <div class="err" id="err"></div>
+set REPO=https://github.com/prasad-ibm/google-ai-catalyst.git
 
-    <form id="loginForm" autocomplete="on">
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required />
-      </div>
-      <button type="submit" id="submitBtn">Sign in</button>
-    </form>
+echo.
+echo === Google AI Catalyst : push to GitHub ===
+echo Repo: %REPO%
+echo.
 
-    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
-  </div>
+REM Ensure git is available
+where git >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] git is not installed or not on PATH. Install Git for Windows: https://git-scm.com/download/win
+  pause
+  exit /b 1
+)
 
-<script>
-  const form = document.getElementById('loginForm');
-  const err = document.getElementById('err');
-  const btn = document.getElementById('submitBtn');
+REM Initialise repo if needed
+if not exist ".git" (
+  echo Initialising new git repository...
+  git init
+  git branch -M main
+)
 
-  function showError(msg){ err.textContent = msg; err.classList.add('show'); }
-  function clearError(){ err.classList.remove('show'); }
+REM Safety: make sure .env is never committed
+if exist ".env" (
+  git rm --cached .env >nul 2>nul
+)
 
-  // If already authenticated, skip straight to the app.
-  fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/index.html'; }).catch(()=>{});
+echo Staging files...
+git add -A
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearError();
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        location.href = '/index.html';
-      } else {
-        showError(data.error === 'invalid credentials' ? 'Incorrect username or password.' : (data.error || 'Sign in failed.'));
-        btn.disabled = false; btn.textContent = 'Sign in';
-      }
-    } catch (ex) {
-      showError('Network error — please try again.');
-      btn.disabled = false; btn.textContent = 'Sign in';
-    }
-  });
-</script>
-</body>
-</html>
+REM Confirm no secret is staged
+git ls-files | findstr /X ".env" >nul 2>nul
+if not errorlevel 1 (
+  echo [ERROR] .env is tracked! Aborting to avoid leaking secrets.
+  echo Run:  git rm --cached .env   then re-run this script.
+  pause
+  exit /b 1
+)
+
+echo Committing...
+git commit -m "Deploy: clean one-shot Railway provisioning + CI" 2>nul
+if errorlevel 1 echo (nothing new to commit - continuing)
+
+REM Point origin at the repo (add or update)
+git remote get-url origin >nul 2>nul
+if errorlevel 1 (
+  git remote add origin %REPO%
+) else (
+  git remote set-url origin %REPO%
+)
+
+echo Pushing to origin/main...
+git push -u origin main
+
+echo.
+echo === Done. Check https://github.com/prasad-ibm/google-ai-catalyst ===
+echo (A sign-in / token prompt may appear on first push.)
+pause
+endlocal
