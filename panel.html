@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Executive Review Panel — Google AI Catalyst</title>
+<title>Pipeline Board — Google AI Catalyst</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -62,163 +62,97 @@ p { margin:0 0 1rem; }
 .glogo { display:inline-block; vertical-align:middle; }
 </style>
 <style>
-  /* ---------------- Page-specific: Executive Review Panel ---------------- */
+  /* ---------------- Page-specific: Pipeline Board (Kanban) ---------------- */
   main { padding-top: var(--header-h); }
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
+  .wrap { max-width: 100%; margin: 0 auto; padding: 22px 32px 64px; }
 
   /* Breadcrumb */
   .crumb { margin-bottom: 18px; }
   .crumb a { color: var(--text-dim); }
   .crumb a:hover { color: var(--g-blue-l); }
 
-  /* ---- Gate stepper (6 gates) ---- */
-  .gates { display: flex; align-items: flex-start; margin-bottom: 22px; position: relative; }
-  .gate { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; position: relative; }
-  .gate__pill {
-    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
-    border: 2px solid var(--surface-3); color: var(--text-dim); background: var(--surface); z-index: 2; transition: all .2s;
+  /* ---- Page title row ---- */
+  .pagehd { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom: 26px; }
+  .pagehd__title { font-size:30px; font-weight:500; letter-spacing:-0.02em; line-height:1.05; margin-bottom:6px; }
+  .pagehd__sub { color:var(--text-muted); font-size:14px; margin:0; }
+  .picker { display:flex; flex-direction:column; gap:6px; }
+  .picker__label { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); }
+  .picker select {
+    font-family:var(--font-sans); font-size:14px; color:var(--text); background:var(--surface);
+    border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 14px; min-width:220px; cursor:pointer;
+    appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
   }
-  .gate.is-active .gate__pill { border-color: var(--g-blue); background: var(--g-blue); color: #fff; box-shadow: 0 0 0 4px rgba(66,133,244,.18); }
-  .gate.is-done .gate__pill { border-color: var(--g-green); background: rgba(52,168,83,.15); color: #81c995; }
-  .gate.is-done .gate__pill svg { width: 14px; height: 14px; }
-  .gate__label { font-size: 11.5px; color: var(--text-dim); line-height: 1.25; max-width: 120px; }
-  .gate.is-active .gate__label { color: var(--g-blue-l); font-weight: 500; }
-  .gate.is-done .gate__label { color: #81c995; }
-  .gate:not(:first-child)::before {
-    content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--surface-3); z-index: 1;
+  .picker select:hover { border-color:var(--g-blue-l); }
+
+  .loading { color:var(--text-muted); font-family:var(--font-mono); font-size:13px; padding:40px 0; }
+  .hidden { display:none !important; }
+
+  /* ---- Kanban board ---- */
+  .board {
+    display:grid;
+    grid-template-columns:repeat(7, minmax(220px, 1fr));
+    gap:14px;
+    align-items:start;
+    overflow-x:auto;
+    padding-bottom:8px;
   }
-
-  /* ---- Gate banner strip ---- */
-  .banner { display: flex; gap: 14px; align-items: flex-start; background: var(--bg-hero); border: 1px solid var(--border); border-left: 4px solid var(--g-blue); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
-  .banner__body { flex: 1; }
-  .banner__title { font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: .12em; color: var(--g-blue-l); text-transform: uppercase; margin-bottom: 6px; }
-  .banner__desc { color: var(--text-muted); font-size: 13.5px; margin: 0; }
-  .banner__desc b { color: var(--text); font-weight: 500; }
-  .banner__desc i { color: var(--text-muted); font-style: italic; }
-  .banner__actions { flex-shrink: 0; display:flex; align-items:center; }
-  .banner__info { width: 30px; height: 30px; border-radius: 50%; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); color: var(--g-blue-l); background: rgba(66,133,244,.08); }
-  .banner__info svg { width: 15px; height: 15px; }
-
-  /* ---- Workspace context chip ---- */
-  .wschip {
-    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted);
-    background: rgba(52,168,83,.08); border: 1px solid rgba(52,168,83,.3); border-radius: 100px;
-    padding: 7px 14px; margin-bottom: 22px;
+  .col {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    display:flex; flex-direction:column; min-height:120px;
   }
-  .wschip b { color: #81c995; font-weight: 500; }
-
-  /* ============ Committee sub-header row ============ */
-  .subhead { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 14px; }
-  .subhead__left { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); }
-  .subhead__left b { color: var(--g-blue-l); font-weight: 500; }
-
-  /* ============ Thinking steps (collapsible) ============ */
-  .steps { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; margin-bottom: 22px; }
-  .steps__head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 13px 20px; cursor:pointer; user-select:none; }
-  .steps__htext { display:flex; align-items:center; gap:10px; }
-  .steps__check { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(52,168,83,.16); color:#81c995; flex-shrink:0; }
-  .steps__check svg { width:13px; height:13px; }
-  .steps__title { font-size: 13.5px; font-weight: 500; }
-  .steps__toggle { font-size: 13px; color: var(--g-blue-l); display:inline-flex; align-items:center; gap:6px; }
-  .steps__toggle .caret { transition: transform .2s; display:inline-block; }
-  .steps.is-open .steps__toggle .caret { transform: rotate(180deg); }
-  .steps__body { display:none; padding: 2px 20px 14px; }
-  .steps.is-open .steps__body { display:block; }
-  .step { display:flex; align-items:flex-start; gap:11px; padding: 9px 0; border-top:1px solid var(--border); font-size: 13px; color: var(--text-muted); }
-  .step:first-child { border-top:none; }
-  .step__dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(52,168,83,.16); color:#81c995; margin-top:1px; }
-  .step__dot svg { width:11px; height:11px; }
-
-  /* ============ Deliberation ============ */
-  .delib { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-blue); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 6px 22px 16px; margin-bottom: 26px; }
-  .turn { display:flex; gap:14px; padding: 16px 0; border-top:1px solid var(--border); opacity:0; transform: translateY(8px); transition: opacity .45s ease, transform .45s ease; }
-  .turn:first-child { border-top:none; }
-  .turn.is-in { opacity:1; transform: translateY(0); }
-  .turn__av { width: 40px; height: 40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 14px; font-weight: 500; color:#fff; }
-  .turn__body { flex:1; }
-  .turn__who { font-size: 14px; font-weight: 500; margin-bottom: 1px; }
-  .turn__role { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
-  .turn__say { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 8px 0 0; }
-  .turn__say b { color: var(--text); font-weight: 500; }
-  .turn__typing { display:inline-flex; gap:3px; margin-top:8px; }
-  .turn__typing span { width:6px; height:6px; border-radius:50%; background: var(--text-dim); animation: blink 1.2s infinite; }
-  .turn__typing span:nth-child(2){ animation-delay:.2s; } .turn__typing span:nth-child(3){ animation-delay:.4s; }
-  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
-
-  /* ============ Verdict banner ============ */
-  .verdict { border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 26px; position: relative; overflow: hidden; border:1px solid; opacity:0; transform: translateY(10px); transition: opacity .5s ease, transform .5s ease; }
-  .verdict.is-in { opacity:1; transform: translateY(0); }
-  .verdict.is-go { background: linear-gradient(120deg, #0f2a1a 0%, #143b4a 55%, #14532d 100%); border-color: rgba(52,168,83,.42); box-shadow: 0 6px 28px rgba(20,90,60,.30); }
-  .verdict.is-cond { background: linear-gradient(120deg, #2a2410 0%, #3b3414 55%, #4a3a10 100%); border-color: rgba(251,188,4,.42); box-shadow: 0 6px 28px rgba(120,90,10,.28); }
-  .verdict.is-nogo { background: linear-gradient(120deg, #2a1010 0%, #3b1414 55%, #4a1010 100%); border-color: rgba(234,67,53,.42); box-shadow: 0 6px 28px rgba(120,20,10,.28); }
-  .verdict__top { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom: 16px; position:relative; z-index:1; }
-  .verdict__gate { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.72); }
-  .verdict__label { font-size: 34px; font-weight: 500; letter-spacing: -0.02em; color:#fff; line-height:1; }
-  .verdict__badge { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; padding: 6px 14px; border-radius: 100px; border:1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.14); color:#fff; }
-  .verdict__cond { font-size: 13.5px; color: rgba(255,255,255,.9); line-height: 1.6; margin: 0 0 16px; position:relative; z-index:1; max-width: 900px; }
-  .verdict__cond b { color:#fff; font-weight:500; }
-  .verdict__stances { display:flex; gap:10px; flex-wrap:wrap; position:relative; z-index:1; }
-  .stance { display:inline-flex; align-items:center; gap:8px; font-family: var(--font-mono); font-size: 11.5px; padding: 6px 12px; border-radius: 100px; border:1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.08); color:#fff; }
-  .stance__dot { width:9px; height:9px; border-radius:50%; }
-  .stance__val { font-weight:500; }
-  .stance--support .stance__val { color:#b6f0c4; } .stance--support .stance__dot{ background:#81c995; }
-  .stance--conditional .stance__val { color:#ffe08a; } .stance--conditional .stance__dot{ background:var(--g-yellow); }
-  .stance--against .stance__val { color:#f6a79f; } .stance--against .stance__dot{ background:#f28b82; }
-
-  /* ============ Executive brief ============ */
-  .brief-launch { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom: 22px; }
-  .brief-launch__note { font-size: 12.5px; color: var(--text-dim); }
-  .brief { display:none; background:#fff; color:#202124; border-radius: var(--radius-lg); box-shadow: 0 8px 40px rgba(0,0,0,.5); overflow:hidden; margin-bottom: 26px; border:1px solid var(--border); }
-  .brief.is-open { display:block; }
-  .brief__head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding: 26px 30px 18px; border-bottom: 2px solid #e8eaed; }
-  .brief__brand { display:flex; align-items:center; gap:12px; }
-  .brief__wordmark { font-family: var(--font-sans); font-weight:500; font-size:16px; color:#202124; }
-  .brief__meta { text-align:right; font-family: var(--font-mono); font-size: 11px; color:#5f6368; line-height:1.7; }
-  .brief__doctitle { font-size: 26px; font-weight:500; color:#202124; margin: 20px 30px 4px; letter-spacing:-0.02em; }
-  .brief__sub { font-size: 13.5px; color:#5f6368; margin: 0 30px 8px; }
-  .brief__verdictline { display:inline-flex; align-items:center; gap:10px; margin: 8px 30px 4px; font-family: var(--font-mono); font-size:13px; font-weight:500; padding: 8px 16px; border-radius: 6px; }
-  .brief__verdictline.is-go { color:#188038; background:rgba(52,168,83,.12); border:1px solid rgba(52,168,83,.4); }
-  .brief__verdictline.is-cond { color:#b06000; background:rgba(251,188,4,.14); border:1px solid rgba(251,188,4,.5); }
-  .brief__verdictline.is-nogo { color:#c5221f; background:rgba(234,67,53,.12); border:1px solid rgba(234,67,53,.4); }
-  .brief__sec { padding: 18px 30px; border-top: 1px solid #e8eaed; }
-  .brief__sec:first-of-type { border-top:none; }
-  .brief__sectitle { font-family: var(--font-mono); font-size: 11px; letter-spacing:.12em; text-transform:uppercase; color:#4285F4; margin-bottom: 10px; font-weight:500; }
-  .brief__sec p { font-size: 13.5px; color:#3c4043; line-height:1.65; margin: 0 0 10px; }
-  .brief__sec p:last-child { margin-bottom:0; }
-  .brief__sec b { color:#202124; font-weight:500; }
-  .brief__kpis { display:grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin: 4px 0 12px; }
-  .brief__kpi { border:1px solid #dadce0; border-radius:8px; padding: 14px 16px; background:#f8f9fa; }
-  .brief__kpi-k { font-family: var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#5f6368; margin-bottom:6px; }
-  .brief__kpi-v { font-family: var(--font-mono); font-size: 24px; font-weight:500; color:#202124; line-height:1; }
-  .brief__kpi.is-p50 .brief__kpi-v { color:#188038; }
-  .brief__list { margin: 0; padding: 0 0 0 4px; list-style:none; }
-  .brief__list li { position:relative; padding: 6px 0 6px 24px; font-size: 13.5px; color:#3c4043; line-height:1.55; }
-  .brief__list li::before { content:""; position:absolute; left:2px; top:12px; width:8px; height:8px; border-radius:50%; background:#4285F4; }
-  .brief__foot { padding: 14px 30px 24px; border-top: 2px solid #e8eaed; font-size: 11px; color:#80868b; font-family: var(--font-mono); }
-  .brief__actions { padding: 0 30px 22px; display:flex; gap:12px; }
-  .brief__btn { font-family: var(--font-sans); font-size: 13px; font-weight:500; padding: 9px 18px; border-radius: 6px; cursor:pointer; border:1px solid; }
-  .brief__btn--print { background:#4285F4; color:#fff; border-color:#4285F4; }
-  .brief__btn--close { background:#fff; color:#5f6368; border-color:#dadce0; }
-
-  /* Footer nav */
-  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--border); }
-  .cardnav__right { display: flex; align-items: center; gap: 14px; }
-
-  @media (max-width: 980px) {
-    .gate__label { display: none; }
-    .verdict__label { font-size: 26px; }
-    .brief__kpis { grid-template-columns: 1fr; }
+  .col__head {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:12px 14px; border-bottom:1px solid var(--border);
+    position:sticky; top:var(--header-h); background:var(--surface); border-radius:var(--radius-lg) var(--radius-lg) 0 0; z-index:1;
   }
+  .col__title { font-family:var(--font-mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; }
+  .col__dot { width:8px; height:8px; border-radius:50%; background:var(--g-gray); flex:0 0 auto; }
+  .col__dot.is-intake { background:var(--g-gray); }
+  .col__dot.is-bxt { background:var(--g-purple); }
+  .col__dot.is-feasibility { background:var(--g-teal); }
+  .col__dot.is-advisory { background:var(--g-blue); }
+  .col__dot.is-summary { background:var(--g-blue-l); }
+  .col__dot.is-panel { background:var(--g-yellow); }
+  .col__dot.is-approved { background:var(--g-green); }
+  .col__count { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:100px; padding:2px 8px; }
+  .col__body { padding:12px; display:flex; flex-direction:column; gap:10px; }
+  .col__empty { color:var(--text-dim); font-family:var(--font-mono); font-size:11px; padding:8px 2px; }
 
-  /* Print — only the brief prints cleanly */
-  @media print {
-    body { background:#fff; }
-    .gc-header, .crumb, .gates, .banner, .wschip, .subhead, .steps, .delib, .verdict, .brief-launch, .cardnav, .brief__actions { display:none !important; }
-    main { padding-top: 0; }
-    .wrap { padding: 0; max-width: none; }
-    .brief { display:block !important; box-shadow:none; border:none; margin:0; }
+  /* ---- Cards ---- */
+  .card {
+    display:block; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius); padding:13px 13px 12px; box-shadow:var(--shadow-1);
+    transition:border-color .15s, transform .1s, box-shadow .15s; color:var(--text);
+    border-left:3px solid var(--border);
   }
+  .card:hover { border-color:var(--g-blue-l); transform:translateY(-1px); box-shadow:var(--shadow-2); }
+  .card.is-go { border-left-color:var(--g-green); }
+  .card.is-cond { border-left-color:var(--g-yellow); }
+  .card.is-no { border-left-color:var(--g-red); }
+  .card__top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .card__name { font-size:14px; font-weight:500; line-height:1.3; }
+  .card__dept { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-bottom:10px; }
+  .card__meta { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .feas { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); }
+  .feas__bar { display:inline-block; width:44px; height:5px; border-radius:100px; background:var(--surface-3); overflow:hidden; }
+  .feas__fill { display:block; height:100%; background:linear-gradient(90deg,var(--g-blue),var(--g-blue-l)); }
+  .tier { font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); }
+  .dim { color:var(--text-dim); }
+
+  /* Verdict chip — color-coded GO green / CONDITIONAL yellow / NO-GO red */
+  .vchip { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:10.5px; font-weight:500; padding:3px 8px; border-radius:100px; border:1px solid; letter-spacing:.02em; white-space:nowrap; }
+  .vchip.is-go { color:#81c995; border-color:rgba(52,168,83,.45); background:rgba(52,168,83,.12); }
+  .vchip.is-cond { color:var(--g-yellow); border-color:rgba(251,188,4,.45); background:rgba(251,188,4,.12); }
+  .vchip.is-no { color:#f28b82; border-color:rgba(234,67,53,.45); background:rgba(234,67,53,.12); }
+  .vchip.is-none { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
+
+  .empty { text-align:center; padding:60px 20px; color:var(--text-muted); }
+  .empty__icon { font-size:34px; margin-bottom:12px; }
+  .empty__title { font-size:16px; color:var(--text); margin-bottom:8px; }
+
+  /* Light theme parity with the rest of the app */
+  body.theme-light { --bg:#f6f8fc; --surface:#fff; --surface-2:#f1f3f9; --surface-3:#e6e9f2; --border:#d9dce4; --text:#1f2430; --text-muted:#4b5162; --text-dim:#8a90a0; }
 </style>
 </head>
 <body>
@@ -237,8 +171,8 @@ p { margin:0 0 1rem; }
   <div class="gc-header__divider"></div>
   <span class="gc-header__product">Enterprise Advantage</span>
   <div class="gc-header__right">
-    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
-    <span class="gc-select">WORKSPACE ▾</span>
+    <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
+    <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -251,81 +185,31 @@ p { margin:0 0 1rem; }
 <main>
   <div class="wrap">
     <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;<a href="summary.html">Evaluation Summary</a>&nbsp;&nbsp;/&nbsp;&nbsp;Executive Review Panel</div>
+    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Home</a>&nbsp;&nbsp;/&nbsp;&nbsp;Pipeline Board</div>
 
-    <!-- 6-gate stepper -->
-    <div class="gates" id="gates">
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Intake</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">BXT Gate</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Feasibility Scoring</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Platform Advisory</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Evaluation Summary</div></div>
-      <div class="gate is-active"><div class="gate__pill">6</div><div class="gate__label">Executive Review Panel</div></div>
-    </div>
-
-    <!-- Gate banner -->
-    <div class="banner">
-      <div class="banner__body">
-        <div class="banner__title">Executive Review Panel</div>
-        <p class="banner__desc">AI personas deliberate the case — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>CIO</b>, and <b>Committee Chair</b> each cast a verdict with conditions. <i>Why: Multi-perspective deliberation catches blind spots no single reviewer would find.</i></p>
+    <!-- Page title + workspace picker -->
+    <div class="pagehd">
+      <div>
+        <h1 class="pagehd__title">Pipeline Board</h1>
+        <p class="pagehd__sub">Every use case by evaluation stage — from intake to approved</p>
       </div>
-      <div class="banner__actions">
-        <span class="banner__info" title="AI personas reason from the persisted gate data; verdict is derived deterministically from Gate 5 readiness." aria-label="About this panel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        </span>
+      <div class="picker">
+        <span class="picker__label">Workspace</span>
+        <select id="wsPicker" aria-label="Select workspace"></select>
       </div>
     </div>
 
-    <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+    <!-- Loading / error banner -->
+    <div class="loading" id="loading">Loading pipeline…</div>
 
-    <!-- Committee sub-header -->
-    <div class="subhead">
-      <div class="subhead__left">Committee · <b>7 turns</b></div>
-      <button class="gc-btn gc-btn--ghost gc-btn--sm" id="btnReplay" title="Re-run the streaming deliberation">↻&nbsp;Replay</button>
-    </div>
+    <!-- Board is injected once loaded -->
+    <div id="board" class="board hidden"></div>
 
-    <!-- Thinking steps -->
-    <div class="steps is-open" id="steps">
-      <div class="steps__head" id="stepsHead">
-        <div class="steps__htext">
-          <span class="steps__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></span>
-          <span class="steps__title">Completed 4 steps</span>
-        </div>
-        <span class="steps__toggle">Details <span class="caret">▾</span></span>
-      </div>
-      <div class="steps__body" id="stepsBody"></div>
-    </div>
-
-    <!-- Deliberation -->
-    <div class="delib" id="delib"></div>
-
-    <!-- Verdict banner -->
-    <div class="verdict" id="verdictBand">
-      <div class="verdict__top">
-        <div>
-          <div class="verdict__gate">Gate 6 · Committee decision</div>
-          <div class="verdict__label" id="verdictLabel">—</div>
-        </div>
-        <span class="verdict__badge" id="verdictBadge">—</span>
-      </div>
-      <p class="verdict__cond" id="verdictCond">—</p>
-      <div class="verdict__stances" id="verdictStances"></div>
-    </div>
-
-    <!-- Executive brief -->
-    <div class="brief-launch">
-      <button class="gc-btn gc-btn--primary" id="btnBrief">📄&nbsp;Generate Executive Brief</button>
-      <span class="brief-launch__note">Formatted, printable one-pager populated from the persisted gate data.</span>
-    </div>
-    <div class="brief" id="brief"></div>
-
-    <!-- Footer nav -->
-    <div class="cardnav">
-      <a class="gc-btn gc-btn--ghost" href="summary.html" id="btnBack">←&nbsp;Back to Evaluation Summary</a>
-      <div class="cardnav__right">
-        <a class="gc-btn gc-btn--primary" href="index.html" id="btnFinish">Finish / Return to Pipeline&nbsp;→</a>
-      </div>
+    <!-- Empty state -->
+    <div id="empty" class="empty hidden">
+      <div class="empty__icon">📋</div>
+      <div class="empty__title">No use cases yet — create one to populate the pipeline.</div>
+      <p><a href="intake.html">+ Create your first use case</a></p>
     </div>
   </div>
 </main>
@@ -333,403 +217,267 @@ p { margin:0 0 1rem; }
 <script src="assets/api-client.js"></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
-(function(){
-  'use strict';
+(function () {
+  "use strict";
 
-  // ============================================================
-  //  STORAGE KEYS (shared across the 6-gate pipeline)
-  // ============================================================
-  var INTAKE_KEY   = 'gaic_intake';
-  var FEAS_KEY     = 'gaic_feasibility';
-  var ADVISORY_KEY = 'gaic_advisory';
-  var SUMMARY_KEY  = 'gaic_summary';
-  var THEME_KEY    = 'gaic_theme';
+  var THEME_KEY = 'gaic_theme';
+
+  // ---------- DOM refs ----------
+  var el = {
+    loading:  document.getElementById('loading'),
+    board:    document.getElementById('board'),
+    empty:    document.getElementById('empty'),
+    wsPicker: document.getElementById('wsPicker'),
+    wsChip:   document.getElementById('wsChip'),
+  };
 
   // ---------- helpers ----------
-  function esc(str){
-    return String(str).replace(/[&<>"']/g, function(ch){
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
+  function esc(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
     });
   }
-  function fmtPct(n){ if (n == null || isNaN(n)) return '—'; return (n >= 0 ? '+' : '') + Math.round(n) + '%'; }
-  function fmtUsd(n){
-    if (n == null || isNaN(n)) return '—';
-    var a = Math.abs(n);
-    if (a >= 1e6) return (n<0?'-':'') + '$' + (Math.round(a/1e5)/10) + 'M';
-    if (a >= 1e3) return (n<0?'-':'') + '$' + Math.round(a/1e3) + 'K';
-    return (n<0?'-':'') + '$' + Math.round(a);
+  function num(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
   }
 
+  // Verdict normalization -> 'go' | 'cond' | 'no' | null (mirrors dashboard.html)
+  function verdictKey(v) {
+    if (!v) return null;
+    var s = String(v).toUpperCase();
+    if (s.indexOf('NO') === 0 || s.indexOf('NO-GO') !== -1 || s.indexOf('NO GO') !== -1) return 'no';
+    if (s.indexOf('COND') !== -1) return 'cond';
+    if (s.indexOf('GO') !== -1) return 'go';
+    return null;
+  }
+  function verdictLabel(v) { return v ? String(v) : 'Not evaluated'; }
+
   // ============================================================
-  //  DEMO FALLBACKS — keep the page meaningful with no prior gates
-  //  (matches the sibling gates' Acme demo persona)
+  //  COLUMN / STAGE MODEL (exposed for tests)
   // ============================================================
-  var DEMO_INTAKE = {
-    name: 'Automated invoice reconciliation',
-    dept: 'Finance Operations', sponsor: 'VP Finance',
-    value: '$1M–$5M', users: '200–1000',
-    autonomy: 'Supervised', pii: true, audit: true
-  };
-  var DEMO_SUMMARY = {
-    useCase: 'Automated invoice reconciliation',
-    composite: 74,
-    readiness: 'CONDITIONAL',
-    roi: { p10: 62, p50: 141, p90: 233, annualValue: 4200000, cost: 1750000, payback: 11 },
-    frameworks: [
-      { key:'gadf',      name:'GADF v2 (Google AI Decision Framework)', score:77, band:'Strong' },
-      { key:'caf',       name:'Google Cloud Adoption Framework',        score:72, band:'Ready' },
-      { key:'strategic', name:'Strategic Value (McKinsey × MIT Sloan)', score:81, band:'High' },
-      { key:'gartner',   name:'Gartner AI Maturity + ROI',             score:69, band:'Emerging' }
-    ],
-    governance: [],
-    ts: 0
+  // Ordered pipeline columns. `key` matches the .is-<key> dot modifier.
+  var COLUMNS = [
+    { key: 'intake',      label: 'Intake' },
+    { key: 'bxt',         label: 'BXT' },
+    { key: 'feasibility', label: 'Feasibility' },
+    { key: 'advisory',    label: 'Advisory' },
+    { key: 'summary',     label: 'Summary' },
+    { key: 'panel',       label: 'Panel' },
+    { key: 'approved',    label: 'Approved' },
+  ];
+
+  // Normalize a raw `stage` string to one of the base column keys
+  // (Approved is derived from verdict, not a stored stage — see columnFor).
+  function stageKey(stage) {
+    if (!stage) return 'intake';
+    var s = String(stage).toLowerCase().trim();
+    if (s.indexOf('intake') !== -1 || s === 'new' || s === 'draft') return 'intake';
+    if (s.indexOf('bxt') !== -1) return 'bxt';
+    if (s.indexOf('feas') !== -1) return 'feasibility';
+    if (s.indexOf('advis') !== -1) return 'advisory';
+    if (s.indexOf('summary') !== -1 || s.indexOf('brief') !== -1) return 'summary';
+    if (s.indexOf('panel') !== -1 || s.indexOf('review') !== -1) return 'panel';
+    if (s.indexOf('approv') !== -1) return 'approved';
+    return 'intake';
+  }
+
+  // Resolve which board column a row belongs in.
+  // Rule from spec: a case at the `panel` stage moves to the Approved
+  // bucket ONLY when its verdict is GO. CONDITIONAL GO / NO-GO / unscored
+  // panel cases stay in the Panel column.
+  function columnFor(row) {
+    row = row || {};
+    var sk = stageKey(row.stage);
+    if (sk === 'panel' && verdictKey(row.verdict) === 'go') return 'approved';
+    return sk;
+  }
+
+  // Expose the model so the jsdom test can exercise bucketing without a DOM.
+  window.GAIC_KANBAN = {
+    COLUMNS: COLUMNS,
+    stageKey: stageKey,
+    columnFor: columnFor,
+    verdictKey: verdictKey,
   };
 
-  function loadJSON(key, demo){
-    var parsed = null;
-    try { parsed = JSON.parse(localStorage.getItem(key)); } catch(e){ parsed = null; }
-    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
-      return { data: demo, fromDemo: true };
+  // ============================================================
+  //  DATA LOADING — API first, with 401 -> /login redirect
+  // ============================================================
+  function apiFetch(path) {
+    return fetch('/api' + path, { headers: { 'Content-Type': 'application/json' } })
+      .then(function (r) {
+        if (r.status === 401) {
+          window.location.href = '/login.html';
+          throw new Error('unauthorized');
+        }
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      });
+  }
+
+  var STATE = { workspaces: [], selectedWs: null };
+
+  function loadWorkspaces() {
+    return apiFetch('/workspaces').catch(function (e) {
+      if (e && e.message === 'unauthorized') throw e;
+      return [];
+    });
+  }
+
+  function loadPortfolio(wsId) {
+    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
+    return apiFetch('/portfolio' + q).catch(function (e) {
+      if (e && e.message === 'unauthorized') throw e;
+      if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
+        return window.GAIC_API.listPortfolio(wsId);
+      }
+      return [];
+    });
+  }
+
+  // Pick the Intel workspace (case-insensitive) else the first.
+  function findIntel(list) {
+    if (!Array.isArray(list) || !list.length) return null;
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] && /intel/i.test(String(list[i].name || ''))) return list[i];
     }
-    return { data: parsed, fromDemo: false };
-  }
-  function loadIntake(){  return loadJSON(INTAKE_KEY,  DEMO_INTAKE); }
-  function loadSummary(){ return loadJSON(SUMMARY_KEY, DEMO_SUMMARY); }
-
-  // ============================================================
-  //  VERDICT DERIVATION — pure, from Gate 5 readiness
-  //    READY       -> GO           (green)
-  //    CONDITIONAL -> CONDITIONAL GO(amber)
-  //    BLOCKED     -> NO-GO         (red)
-  // ============================================================
-  function deriveVerdict(readiness){
-    var r = String(readiness || '').toUpperCase();
-    if (r === 'READY')   return { key:'go',   label:'GO',            klass:'is-go',   badge:'Unanimous approval' };
-    if (r === 'BLOCKED') return { key:'nogo', label:'NO-GO',         klass:'is-nogo', badge:'Deferred pending remediation' };
-    // default / CONDITIONAL
-    return { key:'cond', label:'CONDITIONAL GO', klass:'is-cond', badge:'Approved with binding condition' };
-  }
-
-  // The binding governance condition surfaced with the verdict.
-  var BINDING_CONDITION = 'Data residency clause must be executed as a condition precedent to contract signature, and Change Freeze Protocol CF-7 must be invoked before any infrastructure work commences.';
-
-  // ============================================================
-  //  PERSONAS + 7-TURN DELIBERATION SCRIPT
-  //  Google-remapped (Assured Workloads / Google Cloud / Vertex AI /
-  //  Gemini) — Google framing only; no third-party cloud vendor strings.
-  // ============================================================
-  var PERSONAS = {
-    BS: { code:'BS', name:'Business Sponsor',          role:'Executive Sponsor', color:'var(--g-blue)',   colorHex:'#4285F4' },
-    RA: { code:'RA', name:'Risk & Assurance Officer',  role:'Chief Risk Officer',color:'var(--g-purple)', colorHex:'#a142f4' },
-    CI: { code:'CI', name:'Chief Information Officer',  role:'CIO',               color:'var(--g-teal)',   colorHex:'#12b5cb' },
-    CC: { code:'CC', name:'Committee Chair',            role:'IC Moderator',      color:'var(--g-red)',    colorHex:'#EA4335' }
-  };
-
-  var DELIBERATION = [
-    { p:'BS', say:'This initiative delivers a projected <b>34% reduction</b> in operational processing costs within 18 months — that\u2019s <b>$12M in hard savings</b> against a $3.2M investment. We have board mandate, budget allocated, and three pilot departments ready to onboard. I\u2019m committing to a fully measurable ROI dashboard at the 90-day mark.' },
-    { p:'RA', say:'Our top risk is <b>data sovereignty</b>: we cannot confirm where inference workloads will reside across jurisdictions. My condition is simple — vendor contractual lock-in of data residency to Tier-1 compliant regions before any production deployment. Without that, we breach <b>GDPR Article 46</b> and expose the enterprise to eight-figure regulatory liability.' },
-    { p:'CI', say:'Our current architecture is a hybrid <b>Google Cloud</b>-on-prem estate running on a 2021 reference stack — we have not completed the API gateway modernisation that this AI layer depends on. Integration complexity scores a <b>7 out of 10</b> on our internal TOGAF risk matrix. We need six additional weeks for infrastructure readiness before the platform can support production load.' },
-    { p:'BS', say:'I concede both points — they\u2019re valid and I won\u2019t minimise them. My mitigation: we contract <b>Assured Workloads</b> regions for data residency today, locking compliance before go-live, and we absorb the six-week infrastructure runway inside Phase 1, preserving the 18-month ROI timeline. The <b>$12M outcome</b> is not at risk if we sequence correctly.' },
-    { p:'RA', say:'<b>Assured Workloads</b> regions satisfy Article 46 adequacy requirements — I accept that mitigation, provided the data residency clause is executed as a <b>condition precedent to contract signature</b>, not a post-award action. Final position: supportable with that single contractual gate enforced.' },
-    { p:'CI', say:'Absorbing the six-week runway into Phase 1 is technically feasible only if we <b>freeze scope</b> on the API gateway work immediately — no parallel change requests. I\u2019m confirming <b>CONDITIONAL</b> technical readiness: the platform will be production-grade by Week 6, provided we invoke <b>Change Freeze Protocol CF-7</b> starting Monday.' },
-    { p:'CC', say:'All three perspectives align on a viable path: the business case is strong, the compliance risk has a contractually enforceable remedy, and technology readiness is achievable within the existing timeline under a scoped freeze. This committee issues a <b>CONDITIONAL GO</b> — the single gate is execution of the data residency clause prior to contract signature, with <b>CF-7</b> invoked concurrently. Progress review is mandated at the <b>90-day ROI dashboard</b> checkpoint.' }
-  ];
-
-  // Per-persona final stance chips (order: BS, RA, CI).
-  var STANCES = [
-    { persona:'BS', label:'Business Sponsor',   value:'Support',     klass:'stance--support' },
-    { persona:'RA', label:'Risk & Assurance',   value:'Conditional', klass:'stance--conditional' },
-    { persona:'CI', label:'CIO',                value:'Conditional', klass:'stance--conditional' }
-  ];
-
-  // Thinking steps (deterministic, static).
-  var THINKING_STEPS = [
-    'Retrieving framework evaluation scores and composite analysis',
-    'Computing ROI projections and Monte Carlo simulations',
-    'Checking compliance gates and governance status',
-    'Analyzing platform advisory and tier recommendations'
-  ];
-
-  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>';
-
-  // ============================================================
-  //  RENDER — thinking steps
-  // ============================================================
-  function renderSteps(){
-    var body = document.getElementById('stepsBody');
-    if (!body) return;
-    body.innerHTML = '';
-    THINKING_STEPS.forEach(function(txt){
-      var row = document.createElement('div');
-      row.className = 'step';
-      row.setAttribute('data-step','1');
-      row.innerHTML = '<span class="step__dot">' + ICON_CHECK + '</span><span>' + esc(txt) + '</span>';
-      body.appendChild(row);
-    });
+    return list[0];
   }
 
   // ============================================================
-  //  RENDER — deliberation (streamed, deterministic delays)
+  //  RENDER
   // ============================================================
-  var _timers = [];
-  function clearTimers(){ _timers.forEach(function(t){ clearTimeout(t); }); _timers = []; }
+  function cardHTML(r) {
+    var vk = verdictKey(r.verdict);
+    var vcls = vk === 'go' ? 'is-go' : vk === 'cond' ? 'is-cond' : vk === 'no' ? 'is-no' : 'is-none';
 
-  function buildTurns(){
-    var host = document.getElementById('delib');
-    if (!host) return [];
-    host.innerHTML = '';
-    var els = [];
-    DELIBERATION.forEach(function(turn, i){
-      var persona = PERSONAS[turn.p];
-      var el = document.createElement('div');
-      el.className = 'turn';
-      el.setAttribute('data-turn', String(i+1));
-      el.setAttribute('data-persona', persona.code);
-      el.innerHTML =
-        '<div class="turn__av" style="background:' + persona.color + ';">' + esc(persona.code) + '</div>'
-        + '<div class="turn__body">'
-        +   '<div class="turn__who">' + esc(persona.name) + '</div>'
-        +   '<div class="turn__role">' + esc(persona.role) + '</div>'
-        +   '<p class="turn__say">' + turn.say + '</p>'
-        + '</div>';
-      host.appendChild(el);
-      els.push(el);
-    });
-    return els;
+    var feas = num(r.feasibility_composite);
+    var feasHTML = feas === null
+      ? '<span class="feas"><span class="dim">feas —</span></span>'
+      : '<span class="feas"><span class="feas__bar"><span class="feas__fill" style="width:' +
+          Math.max(0, Math.min(100, (feas / 5) * 100)).toFixed(0) + '%"></span></span>' +
+          (Math.round(feas * 10) / 10).toFixed(1) + '<span class="dim"> /5</span></span>';
+
+    var tier = r.advisory_tier ? '<span class="tier">' + esc(r.advisory_tier) + '</span>' : '<span class="tier dim">no tier</span>';
+
+    // Deep-link each card into its Gate 5 summary (real persisted data).
+    var href = r.id ? ('summary.html?id=' + encodeURIComponent(r.id)) : 'intake.html';
+
+    return '<a class="card ' + vcls + '" href="' + esc(href) + '">' +
+      '<div class="card__top">' +
+        '<span class="card__name">' + esc(r.name || 'Untitled use case') + '</span>' +
+        '<span class="vchip ' + vcls + '">' + esc(verdictLabel(r.verdict)) + '</span>' +
+      '</div>' +
+      '<div class="card__dept">' + (r.department ? esc(r.department) : '<span class="dim">Unassigned</span>') + '</div>' +
+      '<div class="card__meta">' + feasHTML + tier + '</div>' +
+    '</a>';
   }
 
-  function streamTurns(animate){
-    clearTimers();
-    var els = buildTurns();
-    if (!animate){
-      els.forEach(function(el){ el.classList.add('is-in'); });
-      revealVerdict(false);
+  function render(rows) {
+    rows = Array.isArray(rows) ? rows : [];
+    el.loading.classList.add('hidden');
+
+    if (!rows.length) {
+      el.board.classList.add('hidden');
+      el.empty.classList.remove('hidden');
       return;
     }
-    els.forEach(function(el, i){
-      var t = setTimeout(function(){ el.classList.add('is-in'); }, 700 * (i + 1));
-      _timers.push(t);
+    el.empty.classList.add('hidden');
+    el.board.classList.remove('hidden');
+
+    // Bucket rows into columns.
+    var buckets = {};
+    COLUMNS.forEach(function (c) { buckets[c.key] = []; });
+    rows.forEach(function (r) { buckets[columnFor(r)].push(r); });
+
+    el.board.innerHTML = COLUMNS.map(function (c) {
+      var items = buckets[c.key];
+      var body = items.length
+        ? items.map(cardHTML).join('')
+        : '<div class="col__empty">— empty —</div>';
+      return '<section class="col" data-col="' + c.key + '">' +
+        '<div class="col__head">' +
+          '<span class="col__title"><span class="col__dot is-' + c.key + '"></span>' + esc(c.label) + '</span>' +
+          '<span class="col__count">' + items.length + '</span>' +
+        '</div>' +
+        '<div class="col__body">' + body + '</div>' +
+      '</section>';
+    }).join('');
+  }
+
+  // ============================================================
+  //  WORKSPACE PICKER
+  // ============================================================
+  function populatePicker() {
+    var opts = STATE.workspaces.map(function (w) {
+      var sel = (STATE.selectedWs && w.id === STATE.selectedWs.id) ? ' selected' : '';
+      return '<option value="' + esc(w.id) + '"' + sel + '>' + esc(w.name || 'Untitled workspace') + '</option>';
     });
-    var vt = setTimeout(function(){ revealVerdict(true); }, 700 * (els.length + 1));
-    _timers.push(vt);
+    if (!STATE.workspaces.length) {
+      opts = ['<option value="">All workspaces</option>'];
+    }
+    el.wsPicker.innerHTML = opts.join('');
+    if (STATE.selectedWs) {
+      el.wsChip.textContent = String(STATE.selectedWs.name || 'WORKSPACE').toUpperCase() + ' ▾';
+    }
   }
 
-  // ============================================================
-  //  RENDER — verdict banner
-  // ============================================================
-  function currentVerdict(){
-    var summary = loadSummary().data;
-    var readiness = summary && summary.readiness ? summary.readiness : 'CONDITIONAL';
-    return deriveVerdict(readiness);
-  }
-
-  function renderVerdict(){
-    var v = currentVerdict();
-    var band = document.getElementById('verdictBand');
-    band.className = 'verdict ' + v.klass;
-    document.getElementById('verdictLabel').textContent = v.label;
-    document.getElementById('verdictBadge').textContent = v.badge;
-    document.getElementById('verdictCond').innerHTML =
-      '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
-
-    var host = document.getElementById('verdictStances');
-    host.innerHTML = '';
-    STANCES.forEach(function(s){
-      var chip = document.createElement('span');
-      chip.className = 'stance ' + s.klass;
-      chip.setAttribute('data-stance', s.persona);
-      chip.innerHTML = '<span class="stance__dot"></span>' + esc(s.label)
-        + ' · <span class="stance__val">' + esc(s.value) + '</span>';
-      host.appendChild(chip);
+  function selectAndLoad(wsId) {
+    var ws = null;
+    for (var i = 0; i < STATE.workspaces.length; i++) {
+      if (STATE.workspaces[i].id === wsId) { ws = STATE.workspaces[i]; break; }
+    }
+    STATE.selectedWs = ws;
+    if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
+    el.board.classList.add('hidden');
+    el.empty.classList.add('hidden');
+    el.loading.classList.remove('hidden');
+    el.loading.textContent = 'Loading pipeline…';
+    loadPortfolio(wsId).then(render).catch(function (e) {
+      if (e && e.message === 'unauthorized') return;
+      el.loading.textContent = 'Could not load pipeline.';
     });
   }
 
-  function revealVerdict(animate){
-    renderVerdict();
-    var band = document.getElementById('verdictBand');
-    if (!animate){ band.classList.add('is-in'); return; }
-    var t = setTimeout(function(){ band.classList.add('is-in'); }, 60);
-    _timers.push(t);
-  }
+  el.wsPicker.addEventListener('change', function () {
+    selectAndLoad(this.value || null);
+  });
 
   // ============================================================
-  //  EXECUTIVE BRIEF — 3 sections, populated from persisted data
+  //  THEME TOGGLE (light/dark) — mirrors the rest of the app
   // ============================================================
-  function buildBrief(){
-    var intake  = loadIntake().data;
-    var summary = loadSummary().data;
-    var v = currentVerdict();
-    var roi = (summary && summary.roi) || {};
-    var useCase = (summary && summary.useCase) || (intake && intake.name) || 'Untitled use case';
-    var composite = (summary && summary.composite != null) ? summary.composite : '—';
-    var p50 = roi.p50, p10 = roi.p10, p90 = roi.p90;
-    var payback = roi.payback;
-
-    var verdictSentence =
-      v.key === 'go'
-        ? 'The committee issues a <b>GO</b> — all perspectives align with no outstanding gate.'
-        : v.key === 'nogo'
-          ? 'The committee issues a <b>NO-GO</b> — the initiative is deferred pending remediation of the outstanding risk gate.'
-          : 'The committee issues a <b>CONDITIONAL GO</b> — the business case is strong and the outstanding risks have a contractually enforceable remedy.';
-
-    var html =
-      '<div class="brief__head">'
-      +  '<div class="brief__brand">'
-      +    '<svg width="26" height="26" viewBox="0 0 48 48" aria-label="Google">'
-      +      '<path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>'
-      +      '<path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>'
-      +      '<path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>'
-      +      '<path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>'
-      +    '</svg>'
-      +    '<span class="brief__wordmark">Google AI Catalyst</span>'
-      +  '</div>'
-      +  '<div class="brief__meta">EXECUTIVE BRIEF · GATE 6<br>Investment Committee<br>Acme Financial Services</div>'
-      + '</div>'
-      + '<div class="brief__doctitle">' + esc(useCase) + '</div>'
-      + '<p class="brief__sub">Committee-ready decision memo · portfolio composite <b>' + esc(String(composite)) + '/100</b></p>'
-      + '<span class="brief__verdictline ' + v.klass + '" id="briefVerdictLine">Committee verdict: ' + esc(v.label) + '</span>'
-
-      // Section 1 — Recommendation & Verdict
-      + '<div class="brief__sec" data-brief-sec="recommendation">'
-      +   '<div class="brief__sectitle">1 · Recommendation &amp; Verdict</div>'
-      +   '<p>' + verdictSentence + '</p>'
-      +   '<p>The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.</p>'
-      + '</div>'
-
-      // Section 2 — Business Case & ROI
-      + '<div class="brief__sec" data-brief-sec="business-case">'
-      +   '<div class="brief__sectitle">2 · Business Case &amp; ROI</div>'
-      +   '<div class="brief__kpis">'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P10 · Conservative</div><div class="brief__kpi-v" id="briefP10">' + fmtPct(p10) + '</div></div>'
-      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + fmtPct(p50) + '</div></div>'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + fmtPct(p90) + '</div></div>'
-      +   '</div>'
-      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + '</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + '. Modeled annual value is <b>' + fmtUsd(roi.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(roi.cost) + '</b>'
-      +     (payback != null ? ', with payback in approximately <b>' + esc(String(payback)) + ' months</b>' : '') + '.</p>'
-      +   '<p>The Business Sponsor commits to a fully measurable ROI dashboard at the 90-day mark, targeting a <b>34% reduction</b> in operational processing costs and $12M in hard savings against the phased investment.</p>'
-      + '</div>'
-
-      // Section 3 — Conditions & Next Steps
-      + '<div class="brief__sec" data-brief-sec="conditions">'
-      +   '<div class="brief__sectitle">3 · Conditions &amp; Next Steps</div>'
-      +   '<p><b>Binding condition:</b> ' + esc(BINDING_CONDITION) + '</p>'
-      +   '<ul class="brief__list">'
-      +     '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
-      +     '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
-      +     '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
-      +     '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>'
-      +   '</ul>'
-      + '</div>'
-
-      + '<div class="brief__foot">Generated by Google AI Catalyst · Gate 6 Executive Review Panel · verdict derived deterministically from Gate 5 readiness (' + esc(String(summary && summary.readiness || 'CONDITIONAL')) + ').</div>'
-      + '<div class="brief__actions">'
-      +   '<button class="brief__btn brief__btn--print" id="briefPrint" type="button">🖨 Print / Save as PDF</button>'
-      +   '<button class="brief__btn brief__btn--close" id="briefClose" type="button">Close</button>'
-      + '</div>';
-
-    var brief = document.getElementById('brief');
-    brief.innerHTML = html;
-    brief.classList.add('is-open');
-
-    var printBtn = document.getElementById('briefPrint');
-    if (printBtn) printBtn.addEventListener('click', function(){ try { window.print(); } catch(e){} });
-    var closeBtn = document.getElementById('briefClose');
-    if (closeBtn) closeBtn.addEventListener('click', function(){ brief.classList.remove('is-open'); });
-    return brief;
-  }
-
-  // ============================================================
-  //  THEME TOGGLE (shared behaviour — mirrors summary.html)
-  // ============================================================
-  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
-  function initTheme(){
+  (function initTheme() {
     var btn = document.getElementById('themeToggle');
     if (!btn) return;
-    var saved = 'dark';
-    try { if (localStorage.getItem(THEME_KEY) === 'light') saved = 'light'; } catch(e){}
-    applyTheme(saved);
-    btn.addEventListener('click', function(){
-      var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-      var next = cur === 'light' ? 'dark' : 'light';
-      applyTheme(next);
-      try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+    try {
+      if (localStorage.getItem(THEME_KEY) === 'light') document.body.classList.add('theme-light');
+    } catch (e) {}
+    btn.addEventListener('click', function () {
+      document.body.classList.toggle('theme-light');
+      try { localStorage.setItem(THEME_KEY, document.body.classList.contains('theme-light') ? 'light' : 'dark'); } catch (e) {}
     });
-  }
+  })();
 
   // ============================================================
   //  BOOT
   // ============================================================
-  function run(animate){
-    var intake  = loadIntake();
-    var summary = loadSummary();
-    var nm = (summary.data && summary.data.useCase) || (intake.data && intake.data.name) || 'Untitled use case';
-    var fromDemo = summary.fromDemo && intake.fromDemo;
-    document.getElementById('wsEval').innerHTML =
-      'Evaluating: <b>' + esc(nm) + '</b>' + (fromDemo ? ' (demo)' : '');
-    renderSteps();
-    streamTurns(animate);
-  }
-
-  function init(){
-    initTheme();
-    run(true);
-
-    // --- API integration (best-effort, non-blocking) ---
-    try {
-      if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
-        var _v = currentVerdict();
-        window.GAIC_API.saveGate(_ucId, 'verdict', {
-          verdict: _v.label,
-          binding_condition: BINDING_CONDITION,
-          stances: STANCES,
-          deliberation: DELIBERATION
-        }).catch(function(){});
-      }
-    } catch(e){}
-
-    // Thinking-steps collapsible
-    var stepsHead = document.getElementById('stepsHead');
-    if (stepsHead) stepsHead.addEventListener('click', function(){
-      document.getElementById('steps').classList.toggle('is-open');
+  loadWorkspaces().then(function (list) {
+    STATE.workspaces = Array.isArray(list) ? list : [];
+    var intel = findIntel(STATE.workspaces);
+    STATE.selectedWs = intel;
+    populatePicker();
+    var wsId = intel ? intel.id : null;
+    return loadPortfolio(wsId).then(render);
+  }).catch(function (e) {
+    if (e && e.message === 'unauthorized') return; // redirecting
+    loadPortfolio(null).then(render).catch(function () {
+      el.loading.textContent = 'Could not load pipeline.';
     });
+  });
 
-    // Replay — re-run the streaming animation
-    var replay = document.getElementById('btnReplay');
-    if (replay) replay.addEventListener('click', function(){
-      document.getElementById('verdictBand').classList.remove('is-in');
-      streamTurns(true);
-    });
-
-    // Generate Executive Brief
-    var briefBtn = document.getElementById('btnBrief');
-    if (briefBtn) briefBtn.addEventListener('click', function(){
-      var brief = buildBrief();
-      try { brief.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(e){}
-    });
-  }
-
-  // ============================================================
-  //  TEST API — pure functions + content exposed for Node harness
-  // ============================================================
-  window.__panel = {
-    INTAKE_KEY: INTAKE_KEY, FEAS_KEY: FEAS_KEY, ADVISORY_KEY: ADVISORY_KEY, SUMMARY_KEY: SUMMARY_KEY,
-    PERSONAS: PERSONAS, DELIBERATION: DELIBERATION, STANCES: STANCES, THINKING_STEPS: THINKING_STEPS,
-    BINDING_CONDITION: BINDING_CONDITION,
-    DEMO_INTAKE: DEMO_INTAKE, DEMO_SUMMARY: DEMO_SUMMARY,
-    deriveVerdict: deriveVerdict,
-    loadIntake: loadIntake, loadSummary: loadSummary,
-    currentVerdict: currentVerdict,
-    buildBrief: buildBrief,
-    esc: esc, fmtPct: fmtPct, fmtUsd: fmtUsd,
-    run: run, streamTurns: streamTurns, renderVerdict: renderVerdict
-  };
-
-  if (typeof document !== 'undefined' && document.getElementById('delib')){
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  }
 })();
 </script>
 </body>

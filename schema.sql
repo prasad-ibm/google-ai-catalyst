@@ -1,115 +1,31 @@
--- Google AI Catalyst — relational schema
--- Idempotent: safe to run repeatedly.
-
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
--- 1. Enterprise workspace profile (from setup.html)
-CREATE TABLE IF NOT EXISTS workspaces (
-  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name                    text,
-  industry                text,
-  company_size            text,
-  annual_revenue          text,
-  region                  text,
-  data_residency          text,
-  cloud_provider          text DEFAULT 'Google Cloud',
-  workspace_edition       text,
-  gemini_seats            int,
-  monthly_gcp_consumption text,
-  appsheet_plan           text,
-  vertex_approved         bool,
-  gartner_level           text,
-  ai_engineers            int,
-  mlops_maturity          text,
-  citizen_dev_program     bool,
-  compliance_frameworks   text[],
-  eu_ai_act_tier          text,
-  ai_priorities           text,
-  ai_budget               text,
-  delivery_model          text,
-  ai_goal                 text,
-  raw                     jsonb,
-  created_at              timestamptz DEFAULT now(),
-  updated_at              timestamptz DEFAULT now()
-);
-
--- 2. Use cases (from intake.html)
-CREATE TABLE IF NOT EXISTS use_cases (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  workspace_id       uuid REFERENCES workspaces(id) ON DELETE CASCADE,
-  name               text,
-  department         text,
-  executive_sponsor  text,
-  submitted_by       text,
-  contact_email      text,
-  description        text,
-  business_context   jsonb,
-  current_state      jsonb,
-  technical_context  jsonb,
-  risk_compliance    jsonb,
-  stage              text DEFAULT 'intake',
-  created_at         timestamptz DEFAULT now(),
-  updated_at         timestamptz DEFAULT now()
-);
-
--- 3. BXT gate scores
-CREATE TABLE IF NOT EXISTS bxt_scores (
-  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  use_case_id      uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
-  business_score   numeric,
-  experience_score numeric,
-  technology_score numeric,
-  verdict          text,
-  detail           jsonb,
-  created_at       timestamptz DEFAULT now()
-);
-
--- 4. Feasibility gate scores
-CREATE TABLE IF NOT EXISTS feasibility_scores (
-  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  use_case_id     uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
-  composite       numeric,
-  quadrant        text,
-  risk_tier       text,
-  citizen_dev_pct numeric,
-  criteria        jsonb,
-  pillars         jsonb,
-  created_at      timestamptz DEFAULT now()
-);
-
--- 5. Advisory results
-CREATE TABLE IF NOT EXISTS advisory_results (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  use_case_id          uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
-  tier                 text,
-  verdict_name         text,
-  recommended_platform text,
-  gate_resolved        text,
-  reasoning            jsonb,
-  journey              jsonb,
-  created_at           timestamptz DEFAULT now()
-);
-
--- 6. Evaluation summaries
-CREATE TABLE IF NOT EXISTS evaluation_summaries (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  use_case_id uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
-  roi_p10     numeric,
-  roi_p50     numeric,
-  roi_p90     numeric,
-  frameworks  jsonb,
-  governance  jsonb,
-  readiness   text,
-  created_at  timestamptz DEFAULT now()
-);
-
--- 7. Panel verdicts
-CREATE TABLE IF NOT EXISTS panel_verdicts (
-  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  use_case_id       uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
-  verdict           text,
-  binding_condition text,
-  stances           jsonb,
-  deliberation      jsonb,
-  created_at        timestamptz DEFAULT now()
-);
+{
+  "name": "google-ai-catalyst",
+  "version": "1.0.0",
+  "description": "Google AI Catalyst — Express + Postgres backend for the enterprise AI use-case evaluation workflow.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "migrate": "node scripts/migrate.js",
+    "test": "node --test *.test.js",
+    "test:api": "node server.test.js",
+    "test:intake": "node intake.test.js",
+    "test:bxt": "node bxt.test.js",
+    "test:feasibility": "node feasibility.test.js",
+    "test:advisory": "node advisory.test.js",
+    "test:summary": "node summary.test.js",
+    "test:panel": "node panel.test.js",
+    "test:deeplink": "node deep-link.test.js && node deep-link-integration.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

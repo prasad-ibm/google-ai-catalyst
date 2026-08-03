@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Use-Case Intake — Google AI Catalyst</title>
+<title>Feasibility Scoring — Google AI Catalyst</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -48,6 +48,7 @@ p { margin:0 0 1rem; }
 .gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
 .gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
 .gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
+.gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
 .gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
 .gc-header__brand { display:flex; align-items:center; gap:10px; }
 .gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
@@ -61,7 +62,7 @@ p { margin:0 0 1rem; }
 .glogo { display:inline-block; vertical-align:middle; }
 </style>
 <style>
-  /* ---------------- Page-specific: Use-Case Intake ---------------- */
+  /* ---------------- Page-specific: Feasibility Scoring ---------------- */
   main { padding-top: var(--header-h); }
   .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
 
@@ -80,14 +81,13 @@ p { margin:0 0 1rem; }
   }
   .gate.is-active .gate__pill { border-color: var(--g-blue); background: var(--g-blue); color: #fff; box-shadow: 0 0 0 4px rgba(66,133,244,.18); }
   .gate.is-done .gate__pill { border-color: var(--g-green); background: rgba(52,168,83,.15); color: #81c995; }
+  .gate.is-done .gate__pill svg { width: 14px; height: 14px; }
   .gate__label { font-size: 11.5px; color: var(--text-dim); line-height: 1.25; max-width: 120px; }
   .gate.is-active .gate__label { color: var(--g-blue-l); font-weight: 500; }
-  /* connecting line */
+  .gate.is-done .gate__label { color: #81c995; }
   .gate:not(:first-child)::before {
     content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--surface-3); z-index: 1;
   }
-  .gate.is-active:not(:first-child)::before,
-  .gate.is-done:not(:first-child)::before { background: var(--surface-3); }
 
   /* ---- Gate banner strip ---- */
   .banner { display: flex; gap: 14px; background: var(--bg-hero); border: 1px solid var(--border); border-left: 4px solid var(--g-blue); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
@@ -107,103 +107,96 @@ p { margin:0 0 1rem; }
   /* ---- Two-column layout ---- */
   .cols { display: grid; grid-template-columns: minmax(0,1fr) 400px; gap: 26px; align-items: start; }
 
-  /* ---- Tab bar ---- */
-  .tabbar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; }
+  /* ---- Section heading in main column ---- */
+  .maincol__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .maincol__title { font-size: 19px; }
+  .maincol__sub { color: var(--text-muted); font-size: 13px; margin-bottom: 16px; }
+
+  /* ---- Tab bar (like intake) ---- */
+  .tabbar { display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 18px; position: relative; flex-wrap: wrap; }
   .tab {
-    display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: transparent; border: none;
-    border-bottom: 2px solid transparent; color: var(--text-dim); font-family: var(--font-sans); font-size: 13.5px; white-space: nowrap;
-    transition: color .15s, border-color .15s;
+    font-family: var(--font-sans); font-size: 13.5px; font-weight: 500; color: var(--text-muted);
+    padding: 10px 16px; border: none; background: transparent; cursor: pointer; position: relative;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s, border-color .15s;
+    display: inline-flex; align-items: center; gap: 8px;
   }
   .tab:hover { color: var(--text); }
-  .tab.is-active { color: var(--g-blue-l); border-bottom-color: var(--g-blue); font-weight: 500; }
-  .tab__check {
-    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--surface-3); flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; transition: all .2s;
-  }
-  .tab.is-active .tab__check { border-color: var(--g-blue); }
-  .tab.is-done .tab__check { border-color: var(--g-green); background: rgba(52,168,83,.2); }
-  .tab.is-done .tab__check svg { width: 10px; height: 10px; color: #81c995; }
+  .tab.is-active { color: var(--g-blue-l); border-bottom-color: var(--g-blue); }
+  .tab__w { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); }
+  .tab.is-active .tab__w { color: var(--g-blue-l); }
+  .tabbar__spacer { flex: 1; }
+  .aiscored { display: inline-flex; align-items: center; gap: 6px; }
+  .subline { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-dim); margin: -6px 0 18px; }
+  .subline b { color: var(--g-blue-l); font-weight: 500; }
 
-  /* ---- Form card ---- */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 28px 30px; }
   .panel { display: none; }
-  .panel.is-active { display: block; animation: fade .35s ease; }
-  @keyframes fade { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none; } }
+  .panel.is-active { display: block; }
 
-  .field { margin-bottom: 20px; }
-  .field--grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-  .field label, .field .flabel { display: block; font-size: 13.5px; font-weight: 500; margin-bottom: 6px; }
-  .field label .req, .flabel .req { color: var(--g-red); margin-left: 2px; }
-  .field .help { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
-  .inp, .sel, textarea.inp {
-    width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-    border-radius: var(--radius-sm); padding: 10px 12px; font-family: var(--font-sans); font-size: 14px;
-    transition: border-color .15s, box-shadow .15s;
-  }
-  .inp:focus, .sel:focus, textarea.inp:focus { outline: none; border-color: var(--g-blue); box-shadow: 0 0 0 3px rgba(66,133,244,.18); }
-  .sel { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239aa0a6' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; }
-  textarea.inp { min-height: 92px; resize: vertical; line-height: 1.5; }
+  /* ---- Criterion cards ---- */
+  .crit { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 16px 18px; margin-bottom: 14px; }
+  .crit__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .crit__name { font-size: 14.5px; font-weight: 500; flex: 1; min-width: 0; }
+  .crit__wt { font-family: var(--font-mono); font-size: 10.5px; font-weight: 500; padding: 3px 8px; border-radius: 100px; border: 1px solid rgba(66,133,244,.4); color: var(--g-blue-l); background: rgba(66,133,244,.10); white-space: nowrap; }
+  .crit__ai { font-family: var(--font-mono); font-size: 9.5px; letter-spacing:.12em; text-transform: uppercase; color: #d7aefb; }
+  .crit__row { display: grid; grid-template-columns: 1fr 52px; align-items: center; gap: 16px; }
+  .crit__val { font-family: var(--font-mono); font-size: 22px; font-weight: 500; text-align: right; transition: color .2s; }
+  .crit__val small { font-size: 12px; color: var(--text-dim); }
+  .crit__rat { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; line-height: 1.5; }
 
-  .panel__title { font-size: 19px; margin-bottom: 4px; }
-  .panel__sub { color: var(--text-muted); font-size: 13px; margin-bottom: 22px; }
-  .section-h { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--g-yellow); margin: 26px 0 4px; padding-top: 20px; border-top: 1px solid var(--border); }
-  .section-help { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+  /* range slider styling */
+  input[type=range].slider { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; border-radius: 3px; background: var(--surface-3); outline: none; cursor: pointer; }
+  input[type=range].slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--g-blue); border: 2px solid var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.5); cursor: pointer; transition: background .15s, transform .1s; }
+  input[type=range].slider::-webkit-slider-thumb:hover { transform: scale(1.12); }
+  input[type=range].slider::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--g-blue); border: 2px solid var(--surface); cursor: pointer; }
+  .crit__ticks { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 9.5px; color: var(--text-dim); margin-top: 5px; padding: 0 1px; }
 
-  /* Chips (multi-select) */
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-  .chip {
-    font-family: var(--font-mono); font-size: 12px; padding: 7px 13px; border-radius: 100px;
-    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted); cursor: pointer;
-    transition: all .15s; user-select: none;
-  }
-  .chip:hover { border-color: var(--g-blue-l); color: var(--text); }
-  .chip.is-on { background: rgba(66,133,244,.15); border-color: var(--g-blue); color: var(--g-blue-l); }
-
-  /* Segmented control */
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); }
-  .seg button {
-    border: none; background: transparent; color: var(--text-muted); font-family: var(--font-sans); font-size: 13px;
-    padding: 9px 18px; cursor: pointer; border-right: 1px solid var(--border); transition: background .15s, color .15s;
-  }
-  .seg button:last-child { border-right: none; }
-  .seg button:hover { color: var(--text); }
-  .seg button.is-on { background: var(--g-blue); color: #fff; }
-  .seg[data-tone="risk"] button.is-on { background: var(--g-red); }
-
-  /* Toggle switch */
-  .toggle-row { display: flex; align-items: center; gap: 12px; }
-  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .switch .track { position: absolute; inset: 0; background: var(--surface-3); border: 1px solid var(--border); border-radius: 100px; transition: background .2s, border-color .2s; cursor: pointer; }
-  .switch .track::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--text-muted); border-radius: 50%; transition: transform .2s, background .2s; }
-  .switch input:checked + .track { background: rgba(52,168,83,.3); border-color: var(--g-green); }
-  .switch input:checked + .track::before { transform: translateX(20px); background: var(--g-green); }
-  .switch input:focus + .track { box-shadow: 0 0 0 3px rgba(66,133,244,.18); }
-  .toggle-state { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
-  .toggle-state.is-on { color: #81c995; }
-
-  /* Radio cards (delivery preference) */
-  .radiolist { display: flex; flex-direction: column; gap: 10px; }
-  .radiocard {
-    border: 1px solid var(--border); background: var(--surface-2); border-radius: var(--radius);
-    padding: 13px 15px; cursor: pointer; transition: border-color .15s, background .15s; display: flex; gap: 12px; align-items: flex-start;
-  }
-  .radiocard:hover { border-color: var(--g-blue-l); }
-  .radiocard.is-on { border-color: var(--g-blue); background: rgba(66,133,244,.10); }
-  .radiocard__radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--surface-3); flex-shrink: 0; margin-top: 2px; position: relative; }
-  .radiocard.is-on .radiocard__radio { border-color: var(--g-blue); }
-  .radiocard.is-on .radiocard__radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--g-blue); }
-  .radiocard__t { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
-  .radiocard__d { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
-
-  /* Footer nav */
-  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); }
-  .cardnav__count { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); letter-spacing: .05em; }
-  .gc-btn:disabled { opacity: .4; cursor: not-allowed; }
-  .gc-btn:disabled:hover { border-color: var(--border); color: var(--text); background: transparent; box-shadow: none; }
-
-  /* ===== Sidebar ===== */
+  /* ---- Sidebar ---- */
   .side { position: sticky; top: calc(var(--header-h) + 20px); display: flex; flex-direction: column; gap: 18px; }
+  .panelcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; }
+  .panelcard__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; }
+  .panelcard__title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .panelcard__body { padding: 0 20px 20px; }
+  .panelcard__div { height: 1px; background: var(--border); margin: 4px 0 16px; }
+
+  /* composite headline */
+  .composite { text-align: center; padding: 8px 0 14px; }
+  .composite__num { font-family: var(--font-mono); font-size: 46px; font-weight: 500; line-height: 1; transition: color .2s; }
+  .composite__num small { font-size: 18px; color: var(--text-dim); font-weight: 400; }
+  .composite__lab { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); margin-top: 8px; }
+
+  /* quadrant */
+  .quad { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+  .quad__grid { position: relative; width: 78px; height: 78px; flex-shrink: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); background:
+      linear-gradient(to right, transparent 49.5%, var(--border) 49.5%, var(--border) 50.5%, transparent 50.5%),
+      linear-gradient(to bottom, transparent 49.5%, var(--border) 49.5%, var(--border) 50.5%, transparent 50.5%); }
+  .quad__dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%,-50%); border: 2px solid var(--surface); box-shadow: 0 0 0 2px currentColor; transition: left .3s, top .3s, color .3s; }
+  .quad__axis-x { position: absolute; bottom: -16px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 8.5px; color: var(--text-dim); }
+  .quad__axis-y { position: absolute; top: 50%; left: -14px; transform: rotate(-90deg) translateX(50%); transform-origin: left center; font-family: var(--font-mono); font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
+  .quad__meta { flex: 1; }
+  .quad__name { font-size: 16px; font-weight: 500; transition: color .2s; }
+  .quad__desc { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.45; }
+
+  /* chips row */
+  .chips { display: flex; flex-direction: column; gap: 12px; }
+  .chiprow { display: flex; align-items: center; justify-content: space-between; }
+  .chiprow__k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+
+  /* citizen-dev bar */
+  .cd__top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+  .cd__pct { font-family: var(--font-mono); font-size: 18px; font-weight: 500; transition: color .2s; }
+  .cd__bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+  .cd__fill { height: 100%; width: 0; border-radius: 4px; transition: width .5s ease, background .3s; }
+  .cd__path { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; line-height: 1.5; }
+  .cd__path b { color: var(--text); font-weight: 500; }
+
+  /* per-pillar mini bars */
+  .bal { display: flex; flex-direction: column; gap: 12px; }
+  .bal__row { display: grid; grid-template-columns: 120px 1fr 34px; align-items: center; gap: 10px; }
+  .bal__k { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .03em; display: flex; align-items: center; gap: 7px; }
+  .bal__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .bal__bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; }
+  .bal__fill { height: 100%; width: 0; border-radius: 4px; transition: width .5s ease; }
+  .bal__v { font-family: var(--font-mono); font-size: 12px; font-weight: 500; text-align: right; }
 
   /* AI Assist panel */
   .assist { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-purple); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 18px 20px; }
@@ -213,36 +206,14 @@ p { margin:0 0 1rem; }
   .assist__label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #d7aefb; }
   .assist__text { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 0; }
 
-  /* Live score panel */
-  .score { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; }
-  .score__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; }
-  .score__title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
-  .score__body { padding: 0 20px 18px; }
-  .score__big { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-  .score__num { font-size: 48px; font-weight: 500; line-height: 1; color: var(--g-blue-l); transition: color .3s; }
-  .score__den { font-family: var(--font-mono); font-size: 15px; color: var(--text-dim); }
-  .score__quad { font-family: var(--font-mono); font-size: 13px; font-weight: 500; margin-bottom: 16px; }
-
-  .crit { display: grid; grid-template-columns: 78px 1fr 20px; align-items: center; gap: 10px; margin-bottom: 7px; }
-  .crit__k { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); }
-  .crit__bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
-  .crit__fill { height: 100%; width: 0; border-radius: 3px; transition: width .4s ease, background .3s; }
-  .crit__v { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; }
-
-  .score__div { height: 1px; background: var(--border); margin: 16px 0 14px; }
-  .cd__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-  .cd__label { font-size: 13px; font-weight: 500; }
-  .cd__pct { font-family: var(--font-mono); font-size: 16px; font-weight: 500; color: var(--g-green); }
-  .cd__bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
-  .cd__fill { height: 100%; width: 0; background: var(--g-green); border-radius: 4px; transition: width .4s ease; }
-  .cd__line { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: flex; align-items: center; gap: 7px; }
-  .cd__line b { color: var(--text); font-weight: 500; }
+  /* Footer nav */
+  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); }
+  .cardnav__right { display: flex; align-items: center; gap: 14px; }
 
   @media (max-width: 980px) {
     .cols { grid-template-columns: 1fr; }
     .side { position: static; }
     .gate__label { display: none; }
-    .field--grid2 { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -276,13 +247,13 @@ p { margin:0 0 1rem; }
 <main>
   <div class="wrap">
     <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;New Use Case</div>
+    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;<a href="bxt.html">BXT Gate</a>&nbsp;&nbsp;/&nbsp;&nbsp;Feasibility Scoring</div>
 
     <!-- 6-gate stepper -->
     <div class="gates" id="gates">
-      <div class="gate is-active"><div class="gate__pill">1</div><div class="gate__label">Intake</div></div>
-      <div class="gate"><div class="gate__pill">2</div><div class="gate__label">BXT Gate</div></div>
-      <div class="gate"><div class="gate__pill">3</div><div class="gate__label">Feasibility Scoring</div></div>
+      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Intake</div></div>
+      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">BXT Gate</div></div>
+      <div class="gate is-active"><div class="gate__pill">3</div><div class="gate__label">Feasibility Scoring</div></div>
       <div class="gate"><div class="gate__pill">4</div><div class="gate__label">Platform Advisory</div></div>
       <div class="gate"><div class="gate__pill">5</div><div class="gate__label">Evaluation Summary</div></div>
       <div class="gate"><div class="gate__pill">6</div><div class="gate__label">Executive Review Panel</div></div>
@@ -291,283 +262,119 @@ p { margin:0 0 1rem; }
     <!-- Gate banner -->
     <div class="banner">
       <div class="banner__body">
-        <div class="banner__title">Intake</div>
-        <p class="banner__desc">Capture the AI use case with full organisational context. <b>Why:</b> garbage in, garbage out — the quality of every downstream gate depends on this intake.</p>
+        <div class="banner__title">Feasibility Scoring</div>
+        <p class="banner__desc">Score 10 criteria across 3 pillars — AI suggests scores, you confirm or adjust in real time. <b>Why:</b> structured scoring removes gut-feel bias and creates an auditable, comparable record.</p>
       </div>
     </div>
 
     <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — AI maturity, tech stack &amp; compliance context pre-loaded from your workspace profile.</div>
+    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
 
     <div class="cols">
-      <!-- ================= LEFT: intake form ================= -->
+      <!-- ================= LEFT: scoring criteria ================= -->
       <div class="main-col">
+        <div class="maincol__head">
+          <h2 class="maincol__title">Feasibility Scorecard</h2>
+          <span class="gc-tag gc-tag--purple aiscored">✦ AI Scored</span>
+        </div>
+        <p class="maincol__sub">Ten weighted criteria across three pillars. Weights sum to 100%.</p>
+
         <!-- Tab bar -->
-        <div class="tabbar" id="tabbar"><!-- built by JS --></div>
+        <div class="tabbar" id="tabbar" role="tablist">
+          <button class="tab is-active" role="tab" data-tab="strategic">Strategic Value <span class="tab__w">35%</span></button>
+          <button class="tab" role="tab" data-tab="technical">Technical Feasibility <span class="tab__w">35%</span></button>
+          <button class="tab" role="tab" data-tab="org">Org Readiness &amp; Governance <span class="tab__w">30%</span></button>
+          <span class="tabbar__spacer"></span>
+          <span class="gc-tag gc-tag--purple aiscored" style="align-self:center;">✦ AI SCORED</span>
+        </div>
+        <p class="subline"><b>Adjust scores below</b> — changes update the composite in real time.</p>
 
-        <div class="card">
-          <!-- ===== TAB 1: Use Case Details ===== -->
-          <section class="panel is-active" data-panel="0">
-            <h2 class="panel__title">Use Case Details</h2>
-            <p class="panel__sub">Identify the use case and route it to the right reviewers.</p>
-            <div class="field">
-              <label for="f_name">Use Case Name <span class="req">*</span></label>
-              <input class="inp" type="text" id="f_name" data-key="name" placeholder="e.g. Automated invoice reconciliation">
-            </div>
-            <div class="field field--grid2">
-              <div>
-                <label for="f_dept">Department <span class="req">*</span></label>
-                <select class="sel" id="f_dept" data-key="dept">
-                  <option value="">Select…</option>
-                  <option>Finance</option><option>HR</option><option>Operations</option><option>Sales</option>
-                  <option>Marketing</option><option>IT</option><option>Customer Service</option><option>Legal</option><option>Supply Chain</option>
-                </select>
-              </div>
-              <div>
-                <label for="f_sponsor">Executive Sponsor</label>
-                <select class="sel" id="f_sponsor" data-key="sponsor">
-                  <option value="">Select…</option>
-                  <option>CEO</option><option>CFO</option><option>COO</option><option>CTO/CIO</option>
-                  <option>CHRO</option><option>VP-level</option><option>Director-level</option>
-                </select>
-              </div>
-            </div>
-            <div class="field field--grid2">
-              <div>
-                <label for="f_submitter">Submitted By</label>
-                <input class="inp" type="text" id="f_submitter" data-key="submitter" placeholder="Your name">
-              </div>
-              <div>
-                <label for="f_email">Contact Email</label>
-                <input class="inp" type="email" id="f_email" data-key="email" placeholder="name@company.com">
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_desc">Brief Description</label>
-              <textarea class="inp" id="f_desc" data-key="desc" placeholder="What business problem does this AI use case solve?"></textarea>
-            </div>
-          </section>
+        <!-- Panels rendered by JS -->
+        <div class="panel is-active" id="panel-strategic" data-panel="strategic"></div>
+        <div class="panel" id="panel-technical" data-panel="technical"></div>
+        <div class="panel" id="panel-org" data-panel="org"></div>
 
-          <!-- ===== TAB 2: Business Context ===== -->
-          <section class="panel" data-panel="1">
-            <h2 class="panel__title">Business Context</h2>
-            <p class="panel__sub">Quantify the value and strategic weight of this use case.</p>
-            <div class="field field--grid2">
-              <div>
-                <label for="f_driver">Primary Business Driver</label>
-                <select class="sel" id="f_driver" data-key="driver">
-                  <option value="">Select…</option>
-                  <option>Cost Reduction</option><option>Revenue Growth</option><option>Risk Mitigation</option>
-                  <option>Customer Experience</option><option>Employee Productivity</option><option>Compliance</option>
-                </select>
-              </div>
-              <div>
-                <label for="f_value">Expected Annual Value</label>
-                <select class="sel" id="f_value" data-key="value">
-                  <option value="">Select…</option>
-                  <option>&lt;$100K</option><option>$100K–$500K</option><option>$500K–$1M</option>
-                  <option>$1M–$5M</option><option>&gt;$5M</option>
-                </select>
-              </div>
-            </div>
-            <div class="field field--grid2">
-              <div>
-                <label for="f_users">Users / People Affected</label>
-                <select class="sel" id="f_users" data-key="users">
-                  <option value="">Select…</option>
-                  <option>&lt;10</option><option>10–50</option><option>50–200</option><option>200–1000</option><option>&gt;1000</option>
-                </select>
-              </div>
-              <div>
-                <label for="f_align">Strategic Alignment</label>
-                <select class="sel" id="f_align" data-key="align">
-                  <option value="">Select…</option>
-                  <option>Core strategic priority</option><option>Supporting initiative</option><option>Experimental / exploratory</option>
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_justif">Business Justification</label>
-              <textarea class="inp" id="f_justif" data-key="justif" placeholder="Why should the organisation invest in this now?"></textarea>
-            </div>
-          </section>
-
-          <!-- ===== TAB 3: Current State ===== -->
-          <section class="panel" data-panel="2">
-            <h2 class="panel__title">Current State</h2>
-            <p class="panel__sub">How the work is done today — the baseline we improve upon.</p>
-            <div class="field field--grid2">
-              <div>
-                <label for="f_maturity">Current Process Maturity</label>
-                <select class="sel" id="f_maturity" data-key="maturity">
-                  <option value="">Select…</option>
-                  <option>Fully manual</option><option>Partially automated</option><option>Mostly automated</option><option>Highly automated</option>
-                </select>
-              </div>
-              <div>
-                <label for="f_spend">Current Annual Spend / Effort</label>
-                <select class="sel" id="f_spend" data-key="spend">
-                  <option value="">Select…</option>
-                  <option>&lt;$50K</option><option>$50K–$250K</option><option>$250K–$1M</option><option>&gt;$1M</option>
-                </select>
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_volume">Volume / Frequency</label>
-              <input class="inp" type="text" id="f_volume" data-key="volume" placeholder="e.g. 5,000 transactions/month">
-            </div>
-            <div class="field">
-              <label for="f_pain">Pain Points</label>
-              <textarea class="inp" id="f_pain" data-key="pain" placeholder="What is slow, error-prone, or costly today?"></textarea>
-            </div>
-            <div class="field">
-              <span class="flabel">Existing Tools in Use</span>
-              <div class="chips" data-key="tools" data-multi="1">
-                <span class="chip" data-val="Spreadsheets" role="button" tabindex="0">Spreadsheets</span>
-                <span class="chip" data-val="Email" role="button" tabindex="0">Email</span>
-                <span class="chip" data-val="Legacy system" role="button" tabindex="0">Legacy system</span>
-                <span class="chip" data-val="SaaS app" role="button" tabindex="0">SaaS app</span>
-                <span class="chip" data-val="Custom app" role="button" tabindex="0">Custom app</span>
-                <span class="chip" data-val="None" role="button" tabindex="0">None</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- ===== TAB 4: Technical Context ===== -->
-          <section class="panel" data-panel="3">
-            <h2 class="panel__title">Technical Context</h2>
-            <p class="panel__sub">Data, integrations, and real-time needs — drives feasibility and platform fit.</p>
-            <div class="field">
-              <span class="flabel">Primary Data Sources</span>
-              <div class="chips" data-key="sources" data-multi="1">
-                <span class="chip" data-val="Structured DB" role="button" tabindex="0">Structured DB</span>
-                <span class="chip" data-val="Documents/PDFs" role="button" tabindex="0">Documents/PDFs</span>
-                <span class="chip" data-val="Emails" role="button" tabindex="0">Emails</span>
-                <span class="chip" data-val="Chat/Tickets" role="button" tabindex="0">Chat/Tickets</span>
-                <span class="chip" data-val="APIs" role="button" tabindex="0">APIs</span>
-                <span class="chip" data-val="Images" role="button" tabindex="0">Images</span>
-                <span class="chip" data-val="Audio/Video" role="button" tabindex="0">Audio/Video</span>
-                <span class="chip" data-val="Web" role="button" tabindex="0">Web</span>
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_dataavail">Data Availability</label>
-              <select class="sel" id="f_dataavail" data-key="dataavail">
-                <option value="">Select…</option>
-                <option>Readily available &amp; clean</option><option>Available but needs cleaning</option>
-                <option>Partially available</option><option>Not yet available</option>
-              </select>
-            </div>
-            <div class="field">
-              <span class="flabel">Integration Points</span>
-              <div class="chips" data-key="integrations" data-multi="1">
-                <span class="chip" data-val="Google Workspace" role="button" tabindex="0">Google Workspace</span>
-                <span class="chip" data-val="BigQuery" role="button" tabindex="0">BigQuery</span>
-                <span class="chip" data-val="Cloud Storage" role="button" tabindex="0">Cloud Storage</span>
-                <span class="chip" data-val="Vertex AI" role="button" tabindex="0">Vertex AI</span>
-                <span class="chip" data-val="Third-party SaaS" role="button" tabindex="0">Third-party SaaS</span>
-                <span class="chip" data-val="On-prem system" role="button" tabindex="0">On-prem system</span>
-                <span class="chip" data-val="None" role="button" tabindex="0">None</span>
-              </div>
-            </div>
-            <div class="field">
-              <span class="flabel">Real-time Requirement</span>
-              <div class="toggle-row">
-                <label class="switch">
-                  <input type="checkbox" id="f_realtime" data-key="realtime" aria-label="Real-time requirement">
-                  <span class="track"></span>
-                </label>
-                <span class="toggle-state" id="realtimeState">No</span>
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_technotes">Technical Notes</label>
-              <textarea class="inp" id="f_technotes" data-key="technotes" placeholder="Any technical constraints, latency needs, or architecture notes."></textarea>
-            </div>
-          </section>
-
-          <!-- ===== TAB 5: Risk & Compliance ===== -->
-          <section class="panel" data-panel="4">
-            <h2 class="panel__title">Risk &amp; Compliance</h2>
-            <p class="panel__sub">Governance signals — sensitivity, autonomy, adoption readiness.</p>
-            <div class="field">
-              <span class="flabel">Data Sensitivity</span>
-              <div class="seg" data-key="sensitivity" data-seg="1" role="group" aria-label="Data Sensitivity">
-                <button type="button" data-val="Low">Low</button>
-                <button type="button" data-val="Medium">Medium</button>
-                <button type="button" data-val="High">High</button>
-              </div>
-            </div>
-            <div class="field">
-              <span class="flabel">AI Autonomy Level</span>
-              <div class="seg" data-key="autonomy" data-seg="1" role="group" aria-label="AI Autonomy Level">
-                <button type="button" data-val="Advisory">Advisory</button>
-                <button type="button" data-val="Supervised">Supervised</button>
-                <button type="button" data-val="Autonomous">Autonomous</button>
-              </div>
-            </div>
-            <div class="field field--grid2">
-              <div>
-                <span class="flabel">Contains PII Data</span>
-                <div class="toggle-row">
-                  <label class="switch"><input type="checkbox" id="f_pii" data-key="pii" aria-label="Contains PII data"><span class="track"></span></label>
-                  <span class="toggle-state" id="piiState">No</span>
-                </div>
-              </div>
-              <div>
-                <span class="flabel">Audit Trail Required</span>
-                <div class="toggle-row">
-                  <label class="switch"><input type="checkbox" id="f_audit" data-key="audit" aria-label="Audit trail required"><span class="track"></span></label>
-                  <span class="toggle-state" id="auditState">No</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="section-h">GADF — User Adoption (Google Cloud Adoption Framework: Desirability)</div>
-            <div class="section-help">User desirability directly gates downstream ROI — a technically perfect tool nobody adopts returns nothing.</div>
-            <div class="field">
-              <span class="flabel">User Adoption Readiness <span class="req">*</span></span>
-              <div class="seg" data-key="adoption" data-seg="1" role="group" aria-label="User Adoption Readiness">
-                <button type="button" data-val="Low">Low</button>
-                <button type="button" data-val="Medium">Medium</button>
-                <button type="button" data-val="High">High</button>
-              </div>
-            </div>
-            <div class="field">
-              <span class="flabel">Change Management Plan in Place</span>
-              <div class="toggle-row">
-                <label class="switch"><input type="checkbox" id="f_change" data-key="change" aria-label="Change management plan in place"><span class="track"></span></label>
-                <span class="toggle-state" id="changeState">No</span>
-              </div>
-            </div>
-
-            <div class="section-h">Delivery Preference — Optional</div>
-            <div class="section-help">The algorithm automatically infers the recommended builder profile from your inputs. Only set this if your organisation has a specific constraint (e.g. "we only have AppSheet licences").</div>
-            <div class="field">
-              <div class="radiolist" data-key="delivery" data-radio="1">
-                <div class="radiocard is-on" data-val="No preference"><span class="radiocard__radio"></span><div><div class="radiocard__t">No preference</div><div class="radiocard__d">Algorithm will infer the best delivery model from your inputs</div></div></div>
-                <div class="radiocard" data-val="Citizen Dev / Low-code preferred"><span class="radiocard__radio"></span><div><div class="radiocard__t">Citizen Dev / Low-code preferred</div><div class="radiocard__d">Business users build with AppSheet / Agentspace low-code tooling</div></div></div>
-                <div class="radiocard" data-val="IT-led / Pro-code preferred"><span class="radiocard__radio"></span><div><div class="radiocard__t">IT-led / Pro-code preferred</div><div class="radiocard__d">Engineering builds on Vertex AI Agent Builder / custom code</div></div></div>
-                <div class="radiocard" data-val="Hybrid team (CoE + IT)"><span class="radiocard__radio"></span><div><div class="radiocard__t">Hybrid team (CoE + IT)</div><div class="radiocard__d">Centre of Excellence pairs with engineering on delivery</div></div></div>
-              </div>
-            </div>
-            <div class="field">
-              <label for="f_addnotes">Additional Notes</label>
-              <textarea class="inp" id="f_addnotes" data-key="addnotes" placeholder="Anything else the review panel should know."></textarea>
-            </div>
-          </section>
-
-          <!-- Footer nav -->
-          <div class="cardnav">
-            <button class="gc-btn gc-btn--ghost" id="btnBack">Back&nbsp;←</button>
-            <span class="cardnav__count" id="navCount">Tab 1 of 5</span>
-            <button class="gc-btn gc-btn--primary" id="btnNext">Next&nbsp;→</button>
+        <!-- Footer nav -->
+        <div class="cardnav">
+          <a class="gc-btn gc-btn--ghost" href="bxt.html" id="btnBack">←&nbsp;Back to BXT Gate</a>
+          <div class="cardnav__right">
+            <a class="gc-btn gc-btn--primary" href="advisory.html" id="btnContinue">Continue to Platform Advisory&nbsp;→</a>
           </div>
         </div>
       </div>
 
-      <!-- ================= RIGHT: sidebar ================= -->
+      <!-- ================= RIGHT: live composite ================= -->
       <aside class="side">
+        <div class="panelcard">
+          <div class="panelcard__head">
+            <span class="panelcard__title">Composite Score</span>
+            <span class="gc-tag gc-tag--blue">Gate 3</span>
+          </div>
+          <div class="panelcard__body">
+            <div class="composite">
+              <div class="composite__num" id="compNum" style="color:var(--g-blue-l);">0.0<small>&nbsp;/&nbsp;5.0</small></div>
+              <div class="composite__lab">Weighted average · 10 criteria</div>
+            </div>
+
+            <div class="panelcard__div"></div>
+
+            <!-- Quadrant -->
+            <div class="quad">
+              <div class="quad__grid">
+                <div class="quad__dot" id="quadDot" style="left:50%;top:50%;color:var(--g-gray);"></div>
+                <span class="quad__axis-x">Feasibility →</span>
+                <span class="quad__axis-y">Value →</span>
+              </div>
+              <div class="quad__meta">
+                <div class="quad__name" id="quadName" style="color:var(--g-gray);">—</div>
+                <div class="quad__desc" id="quadDesc"></div>
+              </div>
+            </div>
+
+            <div class="panelcard__div"></div>
+
+            <div class="chips">
+              <div class="chiprow">
+                <span class="chiprow__k">Risk Tier</span>
+                <span class="gc-tag gc-tag--gray" id="riskChip">—</span>
+              </div>
+            </div>
+
+            <div class="panelcard__div"></div>
+
+            <!-- Citizen-dev suitability -->
+            <div class="cd">
+              <div class="cd__top">
+                <span class="chiprow__k">Citizen-Dev Suitability</span>
+                <span class="cd__pct" id="cdPct" style="color:var(--g-blue-l);">0%</span>
+              </div>
+              <div class="cd__bar"><div class="cd__fill" id="cdFill" style="background:var(--g-blue);"></div></div>
+              <p class="cd__path" id="cdPath">Recommended path: <b>—</b></p>
+            </div>
+
+            <div class="panelcard__div"></div>
+
+            <!-- per-pillar breakdown -->
+            <div class="bal" id="pillarBars">
+              <div class="bal__row">
+                <span class="bal__k"><span class="bal__dot" style="background:var(--g-blue);"></span>Strategic Value</span>
+                <div class="bal__bar"><div class="bal__fill" data-pillar="strategic" style="background:var(--g-blue);"></div></div>
+                <span class="bal__v" data-pillarv="strategic" style="color:var(--g-blue-l);">0.0</span>
+              </div>
+              <div class="bal__row">
+                <span class="bal__k"><span class="bal__dot" style="background:var(--g-green);"></span>Technical Feasibility</span>
+                <div class="bal__bar"><div class="bal__fill" data-pillar="technical" style="background:var(--g-green);"></div></div>
+                <span class="bal__v" data-pillarv="technical" style="color:#81c995;">0.0</span>
+              </div>
+              <div class="bal__row">
+                <span class="bal__k"><span class="bal__dot" style="background:var(--g-yellow);"></span>Org Readiness</span>
+                <div class="bal__bar"><div class="bal__fill" data-pillar="org" style="background:var(--g-yellow);"></div></div>
+                <span class="bal__v" data-pillarv="org" style="color:var(--g-yellow);">0.0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- AI Assist -->
         <div class="assist">
           <div class="assist__head">
@@ -577,31 +384,6 @@ p { margin:0 0 1rem; }
             <span class="assist__label">AI Assist</span>
           </div>
           <p class="assist__text" id="assistText"></p>
-        </div>
-
-        <!-- Live score estimate -->
-        <div class="score">
-          <div class="score__head">
-            <span class="score__title">Live Score Estimate</span>
-            <span class="gc-tag gc-tag--purple">Heuristic</span>
-          </div>
-          <div class="score__body">
-            <div class="score__big">
-              <span class="score__num" id="scoreNum">1.6</span>
-              <span class="score__den">/ 5.0</span>
-            </div>
-            <div class="score__quad" id="scoreQuad"></div>
-            <div id="critList"><!-- built by JS --></div>
-
-            <div class="score__div"></div>
-            <div class="cd__top">
-              <span class="cd__label">Citizen Dev Suitability</span>
-              <span class="cd__pct" id="cdPct">20%</span>
-            </div>
-            <div class="cd__bar"><div class="cd__fill" id="cdFill"></div></div>
-            <div class="cd__line" id="cdProfile">👤 <b>Citizen Developer</b> (Google low-code)</div>
-            <div class="cd__line" id="cdPlatform">🏆 Top platform: <b>Vertex AI Agent Builder</b></div>
-          </div>
         </div>
       </aside>
     </div>
@@ -613,345 +395,378 @@ p { margin:0 0 1rem; }
 <script>
 (function(){
   'use strict';
-  var LS_KEY = 'gaic_intake';
-  var THEME_KEY = 'gaic_theme';
+  var INTAKE_KEY = 'gaic_intake';
+  var BXT_KEY    = 'gaic_bxt';
+  var FEAS_KEY   = 'gaic_feasibility';
+  var THEME_KEY  = 'gaic_theme';
 
-  var TABS = ['Use Case Details','Business Context','Current State','Technical Context','Risk & Compliance'];
-  var ASSIST = [
-    'Give the use case a clear, outcome-oriented name. The department and sponsor help route this to the right reviewers.',
-    'Quantify the value. Higher expected annual value and core-strategic alignment lift the Business and Strategic scores that drive the quadrant.',
-    'Describe today\u2019s baseline honestly. A highly manual, high-effort process with clear pain points is exactly where AI delivers the biggest lift.',
-    'Simple, clean, Google-native data (Workspace, BigQuery, Cloud Storage) with no real-time requirement boosts Data, Implementation and Citizen-Dev suitability.',
-    'Delivery preference is optional \u2014 the algorithm already infers the best builder profile from your maturity, budget, data sensitivity, and timeline. Only override if you have a genuine organisational constraint.'
+  // ============================================================
+  //  SCORING MODEL — 10 criteria, 3 pillars, weights sum to 100
+  // ============================================================
+  var CRITERIA = [
+    // Strategic Value (35%)
+    { id:'biz_value',   pillar:'strategic', name:'Business Value / ROI',              weight:22, rationale:'Significant cost savings projected.' },
+    { id:'strat_align', pillar:'strategic', name:'Strategic Alignment',               weight:8,  rationale:'Aligned to current strategic priority.' },
+    { id:'data_value',  pillar:'strategic', name:'Data Value / Reusability',          weight:5,  rationale:'Creates reusable data/insight assets.' },
+    // Technical Feasibility (35%)
+    { id:'data_avail',  pillar:'technical', name:'Data Availability & Quality',       weight:12, rationale:'Required data accessible in BigQuery / Google Workspace.' },
+    { id:'tech_complex',pillar:'technical', name:'Technical Complexity',              weight:10, rationale:'Model & pipeline complexity (higher score = simpler).' },
+    { id:'integ_effort',pillar:'technical', name:'Integration Effort',               weight:8,  rationale:'Fits existing Google Cloud / Vertex AI stack.' },
+    { id:'ttv',         pillar:'technical', name:'Time-to-Value',                     weight:5,  rationale:'Realistic path to production within 2-3 quarters.' },
+    // Org Readiness & Governance (30%)
+    { id:'safety',      pillar:'org',       name:'Safety & Responsible AI',           weight:15, rationale:'Meets Google responsible-AI & risk controls.' },
+    { id:'compliance',  pillar:'org',       name:'Compliance Feasibility',            weight:12, rationale:'Satisfies workspace regulatory frameworks.' },
+    { id:'user_value',  pillar:'org',       name:'User Value & Desirability / Change Readiness', weight:3, rationale:'Users want it; change appetite exists.' }
   ];
 
-  // ---- State ----
-  var state = {};
-  var current = 0;
+  var PILLARS = {
+    strategic: { name:'Strategic Value',        color:'var(--g-blue)',  colorL:'var(--g-blue-l)' },
+    technical: { name:'Technical Feasibility',  color:'var(--g-green)', colorL:'#81c995' },
+    org:       { name:'Org Readiness',          color:'var(--g-yellow)',colorL:'var(--g-yellow)' }
+  };
 
-  // load persisted state BEFORE binding so initial field values reflect correctly
-  loadState();
+  function critById(id){ for (var i=0;i<CRITERIA.length;i++){ if (CRITERIA[i].id===id) return CRITERIA[i]; } return null; }
+  function critsIn(pillar){ return CRITERIA.filter(function(c){ return c.pillar===pillar; }); }
 
-  function loadState(){
-    var parsed = {};
-    try { parsed = JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch(e){ parsed = {}; }
-    if (typeof parsed !== 'object' || parsed === null) parsed = {};
-    // merge into the existing state object so all closures keep a live reference
-    Object.keys(parsed).forEach(function(k){ state[k] = parsed[k]; });
-  }
-  function save(){
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
-  }
+  // ---------- PURE SCORING FUNCTIONS (testable) ----------
+  function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+  function round1(n){ return Math.round(n*10)/10; }
 
-  // ---- Build tab bar ----
-  var tabbar = document.getElementById('tabbar');
-  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>';
-  TABS.forEach(function(label, i){
-    var b = document.createElement('button');
-    b.className = 'tab' + (i===0 ? ' is-active' : '');
-    b.setAttribute('type','button');
-    b.setAttribute('role','tab');
-    b.setAttribute('aria-selected', i===0 ? 'true':'false');
-    b.dataset.tab = i;
-    b.innerHTML = '<span class="tab__check"></span><span>'+label+'</span>';
-    b.addEventListener('click', function(){ goTo(parseInt(this.dataset.tab,10)); });
-    tabbar.appendChild(b);
-  });
-  var tabEls = Array.prototype.slice.call(tabbar.querySelectorAll('.tab'));
-  var panelEls = Array.prototype.slice.call(document.querySelectorAll('.panel'));
-
-  // ---- Tab navigation ----
-  function goTo(i){
-    i = Math.max(0, Math.min(TABS.length-1, i));
-    current = i;
-    panelEls.forEach(function(p){ p.classList.toggle('is-active', parseInt(p.dataset.panel,10)===i); });
-    tabEls.forEach(function(t,idx){
-      t.classList.toggle('is-active', idx===i);
-      t.setAttribute('aria-selected', idx===i ? 'true':'false');
+  // Composite = sum(weight/100 * score) over all 10 criteria. scores object {id:1..5}. Result 1..5.
+  function composite(scores){
+    var total = 0, wsum = 0;
+    CRITERIA.forEach(function(c){
+      var v = Number(scores[c.id]);
+      if (isNaN(v)) v = 3;
+      total += (c.weight/100) * v;
+      wsum  += c.weight/100;
     });
-    document.getElementById('navCount').textContent = 'Tab '+(i+1)+' of '+TABS.length;
-    document.getElementById('btnBack').disabled = (i===0);
-    var next = document.getElementById('btnNext');
-    next.innerHTML = (i===TABS.length-1) ? 'Submit to BXT Gate&nbsp;\u2192' : 'Next&nbsp;\u2192';
-    document.getElementById('assistText').textContent = ASSIST[i];
-    updateChecks();
+    // wsum === 1 by construction; divide defensively
+    return total / (wsum || 1);
   }
-  document.getElementById('btnBack').addEventListener('click', function(){ goTo(current-1); });
-  document.getElementById('btnNext').addEventListener('click', function(){
-    if (current===TABS.length-1){
-      save();
-      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
-      // --- API integration (best-effort, non-blocking) ---
-      var _navigated = false;
-      function _go(){ if (_navigated) return; _navigated = true; window.location.href = 'bxt.html'; }
-      try {
-        if (window.GAIC_API && typeof window.GAIC_API.createUseCase === 'function') {
-          var _wsId = null;
-          try { _wsId = localStorage.getItem('gaic_workspace_id') || null; } catch(eW){}
-          window.GAIC_API.createUseCase({
-            workspace_id: _wsId,
-            name: state.name, dept: state.dept, sponsor: state.sponsor,
-            submitter: state.submitter, email: state.email, desc: state.desc,
-            business_context: { driver: state.driver, value: state.value, users: state.users, align: state.align, justif: state.justif },
-            current_state: { maturity: state.maturity, spend: state.spend, volume: state.volume, pain: state.pain, tools: state.tools },
-            technical_context: { sources: state.sources, dataavail: state.dataavail, integrations: state.integrations, realtime: state.realtime, technotes: state.technotes },
-            risk_compliance: { sensitivity: state.sensitivity, autonomy: state.autonomy, pii: state.pii, audit: state.audit, adoption: state.adoption, change: state.change, delivery: state.delivery, addnotes: state.addnotes }
-          }).then(function(uc){
-            try { if (uc && uc.id != null) localStorage.setItem('gaic_use_case_id', uc.id); } catch(e2){}
-            _go();
-          }).catch(function(){ _go(); });
-          // Safety: navigate even if the promise never settles
-          setTimeout(_go, 1500);
-        } else { _go(); }
-      } catch(e) { _go(); }
-      return;
+
+  // weighted average (1..5) of the criteria within one pillar
+  function pillarScore(scores, pillar){
+    var crits = critsIn(pillar), sum = 0, w = 0;
+    crits.forEach(function(c){
+      var v = Number(scores[c.id]); if (isNaN(v)) v = 3;
+      sum += c.weight * v; w += c.weight;
+    });
+    return w ? sum / w : 0;
+  }
+
+  function pillarScores(scores){
+    return {
+      strategic: pillarScore(scores,'strategic'),
+      technical: pillarScore(scores,'technical'),
+      org:       pillarScore(scores,'org')
+    };
+  }
+
+  // Quadrant: Value (y) = strategic pillar; Feasibility (x) = technical pillar. Threshold = 3.0 (>=high).
+  function quadrant(value, feasibility){
+    var highV = value >= 3.0, highF = feasibility >= 3.0;
+    if (highV && highF)  return { key:'quick-win',     name:'Quick Win',     color:'var(--g-green)', colorHex:'#34A853', desc:'High value, high feasibility — greenlight and ship.' };
+    if (highV && !highF) return { key:'strategic-bet', name:'Strategic Bet', color:'var(--g-blue)',  colorHex:'#4285F4', desc:'High value but harder to build — worth deliberate investment.' };
+    if (!highV && highF) return { key:'fill-in',       name:'Fill-In',       color:'var(--g-gray)',  colorHex:'#9aa0a6', desc:'Easy to build but modest value — do it if capacity allows.' };
+    return                      { key:'money-pit',     name:'Money Pit',     color:'var(--g-red)',   colorHex:'#EA4335', desc:'Low value and hard to build — decline or re-scope.' };
+  }
+
+  // Risk tier from Org Readiness pillar (Safety + Compliance weighted avg, 1..5). Higher score = lower risk.
+  function riskTier(scores){
+    var s = Number(scores.safety), c = Number(scores.compliance);
+    if (isNaN(s)) s = 3; if (isNaN(c)) c = 3;
+    var sw = critById('safety').weight, cw = critById('compliance').weight;
+    var avg = (s*sw + c*cw) / (sw + cw); // 1..5
+    var tier = (avg >= 4) ? 'Low' : (avg >= 2.5) ? 'Medium' : 'High';
+    return { tier: tier, score: avg };
+  }
+
+  // Citizen-dev suitability %: simplicity (tech_complex) + integration fit (integ_effort) + compliance.
+  // Higher simplicity + lower risk = higher %. Maps mean(1..5) -> 0..100.
+  function citizenDev(scores){
+    var t = Number(scores.tech_complex), i = Number(scores.integ_effort), c = Number(scores.compliance);
+    if (isNaN(t)) t=3; if (isNaN(i)) i=3; if (isNaN(c)) c=3;
+    var mean = (t + i + c) / 3;               // 1..5
+    var pct = Math.round(clamp((mean - 1) / 4 * 100, 0, 100));
+    var path;
+    if (pct >= 66)      path = 'AppSheet / Agentspace (citizen dev)';
+    else if (pct >= 40) path = 'Hybrid team';
+    else                path = 'Vertex AI (pro engineering)';
+    return { pct: pct, path: path };
+  }
+
+  // ============================================================
+  //  DATA FLOW — load intake + bxt (graceful demo fallback), seed AI defaults
+  // ============================================================
+  var DEMO_INTAKE = {
+    name: 'Automated invoice reconciliation',
+    dept: 'Finance', sponsor: 'CFO',
+    driver: 'Cost Reduction', value: '$1M–$5M', users: '50–200', align: 'Core strategic priority',
+    maturity: 'Fully manual', dataavail: 'Available but needs cleaning',
+    sources: ['Structured DB','Documents/PDFs'],
+    integrations: ['Google Workspace','BigQuery'],
+    realtime: false, adoption: 'Medium', change: false,
+    autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
+  };
+
+  function loadIntake(){
+    var parsed = null;
+    try { parsed = JSON.parse(localStorage.getItem(INTAKE_KEY)); } catch(e){ parsed = null; }
+    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
+      return { data: DEMO_INTAKE, fromDemo: true };
     }
-    goTo(current+1);
-  });
-
-  // Which fields count a tab as \u201Ctouched/complete\u201D
-  var TAB_FIELDS = [
-    ['name','dept','sponsor','submitter','email','desc'],
-    ['driver','value','users','align','justif'],
-    ['maturity','spend','volume','pain','tools'],
-    ['sources','dataavail','integrations','realtime','technotes'],
-    ['sensitivity','autonomy','pii','audit','adoption','change','delivery','addnotes']
-  ];
-  function tabTouched(i){
-    return TAB_FIELDS[i].some(function(k){
-      var v = state[k];
-      if (Array.isArray(v)) return v.length>0;
-      if (typeof v === 'boolean') return v===true;
-      return v!==undefined && v!==null && v!=='';
-    });
-  }
-  function updateChecks(){
-    tabEls.forEach(function(t,idx){
-      var done = tabTouched(idx) && idx!==current;
-      t.classList.toggle('is-done', done);
-      var chk = t.querySelector('.tab__check');
-      chk.innerHTML = done ? CHECK : '';
-    });
+    return { data: parsed, fromDemo: false };
   }
 
-  // ---- Bind text/select/textarea ----
-  Array.prototype.slice.call(document.querySelectorAll('[data-key]')).forEach(function(el){
-    if (el.classList.contains('chips') || el.classList.contains('seg') || el.classList.contains('radiolist')) return;
-    var key = el.dataset.key;
-    if (el.type === 'checkbox'){
-      if (state[key]) el.checked = true;
-      reflectToggle(el);
-      el.addEventListener('change', function(){ state[key]=el.checked; reflectToggle(el); commit(); });
+  function loadBxt(){
+    var parsed = null;
+    try { parsed = JSON.parse(localStorage.getItem(BXT_KEY)); } catch(e){ parsed = null; }
+    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
+      return { data: null, fromDemo: true };
+    }
+    return { data: parsed, fromDemo: false };
+  }
+
+  // Map an intake value band / enums -> a 1..5 seed. Pure.
+  function bandTo5(map, v, def){
+    if (v !== undefined && v !== null && map[v] !== undefined) return map[v];
+    return def;
+  }
+
+  // AI-suggested seed defaults derived from intake + optional bxt scores.
+  function seedScores(intake, bxt){
+    intake = intake || {};
+    var s = {};
+
+    // Strong BXT Business -> higher Business Value seed; else derive from value band
+    var bxtB = (bxt && bxt.scores && bxt.scores.B && typeof bxt.scores.B.score === 'number') ? bxt.scores.B.score : null;
+    if (bxtB !== null){
+      s.biz_value = clamp(Math.round(bxtB/20), 1, 5); // 0-100 -> 1-5
     } else {
-      if (state[key]!==undefined) el.value = state[key];
-      el.addEventListener('input', function(){ state[key]=el.value; commit(); });
-      el.addEventListener('change', function(){ state[key]=el.value; commit(); });
+      s.biz_value = bandTo5({ '<$100K':2,'$100K–$500K':3,'$500K–$1M':3,'$1M–$5M':4,'>$5M':5 }, intake.value, 3);
     }
-  });
-  function reflectToggle(el){
-    var map = { f_realtime:['realtimeState',['No','Yes']], f_pii:['piiState',['No','Yes']], f_audit:['auditState',['No','Yes']], f_change:['changeState',['No','Yes']] };
-    var m = map[el.id]; if(!m) return;
-    var span = document.getElementById(m[0]);
-    span.textContent = el.checked ? m[1][1] : m[1][0];
-    span.classList.toggle('is-on', el.checked);
+    s.strat_align = bandTo5({ 'Core strategic priority':5,'Supporting initiative':3,'Experimental / exploratory':2 }, intake.align, 3);
+    // Data value/reusability — reusable if structured DB present
+    var srcs = Array.isArray(intake.sources) ? intake.sources : [];
+    s.data_value = srcs.indexOf('Structured DB') > -1 ? 4 : 3;
+
+    s.data_avail = bandTo5({ 'Readily available & clean':5,'Available but needs cleaning':4,'Partially available':3,'Not yet available':2 }, intake.dataavail, 3);
+    // Technical complexity (higher = simpler): more automated + fewer unstructured sources -> higher
+    var complexSrc = srcs.filter(function(x){ return ['Audio/Video','Images','Chat/Tickets','Web'].indexOf(x) > -1; }).length;
+    var complexBase = bandTo5({ 'Fully manual':3,'Partially automated':3,'Mostly automated':4,'Highly automated':4 }, intake.maturity, 3);
+    s.tech_complex = clamp(complexBase - (complexSrc >= 2 ? 1 : 0) - (intake.realtime === true ? 1 : 0), 1, 5);
+    // Integration effort (higher = fits stack better)
+    var ints = Array.isArray(intake.integrations) ? intake.integrations : [];
+    var gNative = ints.filter(function(x){ return ['Google Workspace','BigQuery','Cloud Storage','Vertex AI'].indexOf(x) > -1; }).length;
+    var hard    = ints.filter(function(x){ return ['On-prem system','Third-party SaaS'].indexOf(x) > -1; }).length;
+    s.integ_effort = clamp(3 + (gNative >= 1 ? 1 : 0) + (gNative >= 2 ? 1 : 0) - hard, 1, 5);
+    // Time-to-value — better if data ready + automated + not real-time
+    s.ttv = clamp(Math.round((s.data_avail + s.tech_complex) / 2), 1, 5);
+
+    // Safety & responsible AI — higher when sensitivity low / autonomy supervised
+    var sensPenalty = bandTo5({ 'Low':0,'Medium':-1,'High':-2 }, intake.sensitivity, -1);
+    var autoPenalty = bandTo5({ 'Advisory':0,'Supervised':0,'Autonomous':-1 }, intake.autonomy, 0);
+    s.safety = clamp(4 + sensPenalty + autoPenalty + (intake.audit === true ? 1 : 0), 1, 5);
+    // Compliance feasibility — higher if audit trail + not PII heavy
+    s.compliance = clamp(4 + (intake.audit === true ? 1 : 0) - (intake.pii === true ? 1 : 0) + sensPenalty, 1, 5);
+    // User value / change readiness
+    var adopt = bandTo5({ 'Low':2,'Medium':3,'High':5 }, intake.adoption, 3);
+    s.user_value = clamp(adopt + (intake.change === true ? 1 : 0) - (intake.change === true ? 0 : 1), 1, 5);
+
+    // ensure every criterion has a seed
+    CRITERIA.forEach(function(c){ if (s[c.id] === undefined || isNaN(s[c.id])) s[c.id] = 3; });
+    return s;
   }
 
-  // ---- Multi-select chips ----
-  Array.prototype.slice.call(document.querySelectorAll('.chips[data-multi]')).forEach(function(grp){
-    var key = grp.dataset.key;
-    if (!Array.isArray(state[key])) state[key] = [];
-    Array.prototype.slice.call(grp.querySelectorAll('.chip')).forEach(function(chip){
-      if (state[key].indexOf(chip.dataset.val)>-1) chip.classList.add('is-on');
-      function toggle(){
-        var val = chip.dataset.val, arr = state[key];
-        var idx = arr.indexOf(val);
-        if (idx>-1){ arr.splice(idx,1); chip.classList.remove('is-on'); }
-        else { arr.push(val); chip.classList.add('is-on'); }
-        commit();
-      }
-      chip.addEventListener('click', toggle);
-      chip.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
-    });
-  });
+  function loadSeed(){
+    // Prefer a previously-confirmed feasibility scoring
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(FEAS_KEY)); } catch(e){ saved = null; }
+    var intakeL = loadIntake();
+    var bxtL = loadBxt();
+    var scores;
+    if (saved && saved.scores && typeof saved.scores === 'object'){
+      scores = {};
+      CRITERIA.forEach(function(c){
+        var v = Number(saved.scores[c.id]);
+        scores[c.id] = (isNaN(v) ? 3 : clamp(Math.round(v),1,5));
+      });
+      return { scores: scores, intake: intakeL, bxt: bxtL, fromSaved: true };
+    }
+    scores = seedScores(intakeL.data, bxtL.data);
+    return { scores: scores, intake: intakeL, bxt: bxtL, fromSaved: false };
+  }
 
-  // ---- Segmented controls ----
-  Array.prototype.slice.call(document.querySelectorAll('.seg[data-seg]')).forEach(function(grp){
-    var key = grp.dataset.key;
-    Array.prototype.slice.call(grp.querySelectorAll('button')).forEach(function(btn){
-      if (state[key]===btn.dataset.val) btn.classList.add('is-on');
-      btn.addEventListener('click', function(){
-        Array.prototype.slice.call(grp.querySelectorAll('button')).forEach(function(b){ b.classList.remove('is-on'); });
-        btn.classList.add('is-on');
-        state[key]=btn.dataset.val;
-        commit();
+  function persist(scores){
+    var ps = pillarScores(scores);
+    var payload = {
+      scores: scores,
+      composite: round1(composite(scores)),
+      pillars: { strategic: round1(ps.strategic), technical: round1(ps.technical), org: round1(ps.org) },
+      quadrant: quadrant(ps.strategic, ps.technical).name,
+      risk: riskTier(scores).tier,
+      citizenDev: citizenDev(scores),
+      ts: Date.now()
+    };
+    try { localStorage.setItem(FEAS_KEY, JSON.stringify(payload)); } catch(e){}
+    // --- API integration (best-effort, non-blocking) ---
+    try {
+      if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
+        var _ucId = null;
+        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        var _cd = citizenDev(scores);
+        window.GAIC_API.saveGate(_ucId, 'feasibility', {
+          composite: payload.composite,
+          quadrant: payload.quadrant,
+          risk_tier: payload.risk,
+          citizen_dev_pct: _cd.pct,
+          pillars: payload.pillars,
+          criteria: scores
+        }).catch(function(){});
+      }
+    } catch(e){}
+    return payload;
+  }
+
+  // ============================================================
+  //  RENDER
+  // ============================================================
+  var STATE = { scores: {} };
+
+  function valColor(v){
+    if (v >= 4) return { color:'#81c995', bar:'var(--g-green)' };   // green/blue for 4-5
+    if (v >= 3) return { color:'var(--text)', bar:'var(--g-gray)' }; // neutral for 3
+    return { color:'var(--g-yellow)', bar:'var(--g-yellow)' };       // yellow/orange for 1-2
+  }
+  function valColorHi(v){ // 4=blue-ish, 5=green
+    if (v >= 5) return '#81c995';
+    if (v >= 4) return 'var(--g-blue-l)';
+    if (v >= 3) return 'var(--text)';
+    return 'var(--g-yellow)';
+  }
+
+  function buildCards(){
+    Object.keys(PILLARS).forEach(function(pk){
+      var host = document.querySelector('[data-panel="'+pk+'"]');
+      host.innerHTML = '';
+      critsIn(pk).forEach(function(c){
+        var v = STATE.scores[c.id];
+        var card = document.createElement('div');
+        card.className = 'crit';
+        card.setAttribute('data-crit', c.id);
+        card.innerHTML =
+          '<div class="crit__head">'
+          + '<span class="crit__name">'+escapeHtml(c.name)+'</span>'
+          + '<span class="crit__wt">'+c.weight+'%</span>'
+          + '</div>'
+          + '<div class="crit__row">'
+          +   '<div>'
+          +     '<input type="range" class="slider" min="1" max="5" step="1" value="'+v+'" data-slider="'+c.id+'" aria-label="'+escapeHtml(c.name)+' score">'
+          +     '<div class="crit__ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>'
+          +   '</div>'
+          +   '<div class="crit__val" data-val="'+c.id+'">'+v+'<small>/5</small></div>'
+          + '</div>'
+          + '<p class="crit__rat">'+escapeHtml(c.rationale)+'</p>';
+        host.appendChild(card);
       });
     });
-  });
-
-  // ---- Radio cards ----
-  Array.prototype.slice.call(document.querySelectorAll('.radiolist[data-radio]')).forEach(function(grp){
-    var key = grp.dataset.key;
-    var cards = Array.prototype.slice.call(grp.querySelectorAll('.radiocard'));
-    if (state[key]!==undefined){
-      cards.forEach(function(c){ c.classList.toggle('is-on', c.dataset.val===state[key]); });
-    } else {
-      state[key] = cards[0].dataset.val;
-    }
-    cards.forEach(function(card){
-      card.setAttribute('role','radio'); card.setAttribute('tabindex','0');
-      function sel(){
-        cards.forEach(function(c){ c.classList.remove('is-on'); c.setAttribute('aria-checked','false'); });
-        card.classList.add('is-on'); card.setAttribute('aria-checked','true');
-        state[key]=card.dataset.val; commit();
-      }
-      card.addEventListener('click', sel);
-      card.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sel(); } });
+    // wire sliders
+    Array.prototype.forEach.call(document.querySelectorAll('[data-slider]'), function(sl){
+      sl.addEventListener('input', function(){
+        STATE.scores[sl.getAttribute('data-slider')] = Number(sl.value);
+        renderLive();
+        persist(STATE.scores);
+      });
     });
-  });
-
-  function commit(){ save(); score(); updateChecks(); }
-
-  // ============================================================
-  //  SCORING ENGINE (deterministic heuristic, 1\u20135 sub-scores)
-  // ============================================================
-  function pick(map, v, def){ return (v!==undefined && map[v]!==undefined) ? map[v] : def; }
-  function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi, n)); }
-
-  function subScores(){
-    var s = state;
-    // Business: expected value + driver
-    var biz = pick({'<$100K':1.5,'$100K\u2013$500K':2.5,'$500K\u2013$1M':3.3,'$1M\u2013$5M':4.2,'>$5M':5}, s.value, 1.5);
-    biz += pick({'Revenue Growth':0.4,'Cost Reduction':0.3,'Risk Mitigation':0.2,'Customer Experience':0.3,'Compliance':0.1,'Employee Productivity':0.2}, s.driver, 0);
-    biz = clamp(biz,1,5);
-
-    // Strategic: alignment + reach
-    var strat = pick({'Core strategic priority':4.6,'Supporting initiative':3,'Experimental / exploratory':2}, s.align, 1.5);
-    strat += pick({'<10':-0.3,'10\u201350':0,'50\u2013200':0.2,'200\u20131000':0.4,'>1000':0.6}, s.users, 0);
-    strat = clamp(strat,1,5);
-
-    // Data: availability + source complexity (fewer unstructured = simpler)
-    var data = pick({'Readily available & clean':5,'Available but needs cleaning':3.4,'Partially available':2.3,'Not yet available':1.4}, s.dataavail, 1.5);
-    var complexSrc = (s.sources||[]).filter(function(x){ return ['Audio/Video','Images','Chat/Tickets','Web'].indexOf(x)>-1; }).length;
-    data = clamp(data - complexSrc*0.35, 1, 5);
-
-    // Implementation ease: maturity + integration simplicity + no realtime
-    var impl = pick({'Fully manual':2,'Partially automated':2.8,'Mostly automated':3.6,'Highly automated':4.4}, s.maturity, 2);
-    var ints = s.integrations || [];
-    var googleNative = ints.filter(function(x){ return ['Google Workspace','BigQuery','Cloud Storage','Vertex AI'].indexOf(x)>-1; }).length;
-    var hardInts = ints.filter(function(x){ return ['On-prem system','Third-party SaaS'].indexOf(x)>-1; }).length;
-    impl += googleNative*0.25 - hardInts*0.5;
-    if (s.realtime===true) impl -= 0.6;
-    impl = clamp(impl,1,5);
-
-    // Team (citizen-dev friendliness): google-native, low autonomy, clean data
-    var team = 2.5 + googleNative*0.35 - hardInts*0.4;
-    team += pick({'Advisory':0.7,'Supervised':0.3,'Autonomous':-0.6}, s.autonomy, 0);
-    if (s.dataavail==='Readily available & clean') team += 0.6;
-    team = clamp(team,1,5);
-
-    // Time to value: maturity + no realtime + simpler data
-    var time = pick({'Fully manual':2.4,'Partially automated':3,'Mostly automated':3.6,'Highly automated':4.2}, s.maturity, 2.4);
-    if (s.realtime===true) time -= 0.5;
-    time -= complexSrc*0.25;
-    time = clamp(time,1,5);
-
-    // Safety: autonomy + PII + sensitivity (higher risk = lower safety)
-    var safety = 5;
-    safety -= pick({'Advisory':0,'Supervised':0.6,'Autonomous':1.6}, s.autonomy, 0.3);
-    if (s.pii===true) safety -= 1.1;
-    safety -= pick({'Low':0,'Medium':0.7,'High':1.6}, s.sensitivity, 0.4);
-    safety = clamp(safety,1,5);
-
-    // Compliance readiness: audit trail + lower sensitivity + PII controls
-    var comp = 3;
-    if (s.audit===true) comp += 1.2;
-    comp -= pick({'Low':0,'Medium':0.5,'High':1.1}, s.sensitivity, 0.4);
-    if (s.pii===true && s.audit!==true) comp -= 0.8;
-    comp = clamp(comp,1,5);
-
-    // User adoption
-    var user = pick({'Low':1.6,'Medium':3.4,'High':5}, s.adoption, 1.8);
-
-    // Change management
-    var change = s.change===true ? 4.6 : 2.2;
-    change += pick({'Low':-0.4,'Medium':0.2,'High':0.6}, s.adoption, 0);
-    change = clamp(change,1,5);
-
-    return { Business:biz, Strategic:strat, Data:data, Implementation:impl, Team:team, Time:time, Safety:safety, Compliance:comp, User:user, Change:change,
-             _googleNative:googleNative, _hardInts:hardInts };
   }
 
-  var CRIT_ORDER = ['Business','Strategic','Data','Implementation','Team','Time','Safety','Compliance','User','Change'];
-  var WEIGHTS = { Business:1.4, Strategic:1.2, Data:1.1, Implementation:1.1, Team:0.9, Time:0.8, Safety:1.0, Compliance:1.0, User:1.1, Change:0.8 };
+  function renderLive(){
+    var scores = STATE.scores;
 
-  function bandColor(v){
-    if (v>=4) return 'var(--g-green)';
-    if (v>=3) return 'var(--g-blue)';
-    if (v>=2) return 'var(--g-yellow)';
-    return 'var(--g-red)';
-  }
-
-  // build criterion rows once
-  var critList = document.getElementById('critList');
-  CRIT_ORDER.forEach(function(k){
-    var row = document.createElement('div'); row.className='crit';
-    row.innerHTML = '<span class="crit__k">'+k+'</span><div class="crit__bar"><div class="crit__fill" data-c="'+k+'"></div></div><span class="crit__v" data-cv="'+k+'">1.0</span>';
-    critList.appendChild(row);
-  });
-
-  function score(){
-    var sc = subScores();
-    var num = 0, wsum = 0;
-    CRIT_ORDER.forEach(function(k){
-      var v = sc[k]; num += v*WEIGHTS[k]; wsum += WEIGHTS[k];
-      var fill = critList.querySelector('[data-c="'+k+'"]');
-      var lab = critList.querySelector('[data-cv="'+k+'"]');
-      fill.style.width = (v/5*100).toFixed(0)+'%';
-      fill.style.background = bandColor(v);
-      lab.textContent = v.toFixed(1);
+    // per-criterion readouts
+    CRITERIA.forEach(function(c){
+      var v = scores[c.id];
+      var el = document.querySelector('[data-val="'+c.id+'"]');
+      if (el){ el.innerHTML = v + '<small>/5</small>'; el.style.color = valColorHi(v); }
     });
-    var composite = clamp(num/wsum, 1.0, 5.0);
-    var numEl = document.getElementById('scoreNum');
-    numEl.textContent = composite.toFixed(1);
-    numEl.style.color = bandColor(composite);
 
-    // Quadrant
-    var valueAxis = (sc.Business + sc.Strategic) / 2;            // higher = more valuable
-    var effortEase = (sc.Implementation + sc.Team + sc.Time) / 3; // higher = easier (lower effort)
-    var highValue = valueAxis >= 3.2;
-    var lowEffort = effortEase >= 3.2;
-    var quad, color;
-    if (highValue && lowEffort){ quad='Quick Win'; color='#81c995'; }
-    else if (highValue && !lowEffort){ quad='Strategic Bet'; color='var(--g-blue-l)'; }
-    else if (!highValue && lowEffort){ quad='Fill-In'; color='var(--g-gray)'; }
-    else { quad='Money Pit'; color='#f28b82'; }
-    var qEl = document.getElementById('scoreQuad');
-    qEl.innerHTML = '\u25B8 '+quad+'  <span style="color:var(--text-dim)">projected quadrant</span>';
-    qEl.style.color = color;
+    // composite
+    var comp = composite(scores);
+    var compEl = document.getElementById('compNum');
+    compEl.innerHTML = comp.toFixed(1) + '<small>&nbsp;/&nbsp;5.0</small>';
+    compEl.style.color = valColorHi(comp);
 
-    // Citizen Dev Suitability %
-    var cd = 0;
-    cd += (sc.Implementation/5)*30;
-    cd += (sc.Team/5)*30;
-    cd += (sc.Data/5)*20;
-    if (['Advisory','Supervised'].indexOf(state.autonomy)>-1 || state.autonomy===undefined) cd += 10;
-    if (['Low','Medium'].indexOf(state.sensitivity)>-1 || state.sensitivity===undefined) cd += 10;
-    cd = Math.round(clamp(cd,0,100));
-    document.getElementById('cdPct').textContent = cd+'%';
-    document.getElementById('cdFill').style.width = cd+'%';
-    var cdFillEl = document.getElementById('cdFill');
-    cdFillEl.style.background = cd>=65 ? 'var(--g-green)' : (cd>=45 ? 'var(--g-blue)' : 'var(--g-yellow)');
+    // pillar scores
+    var ps = pillarScores(scores);
+    Object.keys(PILLARS).forEach(function(pk){
+      var sc = ps[pk];
+      var fill = document.querySelector('[data-pillar="'+pk+'"]');
+      var vEl  = document.querySelector('[data-pillarv="'+pk+'"]');
+      if (fill) fill.style.width = ((sc-1)/4*100) + '%';
+      if (vEl)  vEl.textContent = sc.toFixed(1);
+    });
 
-    // Inferred profile + top platform (Google-remapped)
-    var profile, platform;
-    if (cd >= 70){ profile='\uD83D\uDC64 <b>Citizen Developer</b> (Google low-code)'; platform='\uD83C\uDFC6 Top platform: <b>Google AppSheet</b>'; }
-    else if (cd >= 55){ profile='\uD83D\uDC64 <b>Citizen Developer</b> (Google low-code)'; platform='\uD83C\uDFC6 Top platform: <b>Agentspace</b>'; }
-    else { profile='\uD83D\uDC65 <b>Pro / Hybrid team</b> (engineering-led)'; platform='\uD83C\uDFC6 Top platform: <b>Vertex AI Agent Builder</b>'; }
-    document.getElementById('cdProfile').innerHTML = profile;
-    document.getElementById('cdPlatform').innerHTML = platform;
+    // quadrant (value = strategic, feasibility = technical)
+    var q = quadrant(ps.strategic, ps.technical);
+    document.getElementById('quadName').textContent = q.name;
+    document.getElementById('quadName').style.color = q.color;
+    document.getElementById('quadDesc').textContent = q.desc;
+    var dot = document.getElementById('quadDot');
+    dot.style.left = clamp((ps.technical-1)/4*100, 4, 96) + '%';
+    dot.style.top  = clamp(100 - (ps.strategic-1)/4*100, 4, 96) + '%';
+    dot.style.color = q.color;
+
+    // risk tier
+    var rt = riskTier(scores);
+    var riskChip = document.getElementById('riskChip');
+    riskChip.textContent = rt.tier + ' risk';
+    riskChip.className = 'gc-tag ' + (rt.tier==='Low'?'gc-tag--green':rt.tier==='Medium'?'gc-tag--yellow':'gc-tag--red');
+
+    // citizen-dev suitability
+    var cd = citizenDev(scores);
+    document.getElementById('cdPct').textContent = cd.pct + '%';
+    var cdFill = document.getElementById('cdFill');
+    cdFill.style.width = cd.pct + '%';
+    cdFill.style.background = cd.pct>=66 ? 'var(--g-green)' : cd.pct>=40 ? 'var(--g-blue)' : 'var(--g-yellow)';
+    document.getElementById('cdPct').style.color = cd.pct>=66 ? '#81c995' : cd.pct>=40 ? 'var(--g-blue-l)' : 'var(--g-yellow)';
+    document.getElementById('cdPath').innerHTML = 'Recommended path: <b>' + cd.path + '</b>';
+
+    // AI assist copy
+    document.getElementById('assistText').innerHTML = assistCopy(comp, q, rt, cd);
+
+    return { composite: comp, pillars: ps, quadrant: q, risk: rt, citizenDev: cd };
   }
 
-  // ---- Theme toggle (persisted, same pattern as setup.html) ----
+  function assistCopy(comp, q, rt, cd){
+    var lead;
+    if (comp >= 4)      lead = 'Strong composite (<b>'+comp.toFixed(1)+'/5</b>). ';
+    else if (comp >= 3) lead = 'Moderate composite (<b>'+comp.toFixed(1)+'/5</b>). ';
+    else                lead = 'Weak composite (<b>'+comp.toFixed(1)+'/5</b>). ';
+    var qtxt = 'Plotted as a <b>'+q.name+'</b>. ';
+    var risktxt = rt.tier==='Low' ? 'Governance risk is low. ' : rt.tier==='Medium' ? 'Governance risk is moderate — confirm safety & compliance controls. ' : 'Governance risk is high — Safety & Responsible AI and Compliance need attention before build. ';
+    var pathtxt = cd.pct>=66 ? 'High citizen-dev suitability suggests an AppSheet / Agentspace build.' : cd.pct>=40 ? 'A hybrid team blends citizen-dev speed with engineering rigor.' : 'Complexity favors a Vertex AI pro-engineering build.';
+    return lead + qtxt + risktxt + pathtxt;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
+    });
+  }
+
+  // ---- Tabs ----
+  function wireTabs(){
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(tab){
+      tab.addEventListener('click', function(){
+        var key = tab.getAttribute('data-tab');
+        Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){ t.classList.toggle('is-active', t===tab); });
+        Array.prototype.forEach.call(document.querySelectorAll('.panel'), function(p){ p.classList.toggle('is-active', p.getAttribute('data-panel')===key); });
+      });
+    });
+  }
+
+  // ---- Theme toggle (persisted, same pattern as intake.html / bxt.html) ----
   var themeBtn = document.getElementById('themeToggle');
   function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
   (function(){ var t = null; try { t = localStorage.getItem(THEME_KEY); } catch(e){} if(t==='light') applyTheme('light'); })();
@@ -962,12 +777,46 @@ p { margin:0 0 1rem; }
     try { localStorage.setItem(THEME_KEY, next); } catch(e){}
   });
 
-  // ---- Init ----
-  goTo(0);
-  score();
+  // ---- Continue: persist confirmed scores before navigating ----
+  document.getElementById('btnContinue').addEventListener('click', function(){
+    persist(STATE.scores);
+  });
+
+  // ============================================================
+  //  INIT
+  // ============================================================
+  var loaded = loadSeed();
+  STATE.scores = loaded.scores;
+
+  // eval line
+  var nm = (loaded.intake.data && loaded.intake.data.name) ? loaded.intake.data.name : 'Untitled use case';
+  document.getElementById('wsEval').innerHTML = 'Evaluating: <b>' + escapeHtml(nm) + '</b>' + (loaded.intake.fromDemo ? ' (demo)' : '');
+
+  wireTabs();
+  buildCards();
+  var result = renderLive();
+  persist(STATE.scores); // write initial AI-suggested scores
 
   // Expose for tests
-  window.__gaic = { getState:function(){ return state; }, score:score, goTo:goTo, subScores:subScores, TABS:TABS };
+  window.__feas = {
+    CRITERIA: CRITERIA,
+    PILLARS: PILLARS,
+    composite: composite,
+    pillarScore: pillarScore,
+    pillarScores: pillarScores,
+    quadrant: quadrant,
+    riskTier: riskTier,
+    citizenDev: citizenDev,
+    seedScores: seedScores,
+    loadIntake: loadIntake,
+    loadBxt: loadBxt,
+    loadSeed: loadSeed,
+    persist: persist,
+    render: renderLive,
+    STATE: STATE,
+    result: result,
+    weightSum: CRITERIA.reduce(function(a,c){ return a + c.weight; }, 0)
+  };
 })();
 </script>
 </body>
