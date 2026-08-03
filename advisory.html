@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Platform Advisory — Google AI Catalyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Shared Google design system (external link kept for standalone deploys) -->
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+/* ==========================================================================
+   Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
+   ========================================================================== */
+:root {
+  --g-blue:#4285F4; --g-blue-d:#1a73e8; --g-blue-l:#8ab4f8;
+  --g-red:#EA4335; --g-red-d:#c5221f; --g-yellow:#FBBC04; --g-yellow-d:#f9ab00;
+  --g-green:#34A853; --g-green-d:#188038; --g-purple:#a142f4; --g-teal:#12b5cb; --g-gray:#9aa0a6;
+  --bg:#0d1117; --bg-hero:#0a0f1e; --surface:#161b22; --surface-2:#1c2230; --surface-3:#232a3a;
+  --border:#2a2f3a; --border-soft:rgba(232,234,237,0.08);
+  --text:#e8eaed; --text-muted:rgba(232,234,237,0.65); --text-dim:rgba(232,234,237,0.45);
+  --font-sans:"Google Sans","Product Sans",Roboto,Inter,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --radius:6px; --radius-sm:4px; --radius-lg:8px;
+  --shadow-1:0 1px 2px rgba(0,0,0,0.4),0 0 0 1px var(--border);
+  --shadow-2:0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.02) inset;
+  --header-h:48px; --maxw:1280px;
+}
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:calc(var(--header-h) + 16px); }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
+a { color:inherit; text-decoration:none; }
+p { margin:0 0 1rem; }
+.gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
+.gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
+.gc-btn--primary { background:var(--g-blue); color:#fff; }
+.gc-btn--primary:hover { background:var(--g-blue-d); box-shadow:0 2px 10px rgba(66,133,244,.4); }
+.gc-btn--accent { background:transparent; color:var(--g-yellow); border-color:var(--g-yellow); }
+.gc-btn--accent:hover { background:rgba(251,188,4,.12); }
+.gc-btn--ghost { border-color:var(--border); color:var(--text); }
+.gc-btn--ghost:hover { border-color:var(--g-blue-l); color:var(--g-blue-l); }
+.gc-btn--sm { padding:7px 14px; font-size:13px; }
+.gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
+.gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
+.gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
+.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
+.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
+.gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
+.gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
+.gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
+.gc-header__brand { display:flex; align-items:center; gap:10px; }
+.gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
+.gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
+.gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
+.gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
+.gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
+.gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
+.gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
+.glogo { display:inline-block; vertical-align:middle; }
+</style>
+<style>
+  /* ---------------- Page-specific: Platform Advisory ---------------- */
+  main { padding-top: var(--header-h); }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
+
+  /* Breadcrumb */
+  .crumb { margin-bottom: 18px; }
+  .crumb a { color: var(--text-dim); }
+  .crumb a:hover { color: var(--g-blue-l); }
+
+  /* ---- Gate stepper (6 gates) ---- */
+  .gates { display: flex; align-items: flex-start; margin-bottom: 22px; position: relative; }
+  .gate { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; position: relative; }
+  .gate__pill {
+    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    border: 2px solid var(--surface-3); color: var(--text-dim); background: var(--surface); z-index: 2; transition: all .2s;
+  }
+  .gate.is-active .gate__pill { border-color: var(--g-blue); background: var(--g-blue); color: #fff; box-shadow: 0 0 0 4px rgba(66,133,244,.18); }
+  .gate.is-done .gate__pill { border-color: var(--g-green); background: rgba(52,168,83,.15); color: #81c995; }
+  .gate.is-done .gate__pill svg { width: 14px; height: 14px; }
+  .gate__label { font-size: 11.5px; color: var(--text-dim); line-height: 1.25; max-width: 120px; }
+  .gate.is-active .gate__label { color: var(--g-blue-l); font-weight: 500; }
+  .gate.is-done .gate__label { color: #81c995; }
+  .gate:not(:first-child)::before {
+    content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--surface-3); z-index: 1;
+  }
+
+  /* ---- Gate banner strip ---- */
+  .banner { display: flex; gap: 14px; align-items: flex-start; background: var(--bg-hero); border: 1px solid var(--border); border-left: 4px solid var(--g-blue); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
+  .banner__body { flex: 1; }
+  .banner__title { font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: .12em; color: var(--g-blue-l); text-transform: uppercase; margin-bottom: 6px; }
+  .banner__desc { color: var(--text-muted); font-size: 13.5px; margin: 0; }
+  .banner__desc b { color: var(--text); font-weight: 500; }
+  .banner__actions { flex-shrink: 0; }
+
+  /* ---- Workspace context chip ---- */
+  .wschip {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted);
+    background: rgba(52,168,83,.08); border: 1px solid rgba(52,168,83,.3); border-radius: 100px;
+    padding: 7px 14px; margin-bottom: 22px;
+  }
+  .wschip b { color: #81c995; font-weight: 500; }
+
+  /* ============ 1. VERDICT HERO BAND ============ */
+  .verdict {
+    display: flex; align-items: center; justify-content: space-between; gap: 30px; flex-wrap: wrap;
+    background: linear-gradient(120deg, #1a3a8f 0%, #2b3fb0 42%, #6a2fb8 100%);
+    border: 1px solid rgba(138,180,248,.28); border-radius: var(--radius-lg);
+    padding: 26px 30px; margin-bottom: 30px; box-shadow: 0 6px 28px rgba(66,50,180,.32);
+    position: relative; overflow: hidden;
+  }
+  .verdict::after {
+    content:""; position:absolute; right:-60px; top:-60px; width:260px; height:260px; border-radius:50%;
+    background: radial-gradient(circle, rgba(255,255,255,.10), transparent 68%); pointer-events:none;
+  }
+  .verdict__left { min-width: 260px; position: relative; z-index: 1; }
+  .verdict__gate { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.72); margin-bottom: 10px; }
+  .verdict__name { font-size: 42px; font-weight: 500; line-height: 1.02; letter-spacing: -0.02em; color: #fff; margin-bottom: 12px; }
+  .verdict__meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .verdict__tier { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; padding: 5px 12px; border-radius: 100px; background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.28); }
+  .verdict__chip { font-family: var(--font-mono); font-size: 11.5px; font-weight: 500; padding: 5px 11px; border-radius: 100px; border: 1px solid; letter-spacing: .03em; }
+  .verdict__chip.is-ok { color: #b6f0c4; border-color: rgba(129,201,149,.6); background: rgba(52,168,83,.22); }
+  .verdict__chip.is-review { color: #ffe08a; border-color: rgba(251,188,4,.6); background: rgba(251,188,4,.20); }
+  .verdict__right { display: flex; align-items: center; gap: 16px; position: relative; z-index: 1; }
+  .verdict__picon { width: 58px; height: 58px; border-radius: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); }
+  .verdict__picon svg { width: 30px; height: 30px; }
+  .verdict__pmeta { max-width: 300px; }
+  .verdict__plabel { font-family: var(--font-mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.62); margin-bottom: 4px; }
+  .verdict__pname { font-size: 21px; font-weight: 500; color: #fff; line-height: 1.15; margin-bottom: 6px; }
+  .verdict__pgate { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,.7); line-height: 1.4; }
+  .verdict__pgate code { color: #cfe0ff; }
+
+  /* ============ Section shell ============ */
+  .sec { margin-bottom: 34px; }
+  .sec__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .sec__title { font-size: 21px; }
+  .sec__intro { color: var(--text-muted); font-size: 13.5px; max-width: 760px; margin: 0 0 18px; }
+
+  /* ============ 2. REASONING CARDS ============ */
+  .rcards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .rcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 20px; display: flex; flex-direction: column; }
+  .rcard__top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .rcard__icon { width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: rgba(66,133,244,.14); color: var(--g-blue-l); }
+  .rcard__icon svg { width: 20px; height: 20px; }
+  .rcard__title { font-size: 15px; font-weight: 500; flex: 1; }
+  .rcard__q { font-family: var(--font-mono); font-size: 12px; color: var(--g-blue-l); line-height: 1.45; margin: 0 0 10px; }
+  .rcard__a { font-size: 13.5px; color: var(--text-muted); line-height: 1.55; margin: 0 0 14px; flex: 1; }
+  .rcard__a b { color: var(--text); font-weight: 500; }
+  .rcard__tier { align-self: flex-start; margin-bottom: 12px; }
+  .rcard__exp { border: none; background: transparent; color: var(--g-blue-l); font-family: var(--font-sans); font-size: 12.5px; font-weight: 500; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 5px; }
+  .rcard__exp:hover { color: #fff; }
+  .rcard__exp .caret { transition: transform .2s; display: inline-block; }
+  .rcard.is-open .rcard__exp .caret { transform: rotate(180deg); }
+  .rcard__detail { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+  .rcard.is-open .rcard__detail { display: block; }
+  .rcard__detail b { color: var(--text); font-weight: 500; }
+
+  /* ============ 3. PLATFORM JOURNEY ============ */
+  .journey { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 24px 26px; }
+  .journey__flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: 4px; }
+  .phase { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 18px; background: var(--surface-2); display: flex; flex-direction: column; transition: border-color .2s, box-shadow .2s; }
+  .phase.is-current { border-color: var(--g-blue); box-shadow: 0 0 0 3px rgba(66,133,244,.18); background: linear-gradient(180deg, rgba(66,133,244,.10), var(--surface-2)); }
+  .phase__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .phase__num { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--text-dim); }
+  .phase__badge { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; padding: 3px 9px; border-radius: 100px; }
+  .phase__badge.is-now { color: #fff; background: var(--g-blue); }
+  .phase__badge.is-next { color: var(--text-dim); border: 1px solid var(--border); }
+  .phase__stage { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--g-blue-l); margin-bottom: 4px; }
+  .phase__plat { font-size: 16px; font-weight: 500; margin-bottom: 10px; line-height: 1.2; }
+  .phase__mandate { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin: 0 0 14px; flex: 1; }
+  .phase__trigger { border-radius: var(--radius); padding: 11px 13px; background: var(--surface-3); border: 1px solid var(--border); }
+  .phase__trigger.is-scale { border-color: rgba(251,188,4,.32); background: rgba(251,188,4,.07); }
+  .phase__trigger.is-ready { border-color: rgba(52,168,83,.32); background: rgba(52,168,83,.07); }
+  .phase__tlabel { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 5px; }
+  .phase__trigger.is-scale .phase__tlabel { color: var(--g-yellow); }
+  .phase__trigger.is-ready .phase__tlabel { color: #81c995; }
+  .phase__ttext { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; margin: 0; }
+  .journey__arrow { display: flex; align-items: center; justify-content: center; color: var(--text-dim); padding: 0 2px; }
+  .journey__arrow svg { width: 22px; height: 22px; }
+  .journey__foot { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin: 18px 0 0; }
+  .journey__foot b { color: var(--g-blue-l); font-weight: 500; }
+
+  /* ============ 4. ADVISOR DEBATE ============ */
+  .debate { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-purple); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; }
+  .debate__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; cursor: pointer; user-select: none; }
+  .debate__htext { display: flex; align-items: center; gap: 12px; }
+  .debate__hicon { width: 30px; height: 30px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; background: rgba(161,66,244,.16); color: #d7aefb; flex-shrink: 0; }
+  .debate__hicon svg { width: 17px; height: 17px; }
+  .debate__title { font-size: 15px; font-weight: 500; }
+  .debate__sub { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-dim); }
+  .debate__toggle { font-size: 13px; color: var(--g-blue-l); display: inline-flex; align-items: center; gap: 6px; }
+  .debate__toggle .caret { transition: transform .2s; display: inline-block; }
+  .debate.is-open .debate__toggle .caret { transform: rotate(180deg); }
+  .debate__body { display: none; padding: 4px 22px 22px; }
+  .debate.is-open .debate__body { display: block; }
+  .turn { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .turn__av { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: #fff; }
+  .turn__body { flex: 1; }
+  .turn__who { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+  .turn__role { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+  .turn__say { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 6px 0 0; }
+  .turn__say b { color: var(--text); font-weight: 500; }
+  .turn.is-consensus .turn__say { color: var(--text); }
+  .consensus-tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: #81c995; margin-top: 4px; }
+
+  /* Footer nav */
+  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--border); }
+  .cardnav__right { display: flex; align-items: center; gap: 14px; }
+
+  @media (max-width: 980px) {
+    .rcards { grid-template-columns: 1fr; }
+    .journey__flow { grid-template-columns: 1fr; }
+    .journey__arrow { transform: rotate(90deg); padding: 6px 0; }
+    .gate__label { display: none; }
+    .verdict { padding: 22px; }
+    .verdict__name { font-size: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================ HEADER ============================ -->
+<header class="gc-header">
+  <div class="gc-header__brand">
+    <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+      <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+    </svg>
+    <span class="gc-header__wordmark">Google <b>AI Catalyst</b></span>
+  </div>
+  <div class="gc-header__divider"></div>
+  <span class="gc-header__product">Enterprise Advantage</span>
+  <div class="gc-header__right">
+    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
+    <span class="gc-select">WORKSPACE ▾</span>
+    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <!-- Breadcrumb -->
+    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;<a href="feasibility.html">Feasibility Scoring</a>&nbsp;&nbsp;/&nbsp;&nbsp;Platform Advisory</div>
+
+    <!-- 6-gate stepper -->
+    <div class="gates" id="gates">
+      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Intake</div></div>
+      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">BXT Gate</div></div>
+      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Feasibility Scoring</div></div>
+      <div class="gate is-active"><div class="gate__pill">4</div><div class="gate__label">Platform Advisory</div></div>
+      <div class="gate"><div class="gate__pill">5</div><div class="gate__label">Evaluation Summary</div></div>
+      <div class="gate"><div class="gate__pill">6</div><div class="gate__label">Executive Review Panel</div></div>
+    </div>
+
+    <!-- Gate banner -->
+    <div class="banner">
+      <div class="banner__body">
+        <div class="banner__title">Platform Advisory</div>
+        <p class="banner__desc">The <b>Google AI Decision Framework (GADF)</b> evaluates 5 dimensions to recommend the right Google AI platform for this use case. <b>Why:</b> choosing the right platform early avoids costly re-architecture and accelerates time-to-value.</p>
+      </div>
+      <div class="banner__actions">
+        <button class="gc-btn gc-btn--ghost gc-btn--sm" id="btnRerun" title="Re-read inputs and recompute the recommendation">↻&nbsp;Re-run</button>
+      </div>
+    </div>
+
+    <!-- Workspace context chip -->
+    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+
+    <!-- ============ 1. VERDICT HERO BAND ============ -->
+    <div class="verdict" id="verdictBand">
+      <div class="verdict__left">
+        <div class="verdict__gate" id="vGateLabel">Gate — —</div>
+        <div class="verdict__name" id="vName">—</div>
+        <div class="verdict__meta">
+          <span class="verdict__tier" id="vTier">—</span>
+          <span class="verdict__chip" id="vCompliance">—</span>
+        </div>
+      </div>
+      <div class="verdict__right">
+        <div class="verdict__picon" id="vPlatIcon"></div>
+        <div class="verdict__pmeta">
+          <div class="verdict__plabel">Recommended platform</div>
+          <div class="verdict__pname" id="vPlatform">—</div>
+          <div class="verdict__pgate" id="vGateResolved">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 2. WHY (reasoning cards) ============ -->
+    <section class="sec">
+      <div class="sec__head">
+        <h2 class="sec__title" id="whyTitle">Why this recommendation?</h2>
+        <span class="gc-tag gc-tag--purple">✦ BLENDED</span>
+      </div>
+      <p class="sec__intro">These factors from the GADF evaluation drove this recommendation. Click any card to see the full reasoning.</p>
+      <div class="rcards" id="rcards"></div>
+    </section>
+
+    <!-- ============ 3. PLATFORM JOURNEY ============ -->
+    <section class="sec">
+      <div class="sec__head">
+        <h2 class="sec__title">Your Platform Journey</h2>
+      </div>
+      <p class="sec__intro">Start where you are, scale when ready.</p>
+      <div class="journey">
+        <div class="journey__flow" id="journeyFlow"></div>
+        <p class="journey__foot" id="journeyFoot">GADF sequential ladder · current recommendation highlighted.</p>
+      </div>
+    </section>
+
+    <!-- ============ 4. ADVISOR DEBATE ============ -->
+    <section class="sec">
+      <div class="debate" id="debate">
+        <div class="debate__head" id="debateHead">
+          <div class="debate__htext">
+            <div class="debate__hicon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <div>
+              <div class="debate__title">The Advisor Debate</div>
+              <div class="debate__sub">Turn-based deliberation · consensus</div>
+            </div>
+          </div>
+          <span class="debate__toggle">View debate <span class="caret">▾</span></span>
+        </div>
+        <div class="debate__body" id="debateBody"></div>
+      </div>
+    </section>
+
+    <!-- Footer nav -->
+    <div class="cardnav">
+      <a class="gc-btn gc-btn--ghost" href="feasibility.html" id="btnBack">←&nbsp;Back to Feasibility Scoring</a>
+      <div class="cardnav__right">
+        <a class="gc-btn gc-btn--primary" href="summary.html" id="btnContinue">Continue to Evaluation Summary&nbsp;→</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/api-client.js"></script>
+<script>
+(function(){
+  'use strict';
+  var INTAKE_KEY   = 'gaic_intake';
+  var BXT_KEY      = 'gaic_bxt';
+  var FEAS_KEY     = 'gaic_feasibility';
+  var ADVISORY_KEY = 'gaic_advisory';
+  var THEME_KEY    = 'gaic_theme';
+
+  function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+
+  // ============================================================
+  //  GADF — Google AI Decision Framework
+  //  A sequential 3-gate ladder: ADOPT → LOW-CODE → BUILD.
+  //  "Start Simple, scale when ready."
+  // ============================================================
+  var TIERS = {
+    Adopt:  { tier:'Adopt',  verdictName:'Start Simple', platform:'Gemini for Google Workspace', gateId:'gate1_adopt',   gateLabel:'Gate 1 — Adopt' },
+    Extend: { tier:'Extend', verdictName:'Scale Smart',  platform:'AppSheet / Agentspace',        gateId:'gate2_lowcode', gateLabel:'Gate 2 — Low-Code' },
+    Build:  { tier:'Build',  verdictName:'Build Custom', platform:'Vertex AI Agent Builder',      gateId:'gate3_build',   gateLabel:'Gate 3 — Build' }
+  };
+
+  // ---------- PURE: sequential gate resolution ----------
+  // dims: { workspace_coverage, custom_workflow, ai_complexity, data_sensitivity, scale_need } each 1..5
+  function resolveTier(dims){
+    dims = dims || {};
+    var wc = num(dims.workspace_coverage, 3);
+    var cw = num(dims.custom_workflow, 3);
+    var ac = num(dims.ai_complexity, 3);
+
+    // GATE 1 — ADOPT: can built-in Google Workspace + Gemini handle this out-of-the-box?
+    //   yes when workspace coverage is high AND little custom workflow AND low AI complexity
+    if (wc >= 4 && cw <= 2 && ac <= 2){
+      return Object.assign({}, TIERS.Adopt);
+    }
+    // GATE 3 — BUILD: does this need advanced AI reasoning / multi-step agentic orchestration?
+    //   yes when AI complexity is high — skip low-code, go straight to pro engineering
+    if (ac >= 4){
+      return Object.assign({}, TIERS.Build);
+    }
+    // GATE 2 — LOW-CODE: needs a custom workflow/interface citizen devs can build, moderate AI
+    return Object.assign({}, TIERS.Extend);
+  }
+
+  function num(v, def){ v = Number(v); return isNaN(v) ? def : v; }
+
+  // Compliance chip derived from feasibility risk tier.
+  //   High risk → REVIEW NEEDED (yellow); Low/Medium → COMPLIANT (green)
+  function compliance(riskTier){
+    if (riskTier === 'High') return { label:'REVIEW NEEDED', ok:false };
+    return { label:'COMPLIANT', ok:true };
+  }
+
+  // ============================================================
+  //  LOADERS — feasibility / bxt / intake with graceful fallback
+  // ============================================================
+  var DEMO_INTAKE = {
+    name: 'Customer Sentiment Analysis',
+    dept: 'Customer Experience', sponsor: 'VP Customer Success',
+    driver: 'Customer Experience', value: '$1M–$5M', users: '50–200', align: 'Core strategic priority',
+    maturity: 'Fully manual', dataavail: 'Available but needs cleaning',
+    sources: ['Structured DB','Documents/PDFs','Chat/Tickets'],
+    integrations: ['Google Workspace','BigQuery'],
+    realtime: false, adoption: 'Medium', change: false,
+    autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
+  };
+
+  function loadFromKey(key){
+    var parsed = null;
+    try { parsed = JSON.parse(localStorage.getItem(key)); } catch(e){ parsed = null; }
+    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
+      return { data: null, fromDemo: true };
+    }
+    return { data: parsed, fromDemo: false };
+  }
+
+  function loadIntake(){
+    var l = loadFromKey(INTAKE_KEY);
+    if (l.fromDemo) return { data: DEMO_INTAKE, fromDemo: true };
+    return l;
+  }
+  function loadBxt(){ return loadFromKey(BXT_KEY); }
+  function loadFeasibility(){ return loadFromKey(FEAS_KEY); }
+
+  // ============================================================
+  //  DERIVE the 5 GADF dimensions from feasibility + intake
+  //  (pure; graceful with partial inputs)
+  // ============================================================
+  function deriveDimensions(feas, intake){
+    feas = feas || {};
+    intake = intake || {};
+    var sc = (feas && feas.scores) ? feas.scores : {};
+
+    function s(id, def){ return num(sc[id], def); }
+    function band(map, v, def){ return (v != null && map[v] !== undefined) ? map[v] : def; }
+
+    var sources = Array.isArray(intake.sources) ? intake.sources : [];
+    var unstructured = sources.filter(function(x){
+      return ['Documents/PDFs','Audio/Video','Images','Chat/Tickets','Web'].indexOf(x) > -1;
+    }).length;
+
+    // 1) workspace_coverage — can Workspace + Gemini out-of-the-box cover it?
+    //    higher when integration fits the stack, tech is simple, and process is already mature
+    var maturityBoost = band({ 'Fully manual':-1,'Partially automated':0,'Mostly automated':1,'Highly automated':1 }, intake.maturity, 0);
+    var workspace_coverage = clamp(Math.round((s('integ_effort',3) + s('tech_complex',3)) / 2) + maturityBoost - (unstructured >= 2 ? 1 : 0), 1, 5);
+
+    // 2) custom_workflow — need for a bespoke interface / process
+    //    higher when process is manual (nothing exists yet) or many sources to stitch together
+    var custom_workflow = clamp(3 + (maturityBoost < 0 ? 1 : 0) + (sources.length >= 3 ? 1 : 0) - (s('integ_effort',3) >= 5 ? 1 : 0), 1, 5);
+
+    // 3) ai_complexity — advanced reasoning / multi-step agentic orchestration
+    //    higher with unstructured data, real-time needs, and autonomous operation
+    var autonomyBoost = band({ 'Advisory':0,'Supervised':1,'Autonomous':2 }, intake.autonomy, 1);
+    var ai_complexity = clamp(1 + unstructured + (intake.realtime === true ? 1 : 0) + (autonomyBoost >= 2 ? 1 : 0), 1, 5);
+
+    // 4) data_sensitivity — from intake sensitivity + PII
+    var data_sensitivity = clamp(band({ 'Low':1,'Medium':3,'High':5 }, intake.sensitivity, 3) + (intake.pii === true ? 1 : 0) - 1, 1, 5);
+
+    // 5) scale_need — from user count / value band
+    var scale_need = clamp(Math.round((
+      band({ '<10':1,'10–50':2,'50–200':3,'200–1000':4,'>1000':5 }, intake.users, 3) +
+      band({ '<$100K':1,'$100K–$500K':2,'$500K–$1M':3,'$1M–$5M':4,'>$5M':5 }, intake.value, 3)
+    ) / 2), 1, 5);
+
+    return {
+      workspace_coverage: workspace_coverage,
+      custom_workflow: custom_workflow,
+      ai_complexity: ai_complexity,
+      data_sensitivity: data_sensitivity,
+      scale_need: scale_need
+    };
+  }
+
+  // ============================================================
+  //  COMPUTE — end-to-end advisory result
+  // ============================================================
+  function compute(){
+    var intakeL = loadIntake();
+    var bxtL    = loadBxt();
+    var feasL   = loadFeasibility();
+
+    var dims = deriveDimensions(feasL.data, intakeL.data);
+    var resolved = resolveTier(dims);
+    var riskTier = (feasL.data && feasL.data.risk) ? feasL.data.risk : 'Medium';
+    var comp = compliance(riskTier);
+
+    return {
+      dims: dims,
+      tier: resolved.tier,
+      verdictName: resolved.verdictName,
+      platform: resolved.platform,
+      gateId: resolved.gateId,
+      gateLabel: resolved.gateLabel,
+      compliance: comp,
+      riskTier: riskTier,
+      intake: intakeL,
+      bxt: bxtL,
+      feasibility: feasL,
+      ts: Date.now()
+    };
+  }
+
+  function persist(result){
+    var payload = {
+      tier: result.tier,
+      verdictName: result.verdictName,
+      platform: result.platform,
+      gateId: result.gateId,
+      dims: result.dims,
+      compliance: result.compliance.label,
+      riskTier: result.riskTier,
+      ts: Date.now()
+    };
+    try { localStorage.setItem(ADVISORY_KEY, JSON.stringify(payload)); } catch(e){}
+    // --- API integration (best-effort, non-blocking) ---
+    try {
+      if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
+        var _ucId = null;
+        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        window.GAIC_API.saveGate(_ucId, 'advisory', {
+          tier: result.tier,
+          verdict_name: result.verdictName,
+          recommended_platform: result.platform,
+          gate_resolved: result.gateLabel || result.gateId,
+          reasoning: { dims: result.dims, compliance: result.compliance, riskTier: result.riskTier },
+          journey: PHASES.map(function(p){ return { tier: p.tier, stage: p.stage, platform: p.platform, current: p.tier === result.tier }; })
+        }).catch(function(){});
+      }
+    } catch(e){}
+    return payload;
+  }
+
+  // ============================================================
+  //  STATIC CONTENT — platform icons, reasoning cards, phases, debate
+  // ============================================================
+  var ICONS = {
+    workspace: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M3 10h18M8 4v14"/></svg>',
+    lowcode:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6M13 4l-2 16"/></svg>',
+    build:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 9V5M10.3 13.7 6.5 17.3M13.7 13.7l3.8 3.6"/></svg>'
+  };
+  function platIcon(tier){
+    if (tier === 'Adopt') return ICONS.workspace;
+    if (tier === 'Build') return ICONS.build;
+    return ICONS.lowcode;
+  }
+
+  var REASON_CARDS = [
+    {
+      key:'workspace_coverage', icon:ICONS.workspace, title:'Workspace Coverage', tierPoint:'Adopt',
+      q:'Can built-in Google Workspace tools handle this?',
+      answer:function(d){
+        return d.workspace_coverage >= 4
+          ? 'Yes — <b>Gemini for Google Workspace</b> covers the core need out-of-the-box. Native Gmail, Docs, Sheets and Chat surfaces reach the users with zero build.'
+          : 'Partly — <b>Gemini for Google Workspace</b> handles pieces, but the workflow reaches past what native surfaces do alone, so a configured layer is warranted.';
+      },
+      detail:function(d){
+        return 'Workspace-coverage score <b>'+d.workspace_coverage+'/5</b>. GADF Gate 1 (Adopt) opens only when coverage is high (≥4), custom workflow is minimal (≤2) and AI complexity is low (≤2). '
+          + (d.workspace_coverage >= 4 ? 'Coverage clears the bar here.' : 'Coverage falls short of a pure out-of-the-box fit, so Gate 1 does not resolve.');
+      }
+    },
+    {
+      key:'custom_workflow', icon:ICONS.lowcode, title:'Custom Workflow', tierPoint:'Extend',
+      q:'Does this need a custom interface or process?',
+      answer:function(d){
+        return d.custom_workflow >= 3
+          ? 'Yes — a purpose-built flow is needed. <b>AppSheet / Agentspace</b> lets citizen developers assemble the interface, data connections and approval steps as a low-code app or agent.'
+          : 'Minimal — the process maps cleanly onto existing surfaces, so a heavy custom build is not justified.';
+      },
+      detail:function(d){
+        return 'Custom-workflow score <b>'+d.custom_workflow+'/5</b>. When a bespoke process is required but the AI reasoning stays moderate (≤3), GADF Gate 2 (Low-Code) resolves to <b>AppSheet / Agentspace</b> — fast to ship, governed, and owned close to the business.';
+      }
+    },
+    {
+      key:'ai_complexity', icon:ICONS.build, title:'AI Complexity', tierPoint:'Build',
+      q:'Does this need advanced AI reasoning or multi-step orchestration?',
+      answer:function(d){
+        return d.ai_complexity >= 4
+          ? 'Yes — multi-step, tool-using agentic reasoning is required. <b>Vertex AI Agent Builder</b> supports custom orchestration, grounding and evaluation at production scale.'
+          : 'Not yet — the reasoning is bounded and single-step, so low-code covers it without the overhead of <b>Vertex AI Agent Builder</b> multi-step pipelines.';
+      },
+      detail:function(d){
+        return 'AI-complexity score <b>'+d.ai_complexity+'/5</b>. GADF Gate 3 (Build) resolves when complexity is high (≥4) — unstructured inputs, real-time needs, or autonomous multi-step orchestration push the workload to <b>Vertex AI Agent Builder</b>.';
+      }
+    }
+  ];
+
+  var PHASES = [
+    {
+      tier:'Adopt', num:'Phase 1', stage:'Adopt First', badge:'Now', badgeClass:'is-now',
+      platform:'Gemini for Google Workspace',
+      mandate:'Start here to validate the problem hypothesis with zero build investment — turn on Gemini in the surfaces users already live in.',
+      triggerLabel:'Ready to move on when…', triggerClass:'is-ready',
+      triggerText:'Move to Phase 2 when Workspace-native features are confirmed insufficient after a 30-day pilot.'
+    },
+    {
+      tier:'Extend', num:'Phase 2', stage:'Extend', badge:'Next', badgeClass:'is-next',
+      platform:'AppSheet / Agentspace',
+      mandate:'Build a low-code agent or app; citizen-dev delivery if team maturity supports it, with governed data connections and approvals.',
+      triggerLabel:'Scale trigger', triggerClass:'is-scale',
+      triggerText:'Move to Phase 3 when the pilot hits its target KPI and secures executive sign-off.'
+    },
+    {
+      tier:'Build', num:'Phase 3', stage:'Scale / Build', badge:'Later', badgeClass:'is-next',
+      platform:'Vertex AI Agent Builder',
+      mandate:'Migrate for enterprise-grade agentic capability at full production volume — custom orchestration, grounding and evaluation.',
+      triggerLabel:'Scale trigger', triggerClass:'is-scale',
+      triggerText:"You've arrived when the projected annual savings is achieved and the solution handles full production load."
+    }
+  ];
+
+  // Named Google-flavored advisors — deterministic scripted debate resolving to the verdict.
+  function debateScript(result){
+    var t = result.tier;
+    var plat = result.platform;
+    var turns = [
+      {
+        who:'Priya Nadar', role:'Workspace Advocate', color:'var(--g-blue)', initials:'PN',
+        say:'My instinct is to <b>start simple</b> — most needs are met by Gemini for Google Workspace before we build anything. What does the coverage signal say?'
+      },
+      {
+        who:'Marcus Lee', role:'Platform Architect', color:'var(--g-purple)', initials:'ML',
+        say: t === 'Adopt'
+          ? 'Coverage is genuinely high and AI complexity is low, so I agree — <b>out-of-the-box</b> holds. No custom workflow to justify a build.'
+          : (t === 'Build'
+              ? 'Coverage is real, but the AI complexity here is high — multi-step, tool-using reasoning. Native surfaces cannot orchestrate that; this belongs on <b>Vertex AI Agent Builder</b>.'
+              : 'Coverage helps, but there is a genuine custom workflow to assemble. Native surfaces alone will not stitch the process — that points at low-code.')
+      },
+      {
+        who:'Dana Osei', role:'Governance Lead', color:'var(--g-green)', initials:'DO',
+        say: t === 'Build'
+          ? 'From a controls view a pro-engineered build gives us the grounding and evaluation guardrails we need at production scale. I can sign off on <b>'+plat+'</b> with the standard review.'
+          : (t === 'Adopt'
+              ? 'Governance is comfortable — staying inside managed Workspace surfaces keeps the risk envelope tight. <b>'+plat+'</b> it is.'
+              : 'Low-code keeps delivery close to the business while staying governed. <b>AppSheet / Agentspace</b> gives us auditable connections without a full engineering lift.')
+      },
+      {
+        who:'Consensus', role:'Panel decision', color:'var(--g-blue-d)', initials:'✓', consensus:true,
+        say:'Agreed. GADF resolves to the <b>'+result.verdictName+'</b> ('+result.tier+') tier — recommended platform <b>'+plat+'</b>.'
+      }
+    ];
+    return turns;
+  }
+
+  // ============================================================
+  //  RENDER
+  // ============================================================
+  function esc(str){
+    return String(str).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
+    });
+  }
+
+  function tierChipClass(tier){
+    if (tier === 'Adopt') return 'gc-tag gc-tag--green';
+    if (tier === 'Build') return 'gc-tag gc-tag--purple';
+    return 'gc-tag gc-tag--blue';
+  }
+
+  function renderVerdict(result){
+    document.getElementById('vGateLabel').textContent = result.gateLabel;
+    document.getElementById('vName').textContent = result.verdictName;
+    document.getElementById('vTier').textContent = result.tier;
+    document.getElementById('whyTitle').textContent = 'Why ' + result.verdictName + '?';
+
+    var chip = document.getElementById('vCompliance');
+    chip.textContent = result.compliance.label;
+    chip.className = 'verdict__chip ' + (result.compliance.ok ? 'is-ok' : 'is-review');
+
+    document.getElementById('vPlatIcon').innerHTML = platIcon(result.tier);
+    document.getElementById('vPlatform').textContent = result.platform;
+    document.getElementById('vGateResolved').innerHTML =
+      'GADF Sequential Gate resolved <b>' + esc(result.tier) + '</b> tier at <code>' + esc(result.gateId) + '</code>.';
+  }
+
+  function renderCards(result){
+    var host = document.getElementById('rcards');
+    host.innerHTML = '';
+    REASON_CARDS.forEach(function(c){
+      var card = document.createElement('div');
+      card.className = 'rcard';
+      if (c.tierPoint === result.tier) card.classList.add('is-open');
+      card.setAttribute('data-card', c.key);
+      card.innerHTML =
+        '<div class="rcard__top">'
+        +  '<div class="rcard__icon">'+c.icon+'</div>'
+        +  '<div class="rcard__title">'+esc(c.title)+'</div>'
+        + '</div>'
+        + '<span class="'+tierChipClass(c.tierPoint)+' rcard__tier">'+esc(c.tierPoint)+' tier</span>'
+        + '<p class="rcard__q">'+esc(c.q)+'</p>'
+        + '<p class="rcard__a">'+c.answer(result.dims)+'</p>'
+        + '<button class="rcard__exp" type="button">See rationale <span class="caret">▾</span></button>'
+        + '<div class="rcard__detail">'+c.detail(result.dims)+'</div>';
+      host.appendChild(card);
+      card.querySelector('.rcard__exp').addEventListener('click', function(){
+        card.classList.toggle('is-open');
+      });
+    });
+  }
+
+  function renderJourney(result){
+    var flow = document.getElementById('journeyFlow');
+    flow.innerHTML = '';
+    PHASES.forEach(function(p, i){
+      if (i > 0){
+        var arrow = document.createElement('div');
+        arrow.className = 'journey__arrow';
+        arrow.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+        flow.appendChild(arrow);
+      }
+      var phase = document.createElement('div');
+      phase.className = 'phase';
+      if (p.tier === result.tier) phase.classList.add('is-current');
+      phase.setAttribute('data-phase', p.tier);
+      phase.innerHTML =
+        '<div class="phase__head">'
+        +  '<span class="phase__num">'+esc(p.num)+'</span>'
+        +  '<span class="phase__badge '+p.badgeClass+'">'+esc(p.badge)+'</span>'
+        + '</div>'
+        + '<div class="phase__stage">'+esc(p.stage)+'</div>'
+        + '<div class="phase__plat">'+esc(p.platform)+'</div>'
+        + '<p class="phase__mandate">'+esc(p.mandate)+'</p>'
+        + '<div class="phase__trigger '+p.triggerClass+'">'
+        +   '<div class="phase__tlabel">'+esc(p.triggerLabel)+'</div>'
+        +   '<p class="phase__ttext">'+esc(p.triggerText)+'</p>'
+        + '</div>';
+      flow.appendChild(phase);
+    });
+    document.getElementById('journeyFoot').innerHTML =
+      'GADF sequential ladder · current recommendation: <b>' + esc(result.verdictName) + '</b> (' + esc(result.tier) + ').';
+  }
+
+  function renderDebate(result){
+    var body = document.getElementById('debateBody');
+    body.innerHTML = '';
+    debateScript(result).forEach(function(turn){
+      var el = document.createElement('div');
+      el.className = 'turn' + (turn.consensus ? ' is-consensus' : '');
+      el.setAttribute('data-turn', '1');
+      el.innerHTML =
+        '<div class="turn__av" style="background:'+turn.color+';">'+esc(turn.initials)+'</div>'
+        + '<div class="turn__body">'
+        +   '<div class="turn__who">'+esc(turn.who)+'</div>'
+        +   '<div class="turn__role">'+esc(turn.role)+'</div>'
+        +   '<p class="turn__say">'+turn.say+'</p>'
+        +   (turn.consensus ? '<span class="consensus-tag">✓ Consensus reached</span>' : '')
+        + '</div>';
+      body.appendChild(el);
+    });
+  }
+
+  function renderAll(result){
+    renderVerdict(result);
+    renderCards(result);
+    renderJourney(result);
+    renderDebate(result);
+
+    var intake = result.intake;
+    var nm = (intake.data && intake.data.name) ? intake.data.name : 'Untitled use case';
+    document.getElementById('wsEval').innerHTML =
+      'Evaluating: <b>' + esc(nm) + '</b>' + (intake.fromDemo ? ' (demo)' : '');
+  }
+
+  // ============================================================
+  //  WIRING
+  // ============================================================
+  var STATE = { result: null };
+
+  function run(){
+    var result = compute();
+    STATE.result = result;
+    renderAll(result);
+    persist(result);
+    return result;
+  }
+
+  // Debate collapsible
+  document.getElementById('debateHead').addEventListener('click', function(){
+    document.getElementById('debate').classList.toggle('is-open');
+  });
+
+  // Re-run — re-read inputs and recompute
+  document.getElementById('btnRerun').addEventListener('click', function(){
+    run();
+    var band = document.getElementById('verdictBand');
+    band.style.transition = 'none'; band.style.opacity = '0.55';
+    setTimeout(function(){ band.style.transition = 'opacity .4s'; band.style.opacity = '1'; }, 20);
+  });
+
+  // Theme toggle (persisted, same pattern as feasibility.html / bxt.html)
+  var themeBtn = document.getElementById('themeToggle');
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
+  (function(){ var t = null; try { t = localStorage.getItem(THEME_KEY); } catch(e){} if(t==='light') applyTheme('light'); })();
+  themeBtn.addEventListener('click', function(){
+    var cur = document.documentElement.getAttribute('data-theme')==='light' ? 'light':'dark';
+    var next = cur==='light' ? 'dark':'light';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+  });
+
+  // ============================================================
+  //  INIT
+  // ============================================================
+  var initial = run();
+
+  // Expose pure functions + state for tests
+  window.__adv = {
+    TIERS: TIERS,
+    resolveTier: resolveTier,
+    compliance: compliance,
+    deriveDimensions: deriveDimensions,
+    compute: compute,
+    persist: persist,
+    loadIntake: loadIntake,
+    loadBxt: loadBxt,
+    loadFeasibility: loadFeasibility,
+    debateScript: debateScript,
+    REASON_CARDS: REASON_CARDS,
+    PHASES: PHASES,
+    run: run,
+    STATE: STATE,
+    result: initial
+  };
+})();
+</script>
+</body>
+</html>
