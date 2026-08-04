@@ -362,7 +362,7 @@ p { margin:0 0 1rem; }
   // Deep-link override: when the page is opened with ?id=<use_case_id>, the
   // fetched case's real intake + Gate 5 summary are stored here and take
   // precedence over localStorage in loadIntake()/loadSummary().
-  var DEEP = { intake: null, summary: null };
+  var DEEP = { intake: null, summary: null, feas: null, advisory: null };
 
   // ---------- helpers ----------
   function esc(str){
@@ -377,6 +377,65 @@ p { margin:0 0 1rem; }
     if (a >= 1e6) return (n<0?'-':'') + '$' + (Math.round(a/1e5)/10) + 'M';
     if (a >= 1e3) return (n<0?'-':'') + '$' + Math.round(a/1e3) + 'K';
     return (n<0?'-':'') + '$' + Math.round(a);
+  }
+  function clamp(n, lo, hi){ return Math.max(lo, Math.min(hi, n)); }
+
+  // ============================================================
+  //  ECONOMICS — mirrors summary.html annualValue()/implCost() so the
+  //  persona dialogue + Executive Brief quote the SAME modeled figures the
+  //  Summary hero shows (fixes #5: was hardcoded $12M/$3.2M/34%).
+  // ============================================================
+  var VALUE_MID = {
+    '<$100K':60000, '$100K–$500K':300000, '$500K–$1M':750000,
+    '$1M–$5M':3000000, '>$5M':8000000
+  };
+  var TIER_COST = { Adopt:120000, Extend:380000, Build:950000 };
+  function annualValueOf(intake, feas){
+    var base = VALUE_MID[intake && intake.value] || 750000;
+    var bv = (feas && feas.scores && Number(feas.scores.biz_value)) || 3;
+    return base * (0.6 + 0.2 * clamp(bv,1,5));
+  }
+  function implCostOf(advisory){
+    var tier = (advisory && advisory.tier) || 'Extend';
+    return TIER_COST[tier] || TIER_COST.Extend;
+  }
+  // Operational cost-reduction estimate, derived (not hardcoded). Scales off the
+  // Business Value criterion when available (biz_value 3 -> 20%, 5 -> 34%), else
+  // falls back to the value/cost leverage. Bounded to a realistic 8–45% band.
+  function costReductionPctOf(annualValue, implCost, feas){
+    var bv = feas && feas.scores && Number(feas.scores.biz_value);
+    if (bv) return clamp(Math.round(20 + (clamp(bv,1,5) - 3) * 7), 8, 45);
+    var lev = implCost > 0 ? (annualValue / implCost) : 1;
+    return clamp(Math.round(12 + Math.log(Math.max(1, lev)) / Math.LN2 * 6), 8, 45);
+  }
+  // Single source for the panel's financial figures. Prefers persisted summary
+  // roi values (value/cost) when present; otherwise recomputes from the case's
+  // own intake/feasibility/advisory using the same model as summary.html.
+  function caseEconomics(){
+    var intake   = loadIntake().data || {};
+    var summary  = loadSummary().data || {};
+    var feas     = (DEEP.feas)     || loadJSON(FEAS_KEY, {}).data     || {};
+    var advisory = (DEEP.advisory) || loadJSON(ADVISORY_KEY, {}).data || {};
+    var roi = (summary && summary.roi) || {};
+    // summary persists value/cost as roi.value/roi.cost (app) or roi.annualValue/roi.cost (demo)
+    var annualValue = (roi.annualValue != null ? Number(roi.annualValue)
+                       : roi.value != null ? Number(roi.value)
+                       : annualValueOf(intake, feas));
+    var implCost = (roi.cost != null ? Number(roi.cost) : implCostOf(advisory));
+    return {
+      annualValue: Math.round(annualValue),
+      implCost: Math.round(implCost),
+      reductionPct: costReductionPctOf(annualValue, implCost, feas)
+    };
+  }
+  // Substitute {{SAVINGS}}/{{INVEST}}/{{REDUCTION}} tokens in dialogue strings
+  // with the derived economics. No-op on strings without tokens (e.g. live AI).
+  function fillEcon(str){
+    var e = caseEconomics();
+    return String(str)
+      .replace(/\{\{SAVINGS\}\}/g,   fmtUsd(e.annualValue))
+      .replace(/\{\{INVEST\}\}/g,    fmtUsd(e.implCost))
+      .replace(/\{\{REDUCTION\}\}/g, e.reductionPct + '%');
   }
 
   // ============================================================
@@ -451,10 +510,10 @@ p { margin:0 0 1rem; }
   };
 
   var DELIBERATION = [
-    { p:'BS', say:'This initiative delivers a projected <b>34% reduction</b> in operational processing costs within 18 months — that\u2019s <b>$12M in hard savings</b> against a $3.2M investment. We have board mandate, budget allocated, and three pilot departments ready to onboard. I\u2019m committing to a fully measurable ROI dashboard at the 90-day mark.' },
+    { p:'BS', say:'This initiative delivers a projected <b>{{REDUCTION}} reduction</b> in operational processing costs within 18 months — that\u2019s <b>{{SAVINGS}} in annual value</b> against a {{INVEST}} investment. We have board mandate, budget allocated, and three pilot departments ready to onboard. I\u2019m committing to a fully measurable ROI dashboard at the 90-day mark.' },
     { p:'RA', say:'Our top risk is <b>data sovereignty</b>: we cannot confirm where inference workloads will reside across jurisdictions. My condition is simple — vendor contractual lock-in of data residency to Tier-1 compliant regions before any production deployment. Without that, we breach <b>GDPR Article 46</b> and expose the enterprise to eight-figure regulatory liability.' },
     { p:'CI', say:'Our current architecture is a hybrid <b>Google Cloud</b>-on-prem estate running on a 2021 reference stack — we have not completed the API gateway modernisation that this AI layer depends on. Integration complexity scores a <b>7 out of 10</b> on our internal TOGAF risk matrix. We need six additional weeks for infrastructure readiness before the platform can support production load.' },
-    { p:'BS', say:'I concede both points — they\u2019re valid and I won\u2019t minimise them. My mitigation: we contract <b>Assured Workloads</b> regions for data residency today, locking compliance before go-live, and we absorb the six-week infrastructure runway inside Phase 1, preserving the 18-month ROI timeline. The <b>$12M outcome</b> is not at risk if we sequence correctly.' },
+    { p:'BS', say:'I concede both points — they\u2019re valid and I won\u2019t minimise them. My mitigation: we contract <b>Assured Workloads</b> regions for data residency today, locking compliance before go-live, and we absorb the six-week infrastructure runway inside Phase 1, preserving the 18-month ROI timeline. The <b>{{SAVINGS}} outcome</b> is not at risk if we sequence correctly.' },
     { p:'RA', say:'<b>Assured Workloads</b> regions satisfy Article 46 adequacy requirements — I accept that mitigation, provided the data residency clause is executed as a <b>condition precedent to contract signature</b>, not a post-award action. Final position: supportable with that single contractual gate enforced.' },
     { p:'CI', say:'Absorbing the six-week runway into Phase 1 is technically feasible only if we <b>freeze scope</b> on the API gateway work immediately — no parallel change requests. I\u2019m confirming <b>CONDITIONAL</b> technical readiness: the platform will be production-grade by Week 6, provided we invoke <b>Change Freeze Protocol CF-7</b> starting Monday.' },
     { p:'CC', say:'All three perspectives align on a viable path: the business case is strong, the compliance risk has a contractually enforceable remedy, and technology readiness is achievable within the existing timeline under a scoped freeze. This committee issues a <b>CONDITIONAL GO</b> — the single gate is execution of the data residency clause prior to contract signature, with <b>CF-7</b> invoked concurrently. Progress review is mandated at the <b>90-day ROI dashboard</b> checkpoint.' }
@@ -515,7 +574,7 @@ p { margin:0 0 1rem; }
         + '<div class="turn__body">'
         +   '<div class="turn__who">' + esc(persona.name) + '</div>'
         +   '<div class="turn__role">' + esc(persona.role) + '</div>'
-        +   '<p class="turn__say">' + turn.say + '</p>'
+        +   '<p class="turn__say">' + fillEcon(turn.say) + '</p>'
         + '</div>';
       host.appendChild(el);
       els.push(el);
@@ -589,6 +648,10 @@ p { margin:0 0 1rem; }
     var composite = (summary && summary.composite != null) ? summary.composite : '—';
     var p50 = roi.p50, p10 = roi.p10, p90 = roi.p90;
     var payback = roi.payback;
+    // Derived economics — same model as summary.html (#5). Used for the
+    // modeled value/cost figures and the {{SAVINGS}}/{{REDUCTION}} tokens so
+    // the Brief matches the ~$900K/$120K shown on the Summary hero.
+    var econ = caseEconomics();
 
     var verdictSentence =
       v.key === 'go'
@@ -629,9 +692,9 @@ p { margin:0 0 1rem; }
       +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + fmtPct(p50) + '</div></div>'
       +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + fmtPct(p90) + '</div></div>'
       +   '</div>'
-      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + '</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + '. Modeled annual value is <b>' + fmtUsd(roi.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(roi.cost) + '</b>'
+      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + '</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + '. Modeled annual value is <b>' + fmtUsd(econ.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(econ.implCost) + '</b>'
       +     (payback != null ? ', with payback in approximately <b>' + esc(String(payback)) + ' months</b>' : '') + '.</p>'
-      +   '<p>The Business Sponsor commits to a fully measurable ROI dashboard at the 90-day mark, targeting a <b>34% reduction</b> in operational processing costs and $12M in hard savings against the phased investment.</p>'
+      +   fillEcon('<p>The Business Sponsor commits to a fully measurable ROI dashboard at the 90-day mark, targeting a <b>{{REDUCTION}} reduction</b> in operational processing costs and {{SAVINGS}} in annual value against the phased investment.</p>')
       + '</div>'
 
       // Section 3 — Conditions & Next Steps
@@ -773,6 +836,10 @@ p { margin:0 0 1rem; }
         if (opts){
           if (opts.intake) DEEP.intake = opts.intake;
           if (opts.panelSummary) DEEP.summary = opts.panelSummary;
+          // Capture feas/advisory too so caseEconomics() derives the SAME
+          // annual value / implementation cost the Summary shows for this case (#5).
+          if (opts.feas) DEEP.feas = opts.feas;
+          if (opts.advisory) DEEP.advisory = opts.advisory;
           if (opts.id){ try { localStorage.setItem('gaic_use_case_id', opts.id); } catch(e){} }
         }
       }).catch(function(){}).then(function(){

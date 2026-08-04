@@ -110,6 +110,25 @@ ok('model has roi/frameworks/governance/tally', !!(model.roi && model.frameworks
 ok('portfolio composite 0..100', model.composite >= 0 && model.composite <= 100);
 ok('useCase name flows through', model.useCase === 'Fraud Signal Triage');
 
+console.log('\n== 8b. #3: persisted ROI override is applied BEFORE frameworkRollup (hero == Gartner foot) ==');
+// Simulate a deep-linked case whose committed Gate-5 P50 (e.g. +336%) differs from
+// the raw Monte-Carlo recompute. The hero, the Gartner foot caption, and any other
+// p50 reference must all show the SAME final roi.p50 — not the raw MC p50.
+const COMMITTED_P50 = 336;
+const modelDL = api.computeSummary({
+  intake: INTAKE, bxt: BXT, feas: FEAS, advisory: ADV, trials: 3000,
+  panelSummary: { roi: { p10: 120, p50: COMMITTED_P50, p90: 560 } }
+});
+ok('hero roi.p50 uses committed override (' + COMMITTED_P50 + ')', modelDL.roi.p50 === COMMITTED_P50);
+const gartnerCard = modelDL.frameworks.find(f => f.key === 'gartner');
+ok('Gartner card present', !!gartnerCard);
+// Extract the P50 the Gartner foot renders and compare to the hero value.
+const footMatch = /P50 ROI <b>([+\-]?[\d,]+)%<\/b>/.exec(gartnerCard.foot);
+ok('Gartner foot exposes a P50 percentage', !!footMatch);
+const gartnerFootP50 = footMatch ? Number(footMatch[1].replace(/[+,]/g, '')) : NaN;
+ok('Gartner foot P50 (' + gartnerFootP50 + ') == hero P50 (' + modelDL.roi.p50 + ')', gartnerFootP50 === modelDL.roi.p50);
+ok('Gartner foot P50 is NOT the raw Monte-Carlo p50', gartnerFootP50 !== api.monteCarloROI(INTAKE, FEAS, ADV, 3000).p50);
+
 // Sections 9+ depend on init() which runs on DOMContentLoaded (async in jsdom).
 setTimeout(() => {
 console.log('\n== 9. DOM render: ROI hero + framework cards + governance rows ==');

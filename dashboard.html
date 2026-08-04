@@ -434,11 +434,14 @@ p { margin:0 0 1rem; }
   function renderKPIs(rows) {
     var c = verdictCounts(rows);
 
-    // Portfolio P50 ROI — sum of available roi_p50 values.
+    // Avg P50 ROI — AVERAGE (not sum) of evaluated cases' roi_p50. Summing was
+    // meaningless (#10): it produced absurd totals like +4917% and grew with
+    // portfolio size. The average reflects a representative per-case ROI, and for
+    // a single case it equals that case's own P50 so the KPI matches Summary/Brief.
     var p50vals = rows.map(function (r) { return num(r.roi_p50); }).filter(function (n) { return n !== null; });
-    var p50sum = p50vals.reduce(function (a, b) { return a + b; }, 0);
-    var p50label = p50vals.length ? fmtPct(p50sum) : '—';
-    var p50note = p50vals.length ? ('sum across ' + p50vals.length + ' case' + (p50vals.length === 1 ? '' : 's')) : 'no data';
+    var p50avg = p50vals.length ? (p50vals.reduce(function (a, b) { return a + b; }, 0) / p50vals.length) : null;
+    var p50label = p50vals.length ? fmtPct(p50avg) : '—';
+    var p50note = p50vals.length ? ('avg across ' + p50vals.length + ' evaluated case' + (p50vals.length === 1 ? '' : 's')) : 'no data';
 
     // Avg feasibility composite (/5)
     var fvals = rows.map(function (r) { return num(r.feasibility_composite); }).filter(function (n) { return n !== null; });
@@ -450,7 +453,7 @@ p { margin:0 0 1rem; }
       { k: 'GO', v: String(c.go), cls: 'is-green', note: 'cleared to build' },
       { k: 'Conditional GO', v: String(c.cond), cls: 'is-yellow', note: 'with condition' },
       { k: 'No-Go', v: String(c.no), cls: 'is-red', note: 'paused' },
-      { k: 'Portfolio P50 ROI', v: p50label, cls: 'is-blue', note: p50note },
+      { k: 'Avg P50 ROI', v: p50label, cls: 'is-blue', note: p50note },
       { k: 'Avg Feasibility', v: favgLabel === '—' ? '—' : favgLabel + ' <span style="font-size:15px;color:var(--text-dim)">/5</span>', cls: '', note: 'composite score' },
     ];
 
@@ -646,6 +649,20 @@ p { margin:0 0 1rem; }
       try { localStorage.setItem(THEME_KEY, document.body.classList.contains('theme-light') ? 'light' : 'dark'); } catch (e) {}
     });
   })();
+
+  // ============================================================
+  //  TEST SEAM — mirrors kanban/portfolio-map. Exposes the pure helpers and
+  //  lets tests render a fixed portfolio without any network so the KPI math
+  //  (avg P50, verdict tally) can be asserted deterministically.
+  // ============================================================
+  window.__dash = {
+    verdictKey: verdictKey, verdictLabel: verdictLabel,
+    verdictCounts: verdictCounts, renderKPIs: renderKPIs, render: render, num: num, fmtPct: fmtPct
+  };
+  if (Array.isArray(window.__DASH_TEST_ROWS)) {
+    render(window.__DASH_TEST_ROWS);
+    return;
+  }
 
   // ============================================================
   //  BOOT

@@ -15,6 +15,7 @@ function click(w, el){ el.dispatchEvent(new w.MouseEvent('click', {bubbles:true}
 // A high-scoring intake object → PASS
 const HIGH = {
   name: 'Automated invoice reconciliation',
+  desc: 'Automate month-end invoice matching and reconciliation across ERP systems.',
   sponsor: 'CFO', value: '>$5M', align: 'Core strategic priority', users: '>1000', driver: 'Revenue Growth',
   adoption: 'High', change: true, autonomy: 'Advisory',
   dataavail: 'Readily available & clean', integrations: ['Google Workspace','BigQuery','Vertex AI'],
@@ -23,6 +24,7 @@ const HIGH = {
 // A failing intake object → one lens < 45 (Experience tanked)
 const FAILING = {
   name: 'Autonomous risk bot',
+  desc: 'Fully autonomous bot that makes unsupervised risk decisions.',
   sponsor: 'Director-level', value: '$100K–$500K', align: 'Experimental / exploratory', users: '<10',
   adoption: 'Low', change: false, autonomy: 'Autonomous',
   dataavail: 'Not yet available', integrations: ['On-prem system','Third-party SaaS'],
@@ -156,6 +158,58 @@ setTimeout(() => {
       ok('intake no longer uses the old alert', !/Submitted to BXT Gate\. \(Prototype/.test(intakeHtml));
       ok('intake persists to gaic_intake on submit', /localStorage\.setItem\(LS_KEY/.test(intakeHtml) && /LS_KEY\s*=\s*['"]gaic_intake['"]/.test(intakeHtml));
 
+      // =================================================================
+      // Bug #2 — an incomplete / leftover intake must NOT be scored as if
+      // it were the previous case. Root cause of "empty form returned the
+      // AI Contact Center Agent Assist scores".
+      // =================================================================
+      console.log('\n== 12. Incomplete intake never inherits a prior case (Bug #2) ==');
+      ok('isScoreableIntake({}) === false', apiD.isScoreableIntake({}) === false);
+      ok('isScoreableIntake(null) === false', apiD.isScoreableIntake(null) === false);
+      ok('name without desc is NOT scoreable', apiD.isScoreableIntake({ name:'X' }) === false);
+      ok('desc without name is NOT scoreable', apiD.isScoreableIntake({ desc:'Y' }) === false);
+      ok('whitespace-only name+desc NOT scoreable', apiD.isScoreableIntake({ name:'   ', desc:'  ' }) === false);
+      ok('name+desc IS scoreable', apiD.isScoreableIntake({ name:'A', desc:'B' }) === true);
+
+      // A leftover object missing name/desc (e.g. a half-filled draft that was
+      // never cleared) must fall back to DEMO, not be scored verbatim.
+      const domLeft = newDom({ sponsor:'CFO', value:'>$5M' }); // no name, no desc
+      setTimeout(() => {
+        const apiLeft = domLeft.window.__bxt;
+        ok('leftover intake w/o name+desc → fromDemo', apiLeft.loadIntake().fromDemo === true);
+        ok('leftover intake does NOT surface its own value field',
+           apiLeft.loadIntake().data !== undefined && apiLeft.loadIntake().fromDemo === true);
+
+        // '+ New Use Case' flow clears every stale gate key + the draft.
+        console.log('\n== 13. ‘+ New Use Case’ clears stale gate keys (Bug #2) ==');
+        const domNew = new JSDOM(html, { runScripts:'dangerously', pretendToBeVisual:true, url:'https://example.com/bxt.html',
+          beforeParse(w){
+            w.localStorage.setItem('gaic_intake', JSON.stringify(HIGH));
+            w.localStorage.setItem('gaic_bxt', JSON.stringify({verdict:'PASS'}));
+            w.localStorage.setItem('gaic_feasibility', '1');
+            w.localStorage.setItem('gaic_advisory', '1');
+            w.localStorage.setItem('gaic_summary', '1');
+          }});
+        setTimeout(() => {
+          const wN = domNew.window;
+          ok('bxt exposes startNewUseCase()', typeof wN.__bxt.startNewUseCase === 'function');
+          ok('bxt has a wired ‘+ New Use Case’ button', !!domNew.window.document.getElementById('btnNewUseCase'));
+          wN.__bxt.startNewUseCase();
+          ok('new case clears gaic_intake', wN.localStorage.getItem('gaic_intake') === null);
+          ok('new case clears gaic_bxt', wN.localStorage.getItem('gaic_bxt') === null);
+          ok('new case clears gaic_feasibility', wN.localStorage.getItem('gaic_feasibility') === null);
+          ok('new case clears gaic_advisory', wN.localStorage.getItem('gaic_advisory') === null);
+          ok('new case clears gaic_summary', wN.localStorage.getItem('gaic_summary') === null);
+
+          console.log('\n---------------------------------------------');
+          console.log('  RESULT: '+pass+' passed, '+fail+' failed');
+          console.log('---------------------------------------------');
+          process.exit(fail ? 1 : 0);
+        }, 60);
+      }, 60);
+      return; // final RESULT printed in the nested callbacks above
+
+      // eslint-disable-next-line no-unreachable
       console.log('\n---------------------------------------------');
       console.log('  RESULT: '+pass+' passed, '+fail+' failed');
       console.log('---------------------------------------------');

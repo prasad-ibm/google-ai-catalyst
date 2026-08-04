@@ -190,6 +190,11 @@ p { margin:0 0 1rem; }
   .finishnote { margin-top: 20px; padding: 14px 16px; border: 1px solid rgba(52,168,83,.35); background: rgba(52,168,83,.08); border-radius: var(--radius); font-size: 13.5px; color: #81c995; }
 
   /* Footer nav */
+  /* Bug #1: inline finish-step validation message */
+  .setup-err { display: none; margin-top: 20px; padding: 10px 14px; border-radius: 8px; font-size: 13px; color: var(--g-red); background: rgba(234,67,53,.10); border: 1px solid rgba(234,67,53,.35); }
+  .setup-err.is-shown { display: block; }
+  .field.is-invalid label { color: var(--g-red); }
+  .field.is-invalid .inp, .field.is-invalid .sel, .field.is-invalid textarea.inp { border-color: var(--g-red); box-shadow: 0 0 0 3px rgba(234,67,53,.15); }
   .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); }
   .cardnav__count { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); letter-spacing: .05em; }
   .gc-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -249,7 +254,7 @@ p { margin:0 0 1rem; }
   <div class="gc-header__divider"></div>
   <span class="gc-header__product">Enterprise Advantage</span>
   <div class="gc-header__right">
-    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
+    <button class="gc-btn gc-btn--primary gc-btn--sm" id="btnNewUseCase">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -593,6 +598,7 @@ p { margin:0 0 1rem; }
           </section>
 
           <!-- Footer nav -->
+          <div class="setup-err" id="setupErr" role="alert"></div>
           <div class="cardnav">
             <button class="gc-btn gc-btn--ghost" id="btnBack">Back&nbsp;←</button>
             <span class="cardnav__count" id="navCount">1 / 7</span>
@@ -717,6 +723,23 @@ p { margin:0 0 1rem; }
   function stepDone(i) {
     if (i === 6) return state.files.length > 0;
     return STEP_FIELDS[i].every(isFilled);
+  }
+
+  // ---- Bug #1: gate 'Finish Setup' on required fields ----
+  // The wizard previously let PMs finish with every field blank. Finishing now
+  // requires each step's required fields to be filled. Returns the list of
+  // still-incomplete step names (empty === ready to finish).
+  function incompleteSteps() {
+    var out = [];
+    for (var i = 0; i < TOTAL; i++) { if (!stepDone(i)) out.push(STEPS[i].name); }
+    return out;
+  }
+  function wizardValid() { return incompleteSteps().length === 0; }
+  function showSetupError(msg) {
+    var el = document.getElementById("setupErr");
+    if (!el) return;
+    if (msg) { el.textContent = msg; el.classList.add("is-shown"); }
+    else { el.textContent = ""; el.classList.remove("is-shown"); }
   }
 
   // ---- Multi-select summary formatter: "PrimaryValue +N" ----
@@ -1024,6 +1047,14 @@ p { margin:0 0 1rem; }
   document.getElementById("btnNext").addEventListener("click", function () {
     if (current < TOTAL - 1) { goTo(current + 1); }
     else {
+      // Bug #1: block finishing while required fields are missing; show which
+      // steps are incomplete instead of silently saving a blank profile.
+      var missing = incompleteSteps();
+      if (missing.length) {
+        showSetupError("Complete these steps before finishing: " + missing.join(", ") + ".");
+        return;
+      }
+      showSetupError("");
       save();
       // --- API integration (best-effort, non-blocking) ---
       try {
@@ -1071,12 +1102,22 @@ p { margin:0 0 1rem; }
     }
   });
 
+  // Bug #2: '+ New Use Case' must start a clean case — wipe the prior intake
+  // draft AND all downstream gate results so a fresh case can't inherit them.
+  var NEWCASE_KEYS = ['gaic_intake','gaic_bxt','gaic_feasibility','gaic_advisory','gaic_summary'];
+  function startNewUseCase(){
+    NEWCASE_KEYS.forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
+    window.location.href = 'intake.html';
+  }
+
   // ================= INIT =================
   load();
   buildRail();
   syncInputsFromState();
   renderFiles();
   renderAll();
+  var _newBtn = document.getElementById('btnNewUseCase');
+  if (_newBtn) _newBtn.addEventListener('click', startNewUseCase);
 })();
 </script>
 </body>

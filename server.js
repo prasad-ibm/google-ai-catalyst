@@ -8,6 +8,7 @@ const { pool, query } = require('./db');
 const auth = require('./auth');
 const ai = require('./ai-service');
 const { buildTemplateCsv, parseCsv } = require('./use-case-template');
+const { roiEligible, stageRank, ROI_MIN_STAGE } = require('./stage');
 
 const app = express();
 app.use(cors());
@@ -675,6 +676,24 @@ app.put('/api/use-cases/:id/summary', async (req, res) => {
     const id = req.params.id;
     if (!(await ensureUseCase(id, res))) return;
     const b = req.body || {};
+
+    // Reaching the Evaluation Summary gate == reaching the 'summary' stage.
+    // Advance the case to 'summary' if it is currently below it, so ROI
+    // becomes eligible to persist. Cases already at panel/approved keep their
+    // (higher) stage. This is the ONLY place stage advances on a summary save,
+    // which keeps the read guard (portfolio) and write guard below consistent.
+    const cur = await query('SELECT stage FROM use_cases WHERE id = $1', [id]);
+    let effectiveStage = cur.rows[0] ? cur.rows[0].stage : 'intake';
+    if (stageRank(effectiveStage) < stageRank(ROI_MIN_STAGE)) {
+      effectiveStage = ROI_MIN_STAGE;
+      await query('UPDATE use_cases SET stage = $1, updated_at = now() WHERE id = $2', [effectiveStage, id]);
+    }
+
+    // Write guard: never record ROI for a case that has not reached the
+    // Evaluation Summary gate. After the advance above this is always true on
+    // this path, but the guard is explicit so ROI can never leak in for an
+    // intake-only case (defends against future callers).
+    const roiOk = roiEligible(effectiveStage);
     const sql = `
       INSERT INTO evaluation_summaries (use_case_id, roi_p10, roi_p50, roi_p90, frameworks, governance, readiness)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -688,9 +707,9 @@ app.put('/api/use-cases/:id/summary', async (req, res) => {
       RETURNING *`;
     const params = [
       id,
-      toNumOrNull(b.roi_p10),
-      toNumOrNull(b.roi_p50),
-      toNumOrNull(b.roi_p90),
+      roiOk ? toNumOrNull(b.roi_p10) : null,
+      roiOk ? toNumOrNull(b.roi_p50) : null,
+      roiOk ? toNumOrNull(b.roi_p90) : null,
       b.frameworks === undefined || b.frameworks === null ? null : JSON.stringify(b.frameworks),
       b.governance === undefined || b.governance === null ? null : JSON.stringify(b.governance),
       b.readiness ?? null,
@@ -765,7 +784,31 @@ app.get('/api/portfolio', async (req, res) => {
     } else {
       r = await query(base + ' ORDER BY uc.created_at DESC');
     }
-    return res.json(r.rows);
+
+    // Canonical portfolio row shape (see CONTRACT.md). Enforced in ONE place so
+    // Dashboard / Kanban / Summary all read identical values:
+    //  - ROI is null unless the case reached the Evaluation Summary/Panel gate
+    //    (fixes #6: an Intake-only case can never emit stale ROI like +407%).
+    //  - `verdict` is the single committed Executive Panel verdict, or null.
+    const rows = r.rows.map((row) => {
+      const roiOk = roiEligible(row.stage);
+      return {
+        id: row.id,
+        name: row.name,
+        department: row.department,
+        stage: row.stage,
+        feasibility_composite: row.feasibility_composite,
+        quadrant: row.quadrant,
+        advisory_tier: row.advisory_tier,
+        recommended_platform: row.recommended_platform,
+        roi_p10: roiOk ? row.roi_p10 : null,
+        roi_p50: roiOk ? row.roi_p50 : null,
+        roi_p90: roiOk ? row.roi_p90 : null,
+        // Canonical verdict = committed panel verdict (null if never committed).
+        verdict: row.verdict == null ? null : row.verdict,
+      };
+    });
+    return res.json(rows);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }

@@ -239,6 +239,58 @@ async function main() {
     ok('portfolio has feasibility_composite', found && Number(found.feasibility_composite) === 7.4);
     ok('portfolio has verdict', found && found.verdict === 'APPROVE');
 
+    // 7b. Canonical ROI/verdict contract (CONTRACT.md) — see bug #6 & #4.
+    console.log('\n== GET /api/portfolio (ROI/verdict contract) ==');
+    const { pool: dbPool } = require('./db');
+
+    // Saving the summary gate advances the case to the 'summary' stage, so an
+    // EVALUATED case must surface its committed ROI and the single panel verdict.
+    ok('evaluated case advanced to summary stage or beyond',
+      found && ['summary', 'panel', 'approved'].includes(String(found.stage)));
+    ok('evaluated case returns committed roi_p50', found && Number(found.roi_p50) === 2.5);
+    ok('evaluated case returns committed roi_p10', found && Number(found.roi_p10) === 1.2);
+    ok('evaluated case returns committed roi_p90', found && Number(found.roi_p90) === 4.8);
+    ok('evaluated case verdict is the committed panel verdict', found && found.verdict === 'APPROVE');
+
+    // UNEVALUATED case: an Intake-only use case that somehow has a stale
+    // evaluation_summaries row (reproduces bug #6 'FE Test UC shows +407%').
+    // The portfolio read guard must null its ROI and its verdict.
+    const feUc = await call(port, 'POST', '/api/use-cases', {
+      workspace_id: createdWorkspaceId, name: 'FE Test UC', dept: 'QA',
+    });
+    ok('unevaluated use case created', feUc.status === 201 && !!feUc.body.id);
+    const feId = feUc.body.id;
+    ok('unevaluated case is at intake stage', feUc.body.stage === 'intake');
+    // Inject a stale ROI row directly (bypasses the write guard) to prove the
+    // READ guard defends against pre-existing bad data.
+    await dbPool.query(
+      `INSERT INTO evaluation_summaries (use_case_id, roi_p10, roi_p50, roi_p90, readiness)
+       VALUES ($1, 1.0, 4.07, 9.0, 'Ready')`, [feId]);
+
+    const portfolio2 = await call(port, 'GET', `/api/portfolio?workspace_id=${createdWorkspaceId}`);
+    const fe = portfolio2.body.find((r) => r.id === feId);
+    ok('unevaluated case appears in portfolio', !!fe);
+    ok('unevaluated case still at intake stage', fe && fe.stage === 'intake');
+    ok('unevaluated case roi_p10 is null (read guard)', fe && fe.roi_p10 === null);
+    ok('unevaluated case roi_p50 is null (fixes +407% bug)', fe && fe.roi_p50 === null);
+    ok('unevaluated case roi_p90 is null (read guard)', fe && fe.roi_p90 === null);
+    ok('unevaluated case verdict is null', fe && fe.verdict === null);
+
+    // Write guard: PUT /summary on an intake-only case must not persist ROI even
+    // when ROI values are sent (the case is advanced to summary first, then ROI
+    // is allowed — so we assert the guard by checking a below-summary write is
+    // impossible). Here we verify the guard indirectly: after saving the gate the
+    // case IS at summary and ROI is now honored.
+    const feSumm = await call(port, 'PUT', `/api/use-cases/${feId}/summary`, {
+      roi_p10: 2.0, roi_p50: 3.0, roi_p90: 5.0, readiness: 'Ready',
+    });
+    ok('summary save on FE case ok', feSumm.status === 200);
+    const portfolio3 = await call(port, 'GET', `/api/portfolio?workspace_id=${createdWorkspaceId}`);
+    const fe2 = portfolio3.body.find((r) => r.id === feId);
+    ok('after summary save FE case advanced to summary', fe2 && fe2.stage === 'summary');
+    ok('after summary save FE case ROI now surfaced', fe2 && Number(fe2.roi_p50) === 3.0);
+    ok('FE case with no panel verdict still has null verdict', fe2 && fe2.verdict === null);
+
     // 8. Cleanup: delete workspace (cascade).
     console.log('\n== Cleanup (cascade delete) ==');
     const { pool } = require('./db');

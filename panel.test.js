@@ -94,7 +94,11 @@ ok('exactly 7 turns', api.DELIBERATION.length === 7);
 const seq = api.DELIBERATION.map(t => t.p).join(',');
 ok('turn order BS,RA,CI,BS,RA,CI,CC', seq === 'BS,RA,CI,BS,RA,CI,CC');
 ok('every turn maps to a defined persona', api.DELIBERATION.every(t => !!api.PERSONAS[t.p]));
-ok('T1 mentions $12M savings + 34% reduction', /\$12M/.test(api.DELIBERATION[0].say) && /34%/.test(api.DELIBERATION[0].say));
+// #5: financials must NOT be hardcoded. The template carries {{SAVINGS}}/{{REDUCTION}}
+// tokens that are filled from the case's own economics at render time.
+ok('T1 uses economics tokens, not hardcoded $12M/34%', /\{\{SAVINGS\}\}/.test(api.DELIBERATION[0].say) && /\{\{REDUCTION\}\}/.test(api.DELIBERATION[0].say));
+ok('no hardcoded $12M anywhere in deliberation template', !api.DELIBERATION.some(t => /\$12M/.test(t.say)));
+ok('no hardcoded $3.2M anywhere in deliberation template', !api.DELIBERATION.some(t => /\$3\.2M/.test(t.say)));
 ok('T7 (Chair) issues CONDITIONAL GO', /CONDITIONAL GO/.test(api.DELIBERATION[6].say));
 
 console.log('\n== 4. Verdict derivation from Gate 5 readiness ==');
@@ -128,6 +132,11 @@ ok('turn 7 role IC Moderator', turns[6].querySelector('.turn__role').textContent
 const personasInDom = new Set(Array.from(turns).map(t => t.getAttribute('data-persona')));
 ok('4 distinct personas present in DOM', personasInDom.size === 4);
 ok('all turns eventually revealed (is-in)', Array.from(turns).every(t => t.classList.contains('is-in')));
+// #5: rendered turn 1 shows the case's OWN modeled value ($4.2M from SUMMARY.roi),
+// not the old hardcoded $12M/$3.2M.
+ok('turn 1 renders derived annual value $4.2M', /\$4\.2M/.test(turns[0].querySelector('.turn__say').innerHTML));
+ok('turn 1 has NO hardcoded $12M', !/\$12M/.test(turns[0].querySelector('.turn__say').innerHTML));
+ok('turn 1 has NO hardcoded $3.2M', !/\$3\.2M/.test(turns[0].querySelector('.turn__say').innerHTML));
 
 console.log('\n== 8. DOM: 4 thinking steps + collapsible ==');
 ok('renders 4 thinking steps', d.querySelectorAll('#stepsBody .step').length === 4);

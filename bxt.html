@@ -211,7 +211,7 @@ p { margin:0 0 1rem; }
   <div class="gc-header__divider"></div>
   <span class="gc-header__product">Enterprise Advantage</span>
   <div class="gc-header__right">
-    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
+    <button class="gc-btn gc-btn--primary gc-btn--sm" id="btnNewUseCase">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -409,11 +409,24 @@ p { margin:0 0 1rem; }
     autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
   };
 
+  // A real, scoreable intake must carry the mandatory identifiers (name +
+  // description). This mirrors the intake form's required-field rule so an
+  // empty/half-filled submission can never be scored as if it were complete.
+  function isScoreableIntake(o){
+    if (!o || typeof o !== 'object') return false;
+    var name = (typeof o.name === 'string') ? o.name.trim() : '';
+    var desc = (typeof o.desc === 'string') ? o.desc.trim() : '';
+    return name !== '' && desc !== '';
+  }
+
   // ---- Load intake state with graceful fallback ----
+  // Bug #2: only score a genuinely complete submission. An empty object, junk,
+  // or a leftover draft missing name/description must NOT be scored — otherwise
+  // a blank new case inherits the previous case's inputs (and its scores).
   function loadIntake(){
     var parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(LS_KEY)); } catch(e){ parsed = null; }
-    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
+    if (!isScoreableIntake(parsed)){
       return { data: DEMO, fromDemo: true };
     }
     return { data: parsed, fromDemo: false };
@@ -683,14 +696,27 @@ p { margin:0 0 1rem; }
     }
   } catch(e) {}
 
+  // Bug #2: '+ New Use Case' must start a genuinely clean case — wipe the prior
+  // intake draft AND all downstream gate results so nothing leaks forward.
+  var NEWCASE_KEYS = ['gaic_intake','gaic_bxt','gaic_feasibility','gaic_advisory','gaic_summary'];
+  function startNewUseCase(){
+    NEWCASE_KEYS.forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
+    window.location.href = 'intake.html';
+  }
+  var _newBtn = document.getElementById('btnNewUseCase');
+  if (_newBtn) _newBtn.addEventListener('click', startNewUseCase);
+
   // Expose for tests
   window.__bxt = {
     bxtScore: bxtScore,
     bxtVerdict: bxtVerdict,
     loadIntake: loadIntake,
+    isScoreableIntake: isScoreableIntake,
     render: render,
     DEMO: DEMO,
-    result: result
+    result: result,
+    startNewUseCase: startNewUseCase,
+    NEWCASE_KEYS: NEWCASE_KEYS
   };
 })();
 </script>

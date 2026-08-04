@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign in — Google AI Catalyst</title>
+<title>Sign in — Google AI Catalyst · Intel Sandbox</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -30,6 +30,12 @@
   .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
   .brand h1{font-size:16px;font-weight:500}
   .brand h1 span{color:var(--muted);font-weight:400}
+  /* Co-brand lockup: Google + Intel sandbox */
+  .cobrand{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .cobrand__divider{width:1px;height:26px;background:var(--border)}
+  .intel-logo{height:20px;width:auto;display:block}
+  .sandbox-badge{display:inline-flex;align-items:center;gap:6px;font-family:'Roboto Mono',monospace;font-size:10px;letter-spacing:.10em;text-transform:uppercase;color:#4da3ff;background:rgba(0,104,181,.14);border:1px solid rgba(0,104,181,.45);border-radius:100px;padding:4px 10px;margin-bottom:20px}
+  .sandbox-badge .dot{width:6px;height:6px;border-radius:50%;background:#4da3ff}
   .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
   label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
   .field{margin-bottom:18px}
@@ -58,11 +64,19 @@
 </head>
 <body>
   <div class="card">
-    <div class="brand">
+    <div class="cobrand">
       <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
+      <span class="cobrand__divider"></span>
+      <!-- Intel wordmark -->
+      <svg class="intel-logo" viewBox="0 0 120 40" role="img" aria-label="Intel">
+        <text x="0" y="30" font-family="'Roboto',system-ui,sans-serif" font-size="30" font-weight="700" letter-spacing="-1" fill="#0068B5">intel</text>
+      </svg>
+    </div>
+    <div class="brand">
       <h1>AI Catalyst <span>· Sign in</span></h1>
     </div>
     <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <span class="sandbox-badge"><span class="dot"></span>Intel Sandbox Environment</span>
     <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
 
     <div class="err" id="err"></div>
@@ -79,7 +93,7 @@
       <button type="submit" id="submitBtn">Sign in</button>
     </form>
 
-    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
+    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE · INTEL SANDBOX</div>
   </div>
 
 <script>

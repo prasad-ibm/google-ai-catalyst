@@ -141,6 +141,10 @@ p { margin:0 0 1rem; }
     transition: border-color .15s, box-shadow .15s;
   }
   .inp:focus, .sel:focus, textarea.inp:focus { outline: none; border-color: var(--g-blue); box-shadow: 0 0 0 3px rgba(66,133,244,.18); }
+  /* Inline validation (Bug #1) */
+  .inp.is-invalid, .sel.is-invalid, textarea.inp.is-invalid { border-color: var(--g-red); box-shadow: 0 0 0 3px rgba(234,67,53,.15); }
+  .field__err { color: var(--g-red); font-size: 12px; margin-top: 6px; display: none; }
+  .field__err.is-shown { display: block; }
   .sel { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239aa0a6' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; }
   textarea.inp { min-height: 92px; resize: vertical; line-height: 1.5; }
 
@@ -262,7 +266,7 @@ p { margin:0 0 1rem; }
   <div class="gc-header__divider"></div>
   <span class="gc-header__product">Enterprise Advantage</span>
   <div class="gc-header__right">
-    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
+    <button class="gc-btn gc-btn--primary gc-btn--sm" id="btnNewUseCase">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -313,6 +317,7 @@ p { margin:0 0 1rem; }
             <div class="field">
               <label for="f_name">Use Case Name <span class="req">*</span></label>
               <input class="inp" type="text" id="f_name" data-key="name" placeholder="e.g. Automated invoice reconciliation">
+              <div class="field__err" id="err_name">Use case name is required.</div>
             </div>
             <div class="field field--grid2">
               <div>
@@ -343,8 +348,9 @@ p { margin:0 0 1rem; }
               </div>
             </div>
             <div class="field">
-              <label for="f_desc">Brief Description</label>
+              <label for="f_desc">Brief Description <span class="req">*</span></label>
               <textarea class="inp" id="f_desc" data-key="desc" placeholder="What business problem does this AI use case solve?"></textarea>
+              <div class="field__err" id="err_desc">A brief description is required.</div>
             </div>
           </section>
 
@@ -643,6 +649,43 @@ p { margin:0 0 1rem; }
     try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
   }
 
+  // ---- Bug #2: clear stale downstream gate results ----
+  // The intake page is only reached when starting or editing a use case. Any
+  // previously-computed gate output (BXT / feasibility / advisory / summary)
+  // belongs to a DIFFERENT, already-scored case and must not leak forward,
+  // otherwise a fresh submission inherits the prior case's scores.
+  var GATE_KEYS = ['gaic_bxt','gaic_feasibility','gaic_advisory','gaic_summary'];
+  function clearGateState(){
+    GATE_KEYS.forEach(function(k){ try { localStorage.removeItem(k); } catch(e){} });
+  }
+  clearGateState();
+
+  // ---- Bug #1: required-field validation ----
+  var REQUIRED = [{ key:'name', el:'f_name', err:'err_name' }, { key:'desc', el:'f_desc', err:'err_desc' }];
+  function fieldValue(key){ var v = state[key]; return (typeof v === 'string') ? v.trim() : (v == null ? '' : String(v)); }
+  // Returns array of the required descriptors that are still empty.
+  function missingRequired(){ return REQUIRED.filter(function(r){ return fieldValue(r.key) === ''; }); }
+  function showFieldError(r, show){
+    var input = document.getElementById(r.el);
+    var errEl = document.getElementById(r.err);
+    if (input) input.classList.toggle('is-invalid', !!show);
+    if (errEl) errEl.classList.toggle('is-shown', !!show);
+  }
+  // Hide a field's inline error once the user provides a value.
+  function clearErrorFor(key){
+    REQUIRED.forEach(function(r){ if (r.key === key && fieldValue(key) !== '') showFieldError(r, false); });
+  }
+  // Validate the required fields; when reveal is true, surface inline errors and
+  // focus the first offender. Returns true when all required fields are present.
+  function validateRequired(reveal){
+    var missing = missingRequired();
+    if (reveal){
+      REQUIRED.forEach(function(r){ showFieldError(r, fieldValue(r.key) === ''); });
+      if (missing.length){ var first = document.getElementById(missing[0].el); if (first && first.focus) first.focus(); }
+    }
+    return missing.length === 0;
+  }
+
   // ---- Build tab bar ----
   var tabbar = document.getElementById('tabbar');
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>';
@@ -678,6 +721,12 @@ p { margin:0 0 1rem; }
   }
   document.getElementById('btnBack').addEventListener('click', function(){ goTo(current-1); });
   document.getElementById('btnNext').addEventListener('click', function(){
+    // Bug #1: name + description are mandatory. They live on tab 0, so block
+    // advancing past it — and block final submit — until both are provided.
+    if (!validateRequired(true)){
+      if (current !== 0) goTo(0); // surface the offending fields
+      return;
+    }
     if (current===TABS.length-1){
       save();
       try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
@@ -744,8 +793,8 @@ p { margin:0 0 1rem; }
       el.addEventListener('change', function(){ state[key]=el.checked; reflectToggle(el); commit(); });
     } else {
       if (state[key]!==undefined) el.value = state[key];
-      el.addEventListener('input', function(){ state[key]=el.value; commit(); });
-      el.addEventListener('change', function(){ state[key]=el.value; commit(); });
+      el.addEventListener('input', function(){ state[key]=el.value; commit(); clearErrorFor(key); });
+      el.addEventListener('change', function(){ state[key]=el.value; commit(); clearErrorFor(key); });
     }
   });
   function reflectToggle(el){
@@ -962,12 +1011,22 @@ p { margin:0 0 1rem; }
     try { localStorage.setItem(THEME_KEY, next); } catch(e){}
   });
 
+  // Bug #2: on this page '+ New Use Case' resets the form entirely — drop the
+  // saved draft and any stale gate results, then reload for a blank slate.
+  var _newBtn = document.getElementById('btnNewUseCase');
+  if (_newBtn) _newBtn.addEventListener('click', function(){
+    clearGateState();
+    try { localStorage.removeItem(LS_KEY); } catch(e){}
+    window.location.href = 'intake.html';
+  });
+
   // ---- Init ----
   goTo(0);
   score();
 
   // Expose for tests
-  window.__gaic = { getState:function(){ return state; }, score:score, goTo:goTo, subScores:subScores, TABS:TABS };
+  window.__gaic = { getState:function(){ return state; }, score:score, goTo:goTo, subScores:subScores, TABS:TABS,
+    validateRequired:validateRequired, missingRequired:missingRequired, clearGateState:clearGateState, GATE_KEYS:GATE_KEYS };
 })();
 </script>
 </body>

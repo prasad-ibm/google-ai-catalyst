@@ -689,42 +689,50 @@ p { margin:0 0 1rem; }
     if (opts.advisory) advisory = opts.advisory;
 
     var roi = monteCarloROI(intake, feas, advisory, opts.trials || 10000);
+
+    // Deep-link ROI override: when a specific saved use case is loaded (?id=),
+    // prefer its PERSISTED / committed Gate-5 ROI over a fresh recompute so the
+    // page shows the committed numbers (e.g. AskHR's saved +480% P50) rather than
+    // re-deriving them from intake/feasibility heuristics.
+    //
+    // IMPORTANT (#3): this override MUST run BEFORE frameworkRollup(). fwGartner()
+    // reads roi.p50 to build its quadrant/confidence/foot caption at construction
+    // time; if the override ran afterwards, the Gartner card would keep the raw
+    // Monte-Carlo p50 (e.g. +1287%) while the hero showed the overridden p50
+    // (e.g. +480%). Applying it here guarantees the hero, the Gartner foot, and
+    // every other p50 reference all use the same final roi.p50.
+    var ps = opts.panelSummary;
+    if (ps && ps.roi && ps.roi.p50 != null && !isNaN(Number(ps.roi.p50))) {
+      var p10 = Number(ps.roi.p10 != null ? ps.roi.p10 : roi.p10);
+      var p50 = Number(ps.roi.p50);
+      var p90 = Number(ps.roi.p90 != null ? ps.roi.p90 : roi.p90);
+      // Rescale the persisted net-USD figures proportionally so the meter/USD lines stay coherent.
+      roi = {
+        p10: p10, p50: p50, p90: p90, mean: p50,
+        usd: {
+          p10: Math.round(roi.value * p10 / 100),
+          p50: Math.round(roi.value * p50 / 100),
+          p90: Math.round(roi.value * p90 / 100)
+        },
+        trials: roi.trials, value: roi.value, cost: roi.cost
+      };
+    }
+
+    // frameworkRollup now sees the FINAL roi, so fwGartner's p50 caption matches the hero.
     var frameworks = frameworkRollup(bxt, feas, advisory, roi);
     var governance = governanceChecklist(intake, feas, advisory);
     var tally = govTally(governance);
 
-    // Deep-link override: when a specific saved use case is loaded (?id=), prefer
-    // its PERSISTED Gate-5 ROI/framework scores over a fresh recompute, so the
-    // page shows the committed numbers (e.g. AskHR's saved +480% P50) rather than
-    // re-deriving them from intake/feasibility heuristics.
-    var ps = opts.panelSummary;
-    if (ps) {
-      if (ps.roi && ps.roi.p50 != null && !isNaN(Number(ps.roi.p50))) {
-        var p10 = Number(ps.roi.p10 != null ? ps.roi.p10 : roi.p10);
-        var p50 = Number(ps.roi.p50);
-        var p90 = Number(ps.roi.p90 != null ? ps.roi.p90 : roi.p90);
-        // Rescale the persisted net-USD figures proportionally so the meter/USD lines stay coherent.
-        roi = {
-          p10: p10, p50: p50, p90: p90, mean: p50,
-          usd: {
-            p10: Math.round(roi.value * p10 / 100),
-            p50: Math.round(roi.value * p50 / 100),
-            p90: Math.round(roi.value * p90 / 100)
-          },
-          trials: roi.trials, value: roi.value, cost: roi.cost
-        };
-      }
-      if (ps.frameworks && ps.frameworks.length) {
-        // Overlay persisted scores onto the computed framework cards (keeps metrics/labels).
-        var byKey = {}; ps.frameworks.forEach(function(f){ if (f && f.key) byKey[f.key] = f; });
-        frameworks = frameworks.map(function(fc){
-          var saved = byKey[fc.key];
-          if (saved && saved.score != null && !isNaN(Number(saved.score))) {
-            fc.score = Number(saved.score);
-          }
-          return fc;
-        });
-      }
+    if (ps && ps.frameworks && ps.frameworks.length) {
+      // Overlay persisted framework scores onto the computed cards (keeps metrics/labels).
+      var byKey = {}; ps.frameworks.forEach(function(f){ if (f && f.key) byKey[f.key] = f; });
+      frameworks = frameworks.map(function(fc){
+        var saved = byKey[fc.key];
+        if (saved && saved.score != null && !isNaN(Number(saved.score))) {
+          fc.score = Number(saved.score);
+        }
+        return fc;
+      });
     }
 
     // Portfolio-level composite = mean of the four framework scores.

@@ -99,9 +99,76 @@ setTimeout(() => {
     const microsoft = ['Copilot','Power Platform','MAIDF','Azure','M365','Blob','CAF:'];
     microsoft.forEach(m => ok('NO Microsoft string "'+m+'"', !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(H)));
 
-    console.log('\n---------------------------------------------');
-    console.log('  RESULT: '+pass+' passed, '+fail+' failed');
-    console.log('---------------------------------------------');
-    process.exit(fail ? 1 : 0);
+    // ===================================================================
+    // Bug #1 — empty/half-filled intake is rejected before Submit to BXT Gate
+    // ===================================================================
+    console.log('\n== 6. Required-field validation (Bug #1) ==');
+    // Fresh, completely empty form.
+    const domV = new JSDOM(html, { runScripts:'dangerously', pretendToBeVisual:true, url:'https://example.com/intake.html' });
+    setTimeout(() => {
+      const wV = domV.window, dV = wV.document, apiV = wV.__gaic;
+      const clickV = el => el.dispatchEvent(new wV.MouseEvent('click', {bubbles:true}));
+      const inputV = el => el.dispatchEvent(new wV.Event('input', {bubbles:true}));
+
+      ok('empty form: validateRequired() is false', apiV.validateRequired(false) === false);
+      ok('empty form: name + desc reported missing', apiV.missingRequired().length === 2);
+
+      // Try to advance from tab 0 with everything blank — must stay on tab 0.
+      clickV(dV.getElementById('btnNext'));
+      ok('empty form: cannot advance past tab 0',
+         dV.querySelectorAll('.panel')[0].classList.contains('is-active'));
+      ok('empty form: name error shown inline', dV.getElementById('err_name').classList.contains('is-shown'));
+      ok('empty form: desc error shown inline', dV.getElementById('err_desc').classList.contains('is-shown'));
+      ok('empty form: name input flagged is-invalid', dV.getElementById('f_name').classList.contains('is-invalid'));
+
+      // Jump to the last tab and attempt Submit — must be blocked and bounce to tab 0.
+      apiV.goTo(4);
+      clickV(dV.getElementById('btnNext'));
+      ok('empty form: Submit blocked — no navigation to bxt.html',
+         !/bxt\.html$/.test(wV.location.href));
+      ok('empty form: Submit bounces back to tab 0 to show errors',
+         dV.querySelectorAll('.panel')[0].classList.contains('is-active'));
+
+      // Fill only the name — still invalid (desc missing).
+      const nm = dV.getElementById('f_name'); nm.value = 'Just a name'; inputV(nm);
+      ok('name-only: still invalid (desc required)', apiV.validateRequired(false) === false);
+      ok('name-only: name error cleared as you type', !dV.getElementById('err_name').classList.contains('is-shown'));
+
+      // Fill description too — now valid.
+      const ds = dV.getElementById('f_desc'); ds.value = 'A real description of the use case.'; inputV(ds);
+      ok('name+desc: validateRequired() true', apiV.validateRequired(false) === true);
+      ok('name+desc: nothing missing', apiV.missingRequired().length === 0);
+
+      // ===================================================================
+      // Bug #2 — a fresh intake load clears stale downstream gate results
+      // ===================================================================
+      console.log('\n== 7. New-case load clears stale gate keys (Bug #2) ==');
+      const domG = new JSDOM(html, { runScripts:'dangerously', pretendToBeVisual:true, url:'https://example.com/intake.html',
+        beforeParse(w){
+          // Simulate leftovers from a PRIOR, already-scored case.
+          w.localStorage.setItem('gaic_bxt', JSON.stringify({verdict:'PASS'}));
+          w.localStorage.setItem('gaic_feasibility', JSON.stringify({score:88}));
+          w.localStorage.setItem('gaic_advisory', JSON.stringify({platform:'Vertex AI'}));
+          w.localStorage.setItem('gaic_summary', JSON.stringify({done:true}));
+        }});
+      setTimeout(() => {
+        const wG = domG.window;
+        ok('gaic_bxt cleared on intake load', wG.localStorage.getItem('gaic_bxt') === null);
+        ok('gaic_feasibility cleared on intake load', wG.localStorage.getItem('gaic_feasibility') === null);
+        ok('gaic_advisory cleared on intake load', wG.localStorage.getItem('gaic_advisory') === null);
+        ok('gaic_summary cleared on intake load', wG.localStorage.getItem('gaic_summary') === null);
+        ok('clearGateState + GATE_KEYS exposed for reuse',
+           typeof wG.__gaic.clearGateState === 'function' && Array.isArray(wG.__gaic.GATE_KEYS) && wG.__gaic.GATE_KEYS.length === 4);
+
+        // '+ New Use Case' button on intake exists and wipes the draft too.
+        console.log('\n== 8. ‘+ New Use Case’ entry point present ==');
+        ok('intake has a wired ‘+ New Use Case’ button', !!domG.window.document.getElementById('btnNewUseCase'));
+
+        console.log('\n---------------------------------------------');
+        console.log('  RESULT: '+pass+' passed, '+fail+' failed');
+        console.log('---------------------------------------------');
+        process.exit(fail ? 1 : 0);
+      }, 60);
+    }, 60);
   }, 60);
 }, 60);
