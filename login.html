@@ -1,122 +1,107 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign in — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<style>
-  :root{
-    --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC04; --g-green:#34A853;
-    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2230;
-    --border:#2a3140; --text:#e6edf3; --muted:#8b97a7;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:'Roboto',system-ui,sans-serif;background:var(--bg);color:var(--text);
-    min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background-image:radial-gradient(circle at 15% 20%,rgba(66,133,244,.10),transparent 40%),
-      radial-gradient(circle at 85% 80%,rgba(52,168,83,.08),transparent 40%);
-  }
-  .card{
-    width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
-    border-radius:16px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.45);
-  }
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .g-logo{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
-  .g-logo .b{color:var(--g-blue)} .g-logo .r{color:var(--g-red)}
-  .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
-  .brand h1{font-size:16px;font-weight:500}
-  .brand h1 span{color:var(--muted);font-weight:400}
-  .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
-  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
-  .field{margin-bottom:18px}
-  input{
-    width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
-    border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;
-  }
-  input:focus{outline:none;border-color:var(--g-blue);box-shadow:0 0 0 3px rgba(66,133,244,.25)}
-  button{
-    width:100%;background:var(--g-blue);color:#fff;border:none;border-radius:8px;
-    padding:13px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s;
-    margin-top:4px;
-  }
-  button:hover{background:#3574e0}
-  button:disabled{opacity:.6;cursor:default}
-  .err{
-    display:none;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);
-    color:#ff9b90;font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:16px;
-  }
-  .err.show{display:block}
-  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);font-family:'Roboto Mono',monospace}
-  .bar{height:4px;border-radius:4px;margin-bottom:26px;display:flex;overflow:hidden}
-  .bar i{flex:1} .bar .b{background:var(--g-blue)} .bar .r{background:var(--g-red)}
-  .bar .y{background:var(--g-yellow)} .bar .g{background:var(--g-green)}
-</style>
-</head>
-<body>
-  <div class="card">
-    <div class="brand">
-      <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
-      <h1>AI Catalyst <span>· Sign in</span></h1>
-    </div>
-    <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
-    <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
+/* DOM verification test for intake.html — run with: node intake.test.js */
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
 
-    <div class="err" id="err"></div>
+const html = fs.readFileSync(path.join(__dirname, 'intake.html'), 'utf8');
 
-    <form id="loginForm" autocomplete="on">
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required />
-      </div>
-      <button type="submit" id="submitBtn">Sign in</button>
-    </form>
+let pass = 0, fail = 0;
+function ok(name, cond){ if(cond){ pass++; console.log('  \u2713 '+name); } else { fail++; console.log('  \u2717 '+name); } }
 
-    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
-  </div>
+// Fresh localStorage-backed DOM
+const dom = new JSDOM(html, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/intake.html' });
+const { window } = dom;
+const { document } = window;
 
-<script>
-  const form = document.getElementById('loginForm');
-  const err = document.getElementById('err');
-  const btn = document.getElementById('submitBtn');
+function fireInput(el){ el.dispatchEvent(new window.Event('input', {bubbles:true})); }
+function fireChange(el){ el.dispatchEvent(new window.Event('change', {bubbles:true})); }
+function click(el){ el.dispatchEvent(new window.MouseEvent('click', {bubbles:true})); }
 
-  function showError(msg){ err.textContent = msg; err.classList.add('show'); }
-  function clearError(){ err.classList.remove('show'); }
+// Wait for the IIFE to run (scripts run synchronously on parse for jsdom)
+setTimeout(() => {
+  console.log('\n== 1. Five tab panels exist ==');
+  const panels = document.querySelectorAll('.panel');
+  ok('exactly 5 panels', panels.length === 5);
+  const tabs = document.querySelectorAll('.tab');
+  ok('exactly 5 tabs in tab bar', tabs.length === 5);
+  ok('window.__gaic.TABS has 5 entries', window.__gaic.TABS.length === 5);
 
-  // If already authenticated, skip straight to the app.
-  fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/index.html'; }).catch(()=>{});
+  console.log('\n== 2. Tab switching shows/hides correctly ==');
+  ok('panel 0 active on load', panels[0].classList.contains('is-active'));
+  ok('panel 4 hidden on load', !panels[4].classList.contains('is-active'));
+  window.__gaic.goTo(4);
+  ok('after goTo(4): panel 4 active', panels[4].classList.contains('is-active'));
+  ok('after goTo(4): panel 0 hidden', !panels[0].classList.contains('is-active'));
+  ok('after goTo(4): only 1 panel visible', document.querySelectorAll('.panel.is-active').length === 1);
+  ok('nav count reads Tab 5 of 5', document.getElementById('navCount').textContent === 'Tab 5 of 5');
+  ok('Next button becomes Submit to BXT Gate', /Submit to BXT Gate/.test(document.getElementById('btnNext').textContent));
+  window.__gaic.goTo(0);
+  ok('back to tab 0: Next says Next', /Next/.test(document.getElementById('btnNext').textContent));
+  ok('back to tab 0: Back disabled', document.getElementById('btnBack').disabled === true);
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearError();
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        location.href = '/index.html';
-      } else {
-        showError(data.error === 'invalid credentials' ? 'Incorrect username or password.' : (data.error || 'Sign in failed.'));
-        btn.disabled = false; btn.textContent = 'Sign in';
-      }
-    } catch (ex) {
-      showError('Network error — please try again.');
-      btn.disabled = false; btn.textContent = 'Sign in';
-    }
-  });
-</script>
-</body>
-</html>
+  console.log('\n== 3. Live score updates when a field changes ==');
+  const before = document.getElementById('scoreNum').textContent;
+  const valSel = document.getElementById('f_value');
+  valSel.value = '>$5M'; fireChange(valSel);
+  const align = document.getElementById('f_align');
+  align.value = 'Core strategic priority'; fireChange(align);
+  const after = document.getElementById('scoreNum').textContent;
+  ok('score changed after setting high value + alignment', before !== after);
+  ok('score climbed (after > before)', parseFloat(after) > parseFloat(before));
+  ok('quadrant label rendered', /projected quadrant/.test(document.getElementById('scoreQuad').textContent));
+  // 10 criterion bars
+  ok('10 criterion mini-bars', document.querySelectorAll('.crit').length === 10);
+  ok('citizen-dev % rendered as N%', /%$/.test(document.getElementById('cdPct').textContent));
+
+  // High-value + easy path -> quadrant / platform sanity
+  document.getElementById('f_maturity').value = 'Fully manual'; fireChange(document.getElementById('f_maturity'));
+  const dataAvail = document.getElementById('f_dataavail'); dataAvail.value='Readily available & clean'; fireChange(dataAvail);
+  // pick google-native integrations
+  document.querySelectorAll('.chips[data-key="integrations"] .chip').forEach(c=>{ if(['Google Workspace','BigQuery'].includes(c.dataset.val)) click(c); });
+  const platTextHigh = document.getElementById('cdPlatform').textContent;
+  ok('platform line references a Google platform', /(AppSheet|Agentspace|Vertex AI)/.test(platTextHigh));
+
+  console.log('\n== 4. localStorage save/restore ==');
+  const raw = window.localStorage.getItem('gaic_intake');
+  ok('gaic_intake key present', !!raw);
+  const saved = JSON.parse(raw);
+  ok('saved.value === ">$5M"', saved.value === '>$5M');
+  ok('saved.align stored', saved.align === 'Core strategic priority');
+  ok('saved.integrations is array with BigQuery', Array.isArray(saved.integrations) && saved.integrations.includes('BigQuery'));
+
+  // set a text field + toggle + segmented, then reload into a NEW dom sharing the same storage
+  const nameEl = document.getElementById('f_name'); nameEl.value='Invoice Recon'; fireInput(nameEl);
+  window.__gaic.goTo(4);
+  document.querySelectorAll('.seg[data-key="sensitivity"] button').forEach(b=>{ if(b.dataset.val==='High') click(b); });
+  document.getElementById('f_pii').checked = true; fireChange(document.getElementById('f_pii'));
+
+  const storage = window.localStorage.getItem('gaic_intake');
+  const dom2 = new JSDOM(html, { runScripts:'dangerously', pretendToBeVisual:true, url:'https://example.com/intake.html',
+    beforeParse(w){ w.localStorage.setItem('gaic_intake', storage); } });
+  setTimeout(() => {
+    const d2 = dom2.window.document;
+    ok('restore: name field repopulated', d2.getElementById('f_name').value === 'Invoice Recon');
+    ok('restore: value select repopulated', d2.getElementById('f_value').value === '>$5M');
+    ok('restore: PII toggle checked', d2.getElementById('f_pii').checked === true);
+    ok('restore: sensitivity=High segment active',
+       Array.from(d2.querySelectorAll('.seg[data-key="sensitivity"] button')).some(b=>b.dataset.val==='High' && b.classList.contains('is-on')));
+    ok('restore: BigQuery chip active',
+       Array.from(d2.querySelectorAll('.chips[data-key="integrations"] .chip')).some(c=>c.dataset.val==='BigQuery' && c.classList.contains('is-on')));
+
+    console.log('\n== 5. Google remap strings present, no Microsoft strings ==');
+    const H = html; // check raw source for static strings
+    ok('contains "AppSheet"', /AppSheet/.test(H));
+    ok('contains "Agentspace"', /Agentspace/.test(H));
+    ok('contains "Vertex AI"', /Vertex AI/.test(H));
+    ok('contains "Google Cloud Adoption Framework"', /Google Cloud Adoption Framework/.test(H));
+    ok('contains "GADF"', /GADF/.test(H));
+    ok('contains "BigQuery" integration', /BigQuery/.test(H));
+    const microsoft = ['Copilot','Power Platform','MAIDF','Azure','M365','Blob','CAF:'];
+    microsoft.forEach(m => ok('NO Microsoft string "'+m+'"', !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(H)));
+
+    console.log('\n---------------------------------------------');
+    console.log('  RESULT: '+pass+' passed, '+fail+' failed');
+    console.log('---------------------------------------------');
+    process.exit(fail ? 1 : 0);
+  }, 60);
+}, 60);

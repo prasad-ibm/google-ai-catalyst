@@ -3,12 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pipeline Board — Google AI Catalyst</title>
+<title>Google AI Catalyst — Enterprise AI Use Case Evaluation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Shared Google design system (external link kept for standalone deploys) -->
-<link rel="stylesheet" href="assets/theme.css">
 <style>
 /* ==========================================================================
    Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
@@ -33,6 +31,11 @@ body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font
 h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
 a { color:inherit; text-decoration:none; }
 p { margin:0 0 1rem; }
+.gc-section { padding:72px 32px; border-top:1px solid var(--border-soft); }
+.gc-container { max-width:var(--maxw); margin:0 auto; }
+.gc-section__head { max-width:780px; margin-bottom:40px; }
+.gc-section h2 { font-size:34px; line-height:1.15; margin-bottom:14px; }
+.gc-section__intro { color:var(--text-muted); font-size:17px; max-width:720px; }
 .gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
 .gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
 .gc-btn--primary { background:var(--g-blue); color:#fff; }
@@ -45,121 +48,140 @@ p { margin:0 0 1rem; }
 .gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
 .gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
 .gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
-.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
 .gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
+.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
+.gc-tag--teal { color:#78d9ec; border-color:rgba(18,181,203,.4); background:rgba(18,181,203,.10); }
+.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
 .gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
+.gc-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px; box-shadow:var(--shadow-2); transition:border-color .15s,transform .15s; }
+.gc-card:hover { border-color:var(--surface-3); transform:translateY(-2px); }
+.gc-card h3 { font-size:17px; margin-bottom:8px; }
+.gc-card p { color:var(--text-muted); font-size:14px; margin:0; }
+.gc-card__accent { height:3px; width:40px; border-radius:2px; margin-bottom:14px; background:var(--g-blue); }
+.gc-stat { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow-2); }
+.gc-stat__num { font-size:30px; font-weight:500; line-height:1; margin-bottom:8px; }
+.gc-stat__label { color:var(--text-muted); font-size:13px; }
+.gc-stat__src { font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; display:block; margin-top:6px; }
 .gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
 .gc-header__brand { display:flex; align-items:center; gap:10px; }
 .gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
 .gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
 .gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
+.gc-nav { display:flex; align-items:center; gap:2px; margin-left:20px; }
+.gc-nav a { font-size:13px; padding:6px 12px; border-radius:var(--radius-sm); color:var(--text-muted); transition:color .15s,background .15s; white-space:nowrap; }
+.gc-nav a:hover { color:var(--text); background:var(--surface-2); }
+.gc-nav a.is-active { color:var(--g-blue-l); }
 .gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
 .gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
 .gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
 .gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
 .gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
-.glogo { display:inline-block; vertical-align:middle; }
+.gc-grid { display:grid; gap:18px; }
+.gc-grid--2 { grid-template-columns:repeat(2,1fr); }
+.gc-grid--3 { grid-template-columns:repeat(3,1fr); }
+.gc-grid--4 { grid-template-columns:repeat(4,1fr); }
+.gc-badge-new { font-family:var(--font-mono); font-size:10px; font-weight:500; letter-spacing:.1em; color:#fff; background:var(--g-red); padding:3px 8px; border-radius:100px; text-transform:uppercase; }
+@media (max-width:980px) { .gc-grid--3,.gc-grid--4 { grid-template-columns:repeat(2,1fr); } .gc-nav,.gc-header__divider,.gc-header__product { display:none; } }
+@media (max-width:620px) { .gc-grid--2,.gc-grid--3,.gc-grid--4 { grid-template-columns:1fr; } .gc-section { padding:48px 20px; } .gc-section h2 { font-size:26px; } }
 </style>
 <style>
-  /* ---------------- Page-specific: Pipeline Board (Kanban) ---------------- */
+  /* Page-specific layout (design-system classes live in theme.css) */
   main { padding-top: var(--header-h); }
-  .wrap { max-width: 100%; margin: 0 auto; padding: 22px 32px 64px; }
 
-  /* Breadcrumb */
-  .crumb { margin-bottom: 18px; }
-  .crumb a { color: var(--text-dim); }
-  .crumb a:hover { color: var(--g-blue-l); }
+  /* Hero */
+  .hero { background: var(--bg-hero); min-height: 520px; border-bottom: 1px solid var(--border); }
+  .hero__grid { display: grid; grid-template-columns: 2fr 3fr; gap: 48px; max-width: var(--maxw); margin: 0 auto; padding: 56px 32px; align-items: center; }
+  .hero__crumb { margin-bottom: 20px; }
+  .hero h1 { font-size: 56px; line-height: 1.02; margin: 18px 0 20px; }
+  .hero__sub { color: var(--text-muted); font-size: 17px; max-width: 560px; margin-bottom: 24px; }
+  .hero__tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .glogo { display: inline-block; vertical-align: middle; }
 
-  /* ---- Page title row ---- */
-  .pagehd { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom: 26px; }
-  .pagehd__title { font-size:30px; font-weight:500; letter-spacing:-0.02em; line-height:1.05; margin-bottom:6px; }
-  .pagehd__sub { color:var(--text-muted); font-size:14px; margin:0; }
-  .picker { display:flex; flex-direction:column; gap:6px; }
-  .picker__label { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); }
-  .picker select {
-    font-family:var(--font-sans); font-size:14px; color:var(--text); background:var(--surface);
-    border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 14px; min-width:220px; cursor:pointer;
-    appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
+  /* Carousel */
+  .carousel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; position: relative; }
+  .carousel__progress { height: 3px; background: var(--surface-3); }
+  .carousel__bar { height: 100%; width: 0; background: var(--g-blue); transition: width .1s linear; }
+  .carousel__viewport { position: relative; }
+  .slide { display: none; padding: 34px 36px 30px; animation: fade .5s ease; }
+  .slide.is-active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .slide__step { margin-bottom: 14px; }
+  .slide__emoji { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+  .slide__title { font-size: 30px; margin-bottom: 12px; }
+  .slide__ul { height: 4px; width: 56px; border-radius: 2px; margin-bottom: 16px; }
+  .slide__desc { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+  .slide__body { color: var(--text-muted); font-size: 15px; margin-bottom: 16px; }
+  .slide__bullets { list-style: none; padding: 0; margin: 0; }
+  .slide__bullets li { position: relative; padding-left: 22px; margin-bottom: 9px; font-size: 14px; color: var(--text); }
+  .slide__bullets li::before { content: "→"; position: absolute; left: 0; color: var(--g-blue-l); }
+  .carousel__nav { display: flex; align-items: center; justify-content: space-between; padding: 0 20px 20px; }
+  .carousel__dots { display: flex; gap: 7px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); border: none; cursor: pointer; padding: 0; transition: background .2s, transform .2s; }
+  .dot.is-active { background: var(--g-blue); transform: scale(1.3); }
+  .arrow { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; font-size: 16px; transition: border-color .15s, color .15s; }
+  .arrow:hover { border-color: var(--g-blue-l); color: var(--text); }
+
+  /* Problem pairs */
+  .prob { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .prob__item { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-red); border-radius: var(--radius); padding: 20px; }
+  .prob__item h4 { font-size: 16px; margin-bottom: 8px; }
+  .prob__cons { color: var(--text-muted); font-size: 14px; display: flex; gap: 8px; }
+  .prob__cons span { color: var(--g-red); }
+
+  /* Token economics band */
+  .band { background: linear-gradient(160deg, #10162a, #0a0f1e); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .band__head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .phase { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .phase__k { font-family: var(--font-mono); font-size: 12px; letter-spacing: .12em; margin-bottom: 10px; }
+  .mini { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-top: 22px; }
+  .mini__item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .mini__num { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .mini__txt { font-size: 12.5px; color: var(--text-muted); }
+
+  /* Gates */
+  .gate { display: flex; gap: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .gate__n { font-family: var(--font-mono); font-size: 26px; font-weight: 500; color: var(--g-blue-l); line-height: 1; min-width: 42px; }
+  .gate h4 { font-size: 16px; margin-bottom: 6px; }
+  .gate p { color: var(--text-muted); font-size: 13.5px; margin: 0; }
+
+  /* Layer stack */
+  .layer { display: flex; gap: 18px; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .layer__k { font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em; color: var(--g-yellow); min-width: 86px; }
+  .layer h4 { font-size: 17px; margin-bottom: 6px; }
+  .layer p { color: var(--text-muted); font-size: 14px; margin: 0; }
+
+  /* Frameworks */
+  .fw h3 { font-size: 18px; margin-bottom: 14px; }
+  .fw ul { list-style: none; padding: 0; margin: 0; }
+  .fw li { position: relative; padding-left: 20px; margin-bottom: 9px; font-size: 13.5px; color: var(--text-muted); }
+  .fw li::before { content: "✓"; position: absolute; left: 0; color: var(--g-green); }
+
+  /* Roles */
+  .role { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+  .role__k { font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; color: var(--g-blue-l); margin-bottom: 10px; }
+  .role p { color: var(--text-muted); font-size: 14px; margin-bottom: 14px; }
+  .role a { color: var(--g-blue-l); font-size: 13.5px; font-weight: 500; }
+
+  /* Footer */
+  .foot { border-top: 1px solid var(--border); padding: 36px 32px; }
+  .foot__grid { max-width: var(--maxw); margin: 0 auto; display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; }
+  .foot__nav a { color: var(--text-muted); font-size: 13px; margin-right: 16px; }
+  .foot__nav a:hover { color: var(--text); }
+  .foot__fw { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 8px; width: 100%; }
+
+  @media (max-width: 980px) {
+    .hero__grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 42px; }
+    .prob, .mini { grid-template-columns: 1fr; }
   }
-  .picker select:hover { border-color:var(--g-blue-l); }
-
-  .loading { color:var(--text-muted); font-family:var(--font-mono); font-size:13px; padding:40px 0; }
-  .hidden { display:none !important; }
-
-  /* ---- Kanban board ---- */
-  .board {
-    display:grid;
-    grid-template-columns:repeat(7, minmax(220px, 1fr));
-    gap:14px;
-    align-items:start;
-    overflow-x:auto;
-    padding-bottom:8px;
-  }
-  .col {
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
-    display:flex; flex-direction:column; min-height:120px;
-  }
-  .col__head {
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-    padding:12px 14px; border-bottom:1px solid var(--border);
-    position:sticky; top:var(--header-h); background:var(--surface); border-radius:var(--radius-lg) var(--radius-lg) 0 0; z-index:1;
-  }
-  .col__title { font-family:var(--font-mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; }
-  .col__dot { width:8px; height:8px; border-radius:50%; background:var(--g-gray); flex:0 0 auto; }
-  .col__dot.is-intake { background:var(--g-gray); }
-  .col__dot.is-bxt { background:var(--g-purple); }
-  .col__dot.is-feasibility { background:var(--g-teal); }
-  .col__dot.is-advisory { background:var(--g-blue); }
-  .col__dot.is-summary { background:var(--g-blue-l); }
-  .col__dot.is-panel { background:var(--g-yellow); }
-  .col__dot.is-approved { background:var(--g-green); }
-  .col__count { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:100px; padding:2px 8px; }
-  .col__body { padding:12px; display:flex; flex-direction:column; gap:10px; }
-  .col__empty { color:var(--text-dim); font-family:var(--font-mono); font-size:11px; padding:8px 2px; }
-
-  /* ---- Cards ---- */
-  .card {
-    display:block; background:var(--surface-2); border:1px solid var(--border);
-    border-radius:var(--radius); padding:13px 13px 12px; box-shadow:var(--shadow-1);
-    transition:border-color .15s, transform .1s, box-shadow .15s; color:var(--text);
-    border-left:3px solid var(--border);
-  }
-  .card:hover { border-color:var(--g-blue-l); transform:translateY(-1px); box-shadow:var(--shadow-2); }
-  .card.is-go { border-left-color:var(--g-green); }
-  .card.is-cond { border-left-color:var(--g-yellow); }
-  .card.is-no { border-left-color:var(--g-red); }
-  .card__top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
-  .card__name { font-size:14px; font-weight:500; line-height:1.3; }
-  .card__dept { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-bottom:10px; }
-  .card__meta { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-  .feas { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); }
-  .feas__bar { display:inline-block; width:44px; height:5px; border-radius:100px; background:var(--surface-3); overflow:hidden; }
-  .feas__fill { display:block; height:100%; background:linear-gradient(90deg,var(--g-blue),var(--g-blue-l)); }
-  .tier { font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); }
-  .dim { color:var(--text-dim); }
-
-  /* Verdict chip — color-coded GO green / CONDITIONAL yellow / NO-GO red */
-  .vchip { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:10.5px; font-weight:500; padding:3px 8px; border-radius:100px; border:1px solid; letter-spacing:.02em; white-space:nowrap; }
-  .vchip.is-go { color:#81c995; border-color:rgba(52,168,83,.45); background:rgba(52,168,83,.12); }
-  .vchip.is-cond { color:var(--g-yellow); border-color:rgba(251,188,4,.45); background:rgba(251,188,4,.12); }
-  .vchip.is-no { color:#f28b82; border-color:rgba(234,67,53,.45); background:rgba(234,67,53,.12); }
-  .vchip.is-none { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-
-  .empty { text-align:center; padding:60px 20px; color:var(--text-muted); }
-  .empty__icon { font-size:34px; margin-bottom:12px; }
-  .empty__title { font-size:16px; color:var(--text); margin-bottom:8px; }
-
-  /* Light theme parity with the rest of the app */
-  body.theme-light { --bg:#f6f8fc; --surface:#fff; --surface-2:#f1f3f9; --surface-3:#e6e9f2; --border:#d9dce4; --text:#1f2430; --text-muted:#4b5162; --text-dim:#8a90a0; }
 </style>
 </head>
 <body>
 
-<!-- ============================ HEADER ============================ -->
+<!-- ============================ 1. HEADER ============================ -->
 <header class="gc-header">
   <div class="gc-header__brand">
+    <!-- Google 4-color G mark -->
     <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
       <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
       <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
@@ -170,9 +192,18 @@ p { margin:0 0 1rem; }
   </div>
   <div class="gc-header__divider"></div>
   <span class="gc-header__product">Enterprise Advantage</span>
+  <nav class="gc-nav">
+    <a href="#top" class="is-active">Home</a>
+    <a href="dashboard.html">Dashboard</a>
+    <a href="portfolio-map.html">Portfolio Map</a>
+    <a href="intake.html">Pipeline</a>
+    <a href="kanban.html">Board</a>
+    <a href="dashboard.html">Impact Index</a>
+    <a href="#token">Token Economics</a>
+  </nav>
   <div class="gc-header__right">
-    <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
-    <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
+    <a href="intake.html" class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</a>
+    <a href="dashboard.html" class="gc-select" style="text-decoration:none;">WORKSPACE ▾</a>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -182,302 +213,325 @@ p { margin:0 0 1rem; }
   </div>
 </header>
 
-<main>
-  <div class="wrap">
-    <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Home</a>&nbsp;&nbsp;/&nbsp;&nbsp;Pipeline Board</div>
+<main id="top">
 
-    <!-- Page title + workspace picker -->
-    <div class="pagehd">
-      <div>
-        <h1 class="pagehd__title">Pipeline Board</h1>
-        <p class="pagehd__sub">Every use case by evaluation stage — from intake to approved</p>
+<!-- ============================ 2. HERO ============================ -->
+<section class="hero">
+  <div class="hero__grid">
+    <div class="hero__left">
+      <div class="gc-eyebrow hero__crumb">Google Cloud&nbsp;&nbsp;/&nbsp;&nbsp;Enterprise Advantage&nbsp;&nbsp;/&nbsp;&nbsp;AI Catalyst</div>
+      <svg class="glogo" width="46" height="46" viewBox="0 0 48 48" aria-label="Google">
+        <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+        <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+        <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+        <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+      </svg>
+      <h1>AI Catalyst</h1>
+      <p class="hero__sub">From first idea to investment verdict and Executive Brief — AI use case evaluation with a 4-persona Executive Review Panel, Monte Carlo projections, your organisation's real compliance context, and a complete AI token economics control framework.</p>
+      <div class="hero__tags">
+        <span class="gc-tag gc-tag--blue">GADF v2</span>
+        <span class="gc-tag gc-tag--green">Google Cloud Adoption Framework</span>
+        <span class="gc-tag gc-tag--purple">McKinsey · MIT Sloan</span>
+        <span class="gc-tag gc-tag--gray">Gartner</span>
+        <span class="gc-tag gc-tag--teal">Token Economics</span>
       </div>
-      <div class="picker">
-        <span class="picker__label">Workspace</span>
-        <select id="wsPicker" aria-label="Select workspace"></select>
-      </div>
+      <a href="#get-started" class="gc-btn gc-btn--accent">Set Up Workspace</a>
     </div>
 
-    <!-- Loading / error banner -->
-    <div class="loading" id="loading">Loading pipeline…</div>
-
-    <!-- Board is injected once loaded -->
-    <div id="board" class="board hidden"></div>
-
-    <!-- Empty state -->
-    <div id="empty" class="empty hidden">
-      <div class="empty__icon">📋</div>
-      <div class="empty__title">No use cases yet — create one to populate the pipeline.</div>
-      <p><a href="intake.html">+ Create your first use case</a></p>
+    <!-- Carousel -->
+    <div class="carousel" id="carousel">
+      <div class="carousel__progress"><div class="carousel__bar" id="carBar"></div></div>
+      <div class="carousel__viewport" id="carViewport"><!-- slides injected by JS --></div>
+      <div class="carousel__nav">
+        <button class="arrow" id="carPrev" aria-label="Previous">‹</button>
+        <div class="carousel__dots" id="carDots"></div>
+        <button class="arrow" id="carNext" aria-label="Next">›</button>
+      </div>
     </div>
   </div>
+</section>
+
+<!-- ============================ 3. STAT BAR ============================ -->
+<section class="gc-section" id="stats" style="padding-top:44px;padding-bottom:44px;">
+  <div class="gc-container gc-grid gc-grid--3" style="grid-template-columns:repeat(5,1fr);">
+    <div class="gc-stat"><div class="gc-stat__num" style="color:var(--g-red)">73%</div><div class="gc-stat__label">of enterprise AI projects fail to reach production</div><span class="gc-stat__src">Gartner 2024</span></div>
+    <div class="gc-stat"><div class="gc-stat__num" style="color:var(--g-green)">4.2×</div><div class="gc-stat__label">higher ROI when AI use cases are formally scored</div><span class="gc-stat__src">McKinsey 2023</span></div>
+    <div class="gc-stat"><div class="gc-stat__num" style="color:var(--g-blue-l)">18 mo</div><div class="gc-stat__label">average payback for well-governed AI initiatives</div><span class="gc-stat__src">Forrester 2023</span></div>
+    <div class="gc-stat"><div class="gc-stat__num" style="color:var(--g-yellow)">6</div><div class="gc-stat__label">gates from intake to Executive Review Panel</div><span class="gc-stat__src">AI Catalyst</span></div>
+    <div class="gc-stat"><div class="gc-stat__num" style="color:var(--g-teal)">6×</div><div class="gc-stat__label">cost gap between unmanaged and governed AI workloads</div><span class="gc-stat__src">Token Economics</span></div>
+  </div>
+</section>
+
+<!-- ============================ 4. THE PROBLEM ============================ -->
+<section class="gc-section">
+  <div class="gc-container">
+    <div class="gc-section__head">
+      <h2>Why do 73% of enterprise AI projects never reach production?</h2>
+      <p class="gc-section__intro">Enterprise teams generate hundreds of AI ideas. Without a structured evaluation framework, resources get committed to the wrong initiatives — ones with low strategic alignment, poor data readiness, mismatched platforms, or governance gaps discovered only after significant investment. AI Catalyst replaces opinion-driven prioritisation with a disciplined, reproducible process — from first idea to investment committee verdict.</p>
+    </div>
+    <div class="prob">
+      <div class="prob__item"><h4>No enterprise context in scoring</h4><div class="prob__cons"><span>↳</span>Generic scores that ignore your Google Workspace licensing, compliance posture, and AI budget</div></div>
+      <div class="prob__item"><h4>Platform chosen before use case scored</h4><div class="prob__cons"><span>↳</span>Overengineered builds when Gemini for Workspace would have sufficed at 10% of the cost</div></div>
+      <div class="prob__item"><h4>ROI projected without org-specific data</h4><div class="prob__cons"><span>↳</span>Unrealistic business cases that fail scrutiny at investment committee</div></div>
+      <div class="prob__item"><h4>No formal investment review process</h4><div class="prob__cons"><span>↳</span>Decisions driven by HiPPO bias rather than structured 4-persona deliberation (Sponsor / Risk / CIO / Chair)</div></div>
+      <div class="prob__item"><h4>Governance bolted on after build</h4><div class="prob__cons"><span>↳</span>Regulatory exposure, EU AI Act gaps, and delayed production launches</div></div>
+      <div class="prob__item"><h4>Builder profile mismatched to complexity</h4><div class="prob__cons"><span>↳</span>Citizen developers tackling pro-code complexity — or pro-dev teams over-engineering simple automation</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 5. CAPABILITIES ============================ -->
+<section class="gc-section">
+  <div class="gc-container">
+    <div class="gc-section__head">
+      <h2>End-to-end AI investment evaluation</h2>
+      <p class="gc-section__intro">Nine integrated capabilities — from multi-enterprise workspace management to a live 4-persona Executive Review Panel and a 13-tool AI token economics control framework — each mapped to a published framework or governance standard.</p>
+    </div>
+    <div class="gc-grid gc-grid--3">
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-blue)"></div><h3>Multi-Enterprise Workspaces</h3><p>Manage multiple enterprises in one platform. Each workspace has its own enterprise profile (tech stack, Google Workspace licensing, compliance, AI budget), department LOB profiles, and scoped use case portfolio.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-red)"></div><h3>BXT Gate Evaluation</h3><p>Every idea passes a Business × Experience × Technology gate — aligned to Google's AI pre-filter. Only viable use cases advance to scoring, preventing wasted evaluation effort on weak ideas.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-yellow)"></div><h3>4-Framework Scoring Engine</h3><p>Deterministic scoring across Google Cloud Adoption Framework for AI (0–100), McKinsey quadrant (Quick Win / Strategic Bet / Foundation / Defer), MIT Sloan readiness (Data / Talent / Strategy), and Gartner AI maturity gap — all from your enterprise profile, zero extra AI calls.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-green)"></div><h3>Org-Specific ROI Engine</h3><p>Calculates 24-month ROI, payback period, and 3-year NPV from your actual staffing costs and process volumes. Monte Carlo simulation produces conservative / expected / optimistic ranges with probability of positive ROI.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-blue)"></div><h3>GADF Sequential Gate Advisory</h3><p>Google AI Decision Framework — three sequential gates (Workspace/Gemini sufficiency → Low-code viability → Build necessity) determine the right platform tier. Start Simple Mandate ensures Phase 1 always begins at the simplest viable tier.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-red)"></div><h3>Executive Review Panel</h3><p>Simulates a real enterprise approval process: Business Sponsor, Risk &amp; Assurance Officer, Chief Information Officer, and Committee Chair each deliberate in their authentic voice. Live streaming deliberation with canvas-style decision artifact. GADF compliance gates the verdict.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-yellow)"></div><h3>Governance &amp; Responsible AI</h3><p>Auto-generates a tailored governance checklist aligned to Google Cloud's responsible-AI pillars, EU AI Act tiers, and your data sensitivity posture. PII handling, audit trail, and compliance framework gaps surfaced at intake.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-green)"></div><h3>Pipeline, Comparison &amp; Brief</h3><p>Kanban pipeline tracks each use case from intake to approval. Side-by-side comparison across up to 4 use cases. 3-page Executive Brief with Monte Carlo projections, committee deliberation summary, and platform-confirmed ROI.</p></div>
+      <div class="gc-card"><div class="gc-card__accent" style="background:var(--g-teal)"></div><h3>AI Token Economics</h3><p>A 13-tool control framework that turns opaque AI spend into measurable cost-per-outcome. Learn mode makes the problem visceral with live demos; Act mode walks you through Inform → Optimize → Operate with calculators, scorecards, and an executive summary.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 6. TOKEN ECONOMICS BAND ============================ -->
+<section class="gc-section band" id="token">
+  <div class="gc-container">
+    <div class="band__head">
+      <span class="gc-badge-new">New</span>
+      <h2 style="margin:0;">AI Token Economics</h2>
+    </div>
+    <p class="gc-section__intro" style="margin-bottom:28px;">Enterprise AI teams can't optimise what they can't see. Token Economics gives CXOs a 13-tool control framework that turns opaque AI spend into a measurable cost-per-useful-outcome — the North-Star KPI that reframes the CFO conversation from "how much are we spending?" to "what are we getting?"</p>
+    <div class="gc-grid gc-grid--3">
+      <div class="phase"><div class="phase__k" style="color:var(--g-blue-l)">INFORM</div><p style="margin:0;color:var(--text-muted);font-size:14px;">See every token — metering, cost attribution, and spend visibility across models and agents.</p></div>
+      <div class="phase"><div class="phase__k" style="color:var(--g-yellow)">OPTIMIZE</div><p style="margin:0;color:var(--text-muted);font-size:14px;">Cut the waste — caching, routing, prompt compression, and outcome-based pricing calculators.</p></div>
+      <div class="phase"><div class="phase__k" style="color:var(--g-green)">OPERATE</div><p style="margin:0;color:var(--text-muted);font-size:14px;">Keep it cut — governance scorecards, policy enforcement, and continuous control monitoring.</p></div>
+    </div>
+    <div class="mini">
+      <div class="mini__item"><div class="mini__num" style="color:var(--g-teal)">6×</div><div class="mini__txt">cost gap between naive and governed AI workloads</div></div>
+      <div class="mini__item"><div class="mini__num" style="color:var(--g-blue-l)">13</div><div class="mini__txt">integrated tools across 6 chapters</div></div>
+      <div class="mini__item"><div class="mini__num" style="color:var(--g-yellow)">30–50%</div><div class="mini__txt">hidden costs beyond token price</div></div>
+      <div class="mini__item"><div class="mini__num" style="color:var(--g-green)">3</div><div class="mini__txt">control phases: Inform → Optimize → Operate</div></div>
+    </div>
+    <div style="margin-top:26px;"><a href="#token" class="gc-btn gc-btn--primary">Open Token Economics</a></div>
+  </div>
+</section>
+
+<!-- ============================ 7. HOW IT WORKS ============================ -->
+<section class="gc-section" id="how">
+  <div class="gc-container">
+    <div class="gc-section__head">
+      <h2>Six disciplined gates — from idea to investment decision</h2>
+      <p class="gc-section__intro">Every use case travels the same rigorous funnel. Enterprise and LOB context flows through every gate, making each evaluation specific to your organisation — not a generic benchmark.</p>
+    </div>
+    <div class="gc-grid gc-grid--2">
+      <div class="gate"><div class="gate__n">01</div><div><h4>Intake 📥</h4><p>Structured 5-section intake pre-loaded with your Google Cloud stack, Workspace licensing, and compliance posture. Captures org spend, data sources, and AI autonomy level — LOB context flows into every downstream gate.</p></div></div>
+      <div class="gate"><div class="gate__n" style="color:#f28b82">02</div><div><h4>BXT Gate 🚦</h4><p>Business × Experience × Technology pre-filter aligned to Google's AI pre-filter. Weak ideas are blocked early with specific reasoning before any scoring effort is spent.</p></div></div>
+      <div class="gate"><div class="gate__n" style="color:var(--g-yellow)">03</div><div><h4>Feasibility Scoring 🧠</h4><p>9-criterion scoring across Strategic Value · Tech Feasibility · Org Readiness. 7 platforms ranked with confidence scores, plus Monte Carlo ROI — conservative / expected / optimistic bands.</p></div></div>
+      <div class="gate"><div class="gate__n" style="color:#81c995">04</div><div><h4>Platform Advisory 🧭</h4><p>Google AI Decision Framework sequential gates: Gate 1 (Workspace/Gemini sufficiency) → Gate 2 (AppSheet/Agentspace low-code) → Gate 3 (Vertex AI build). Resolves to Adopt / Extend / Build tier with the Start Simple Mandate enforced.</p></div></div>
+      <div class="gate"><div class="gate__n">05</div><div><h4>Evaluation Summary 📊</h4><p>Monte Carlo ROI plus all framework scores in one view — P10 / P50 / P90 confidence intervals, Google CAF, McKinsey, MIT Sloan and Gartner scores, governance checklist and risk assessment.</p></div></div>
+      <div class="gate"><div class="gate__n" style="color:#f28b82">06</div><div><h4>Executive Review Panel ⚖️</h4><p>Four-persona live deliberation — Business Sponsor · Risk &amp; Assurance · CIO · Committee Chair — streaming debate with canvas-style decision artifact. GADF compliance gates the GO verdict.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 8. THREE-LAYER CONTEXT STACK ============================ -->
+<section class="gc-section">
+  <div class="gc-container">
+    <div class="gc-section__head"><h2>Three layers of context, one score</h2></div>
+    <div class="gc-grid" style="gap:14px;">
+      <div class="layer"><div class="layer__k">Layer 1</div><div><h4>Enterprise Profile</h4><p>IT landscape · Google Workspace licensing · compliance frameworks · AI budget · Gartner maturity level.</p></div></div>
+      <div class="layer"><div class="layer__k" style="color:var(--g-green)">Layer 2</div><div><h4>LOB Profile</h4><p>Department headcount · pain points · existing tools · AI maturity · KPIs — pre-seeded from enterprise stack.</p></div></div>
+      <div class="layer"><div class="layer__k" style="color:var(--g-blue-l)">Layer 3</div><div><h4>Use Case Intake</h4><p>The specific AI idea — scored with full org context flowing through every gate and framework calculation.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 9. FRAMEWORKS ============================ -->
+<section class="gc-section">
+  <div class="gc-container">
+    <div class="gc-section__head">
+      <h2>Built on four industry-recognised frameworks</h2>
+      <p class="gc-section__intro">Every score, recommendation, and governance item traces back to a published standard. All four frameworks are computed deterministically from your enterprise profile — no additional AI calls.</p>
+    </div>
+    <div class="gc-grid gc-grid--2">
+      <div class="gc-card fw"><h3>GADF v2 — Google AI Decision Framework</h3><ul>
+        <li>BXT Gate — Business × Experience × Technology pre-filter</li>
+        <li>Sequential gates: Workspace/Gemini Sufficiency → Low-Code → Build Necessity</li>
+        <li>Adopt → Extend → Build platform ladder with Start Simple Mandate</li>
+        <li>GADF compliance gating in Investment Committee verdict</li></ul></div>
+      <div class="gc-card fw"><h3>Google Cloud Adoption Framework for AI</h3><ul>
+        <li>Strategy / Ready / Govern / Adopt pillars scored 1–5</li>
+        <li>Overall CAF readiness score 0–100 with gap analysis</li>
+        <li>Vertex AI, Workspace Enterprise, AppSheet CoE signals applied</li>
+        <li>Enterprise profile drives org-specific pillar boosts</li></ul></div>
+      <div class="gc-card fw"><h3>Strategic Value — McKinsey AI × MIT Sloan</h3><ul>
+        <li>McKinsey 2×2: Strategic Value × Technical Feasibility quadrant</li>
+        <li>Quick Win / Strategic Bet / Foundation Investment / Defer placement</li>
+        <li>MIT Sloan: Data / Talent / Strategy readiness (0–100 each)</li>
+        <li>MIT Sloan overall score with dimension-level gaps</li></ul></div>
+      <div class="gc-card fw"><h3>Gartner + ROI — Gartner AI Maturity + ROI Benchmarks</h3><ul>
+        <li>Gartner Level 1–5 org maturity vs use case complexity gap</li>
+        <li>Accelerate / Incubate / Quick Win / Deprioritize quadrants</li>
+        <li>Monte Carlo ROI simulation — conservative / expected / optimistic</li>
+        <li>McKinsey / Forrester / IDC 24-month ROI benchmark ranges by category</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ 10. GET STARTED ============================ -->
+<section class="gc-section" id="get-started">
+  <div class="gc-container">
+    <div class="gc-section__head">
+      <h2>Start evaluating your first AI use case</h2>
+      <p class="gc-section__intro">Set up your enterprise workspace first — it takes 5 minutes and powers every score, ROI projection, and platform recommendation with your organisation's specific context.</p>
+      <div style="display:flex;gap:12px;margin-top:20px;">
+        <a href="intake.html" class="gc-btn gc-btn--primary">Submit a Use Case</a>
+        <a href="dashboard.html" class="gc-btn gc-btn--ghost">View Dashboard</a>
+      </div>
+    </div>
+    <div class="gc-grid gc-grid--4">
+      <div class="role"><div class="role__k">AI STRATEGY LEAD</div><p>Manage portfolio, review investment decisions, and track ROI across your enterprise AI initiatives.</p><a href="dashboard.html">→ View Portfolio Dashboard</a></div>
+      <div class="role"><div class="role__k" style="color:#f28b82">BUSINESS ANALYST</div><p>Submit a new AI use case for evaluation. The platform scores it against frameworks and builds your business case.</p><a href="intake.html">→ Submit a Use Case</a></div>
+      <div class="role"><div class="role__k" style="color:var(--g-yellow)">ENTERPRISE ADMIN</div><p>Set up your enterprise workspace, configure LOB profiles, and manage model settings for your organisation.</p><a href="setup.html">→ Configure Workspace</a></div>
+      <div class="role"><div class="role__k" style="color:#81c995">FINOPS LEAD</div><p>Measure, control, and optimise enterprise AI costs with a 13-tool token economics framework — from visibility to governance.</p><a href="#token">→ Open Token Economics</a></div>
+    </div>
+  </div>
+</section>
+
 </main>
 
+<!-- ============================ 11. FOOTER ============================ -->
+<footer class="foot">
+  <div class="foot__grid">
+    <div class="gc-header__brand">
+      <svg class="glogo" width="20" height="20" viewBox="0 0 48 48" aria-label="Google">
+        <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+        <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+        <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+        <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+      </svg>
+      <span class="gc-header__wordmark">Google <b>AI Catalyst</b> <span style="color:var(--text-dim);font-weight:400;">v2.0</span></span>
+    </div>
+    <nav class="foot__nav">
+      <a href="dashboard.html">Dashboard</a><a href="portfolio-map.html">Portfolio Map</a><a href="intake.html">New Use Case</a><a href="intake.html">Pipeline</a><a href="kanban.html">Board</a><a href="compare.html">Compare</a><a href="#token">Token Economics</a>
+    </nav>
+    <div class="foot__fw">GADF v2 · Google Cloud Adoption Framework · McKinsey · MIT Sloan · Gartner · Token Economics</div>
+  </div>
+</footer>
+
+<!-- ============================ INLINE JS ============================ -->
 <script src="assets/api-client.js"></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
 (function () {
-  "use strict";
-
-  var THEME_KEY = 'gaic_theme';
-
-  // ---------- DOM refs ----------
-  var el = {
-    loading:  document.getElementById('loading'),
-    board:    document.getElementById('board'),
-    empty:    document.getElementById('empty'),
-    wsPicker: document.getElementById('wsPicker'),
-    wsChip:   document.getElementById('wsChip'),
-  };
-
-  // ---------- helpers ----------
-  function esc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
-    });
-  }
-  function num(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-
-  // Verdict normalization -> 'go' | 'cond' | 'no' | null (mirrors dashboard.html)
-  function verdictKey(v) {
-    if (!v) return null;
-    var s = String(v).toUpperCase();
-    if (s.indexOf('NO') === 0 || s.indexOf('NO-GO') !== -1 || s.indexOf('NO GO') !== -1) return 'no';
-    if (s.indexOf('COND') !== -1) return 'cond';
-    if (s.indexOf('GO') !== -1) return 'go';
-    return null;
-  }
-  function verdictLabel(v) { return v ? String(v) : 'Not evaluated'; }
-
-  // ============================================================
-  //  COLUMN / STAGE MODEL (exposed for tests)
-  // ============================================================
-  // Ordered pipeline columns. `key` matches the .is-<key> dot modifier.
-  var COLUMNS = [
-    { key: 'intake',      label: 'Intake' },
-    { key: 'bxt',         label: 'BXT' },
-    { key: 'feasibility', label: 'Feasibility' },
-    { key: 'advisory',    label: 'Advisory' },
-    { key: 'summary',     label: 'Summary' },
-    { key: 'panel',       label: 'Panel' },
-    { key: 'approved',    label: 'Approved' },
+  // ---- Carousel data (6 pipeline stages) ----
+  var stages = [
+    { step:"STEP 01 OF 06", emoji:"📥", title:"Intake", color:"#4285F4",
+      desc:"Structured 5-section intake with full enterprise context",
+      body:"Every evaluation begins by capturing the full organisational picture so downstream gates score against your reality, not a generic benchmark.",
+      bullets:["5-section form pre-loaded with your Google Cloud stack, Workspace licensing, compliance posture","Captures org spend, data sources, AI autonomy level","LOB context flows into every downstream gate"] },
+    { step:"STEP 02 OF 06", emoji:"🚦", title:"BXT Gate", color:"#EA4335",
+      desc:"Business × Experience × Technology pre-filter",
+      body:"A fast qualifying gate that stops weak ideas before they consume scoring effort — aligned to Google's AI pre-filter.",
+      bullets:["Business outcome clarity, Experience definition, Technology feasibility","Weak ideas blocked early with specific reasoning","Aligned to Google's AI pre-filter"] },
+    { step:"STEP 03 OF 06", emoji:"🧠", title:"Feasibility Scoring", color:"#FBBC04",
+      desc:"9-criterion scoring across Strategic Value · Feasibility · Org Readiness",
+      body:"Deterministic multi-criteria scoring ranks viable use cases and platforms, then projects ROI with a Monte Carlo simulation.",
+      bullets:["9 criteria across Strategic Value · Tech Feasibility · Org Readiness","7 platforms ranked with confidence scores","Monte Carlo ROI — conservative / expected / optimistic bands"] },
+    { step:"STEP 04 OF 06", emoji:"🧭", title:"Platform Advisory", color:"#34A853",
+      desc:"Google AI Decision Framework sequential gates",
+      body:"Three sequential gates resolve every use case to the simplest viable platform tier — Start Simple by default.",
+      bullets:["Gate 1 (Workspace/Gemini sufficiency) → Gate 2 (AppSheet/Agentspace low-code) → Gate 3 (Vertex AI build)","Resolves to Adopt / Extend / Build tier","Start Simple Mandate enforced"] },
+    { step:"STEP 05 OF 06", emoji:"📊", title:"Evaluation Summary", color:"#4285F4",
+      desc:"Monte Carlo ROI + all framework scores in one view",
+      body:"A single consolidated view brings together every framework score, ROI band, and governance signal for committee-ready review.",
+      bullets:["P10 / P50 / P90 confidence intervals","Google CAF, McKinsey, MIT Sloan, Gartner scores","Governance checklist + risk assessment"] },
+    { step:"STEP 06 OF 06", emoji:"⚖️", title:"Executive Review Panel", color:"#EA4335",
+      desc:"Four-persona live deliberation → verdict + Executive Brief",
+      body:"A simulated investment committee deliberates in authentic voices and issues a gated verdict with a full Executive Brief.",
+      bullets:["Business Sponsor · Risk & Assurance · CIO · Committee Chair","Streaming debate with canvas-style decision artifact","GADF compliance gates the GO verdict"] }
   ];
 
-  // Normalize a raw `stage` string to one of the base column keys
-  // (Approved is derived from verdict, not a stored stage — see columnFor).
-  function stageKey(stage) {
-    if (!stage) return 'intake';
-    var s = String(stage).toLowerCase().trim();
-    if (s.indexOf('intake') !== -1 || s === 'new' || s === 'draft') return 'intake';
-    if (s.indexOf('bxt') !== -1) return 'bxt';
-    if (s.indexOf('feas') !== -1) return 'feasibility';
-    if (s.indexOf('advis') !== -1) return 'advisory';
-    if (s.indexOf('summary') !== -1 || s.indexOf('brief') !== -1) return 'summary';
-    if (s.indexOf('panel') !== -1 || s.indexOf('review') !== -1) return 'panel';
-    if (s.indexOf('approv') !== -1) return 'approved';
-    return 'intake';
-  }
+  var vp = document.getElementById('carViewport');
+  var dotsWrap = document.getElementById('carDots');
+  var bar = document.getElementById('carBar');
+  var idx = 0, timer = null, tickTimer = null, elapsed = 0;
+  var DURATION = 7000, TICK = 100;
 
-  // Resolve which board column a row belongs in.
-  // Rule from spec: a case at the `panel` stage moves to the Approved
-  // bucket ONLY when its verdict is GO. CONDITIONAL GO / NO-GO / unscored
-  // panel cases stay in the Panel column.
-  function columnFor(row) {
-    row = row || {};
-    var sk = stageKey(row.stage);
-    if (sk === 'panel' && verdictKey(row.verdict) === 'go') return 'approved';
-    return sk;
-  }
+  // Build slides
+  stages.forEach(function (s, i) {
+    var el = document.createElement('div');
+    el.className = 'slide' + (i === 0 ? ' is-active' : '');
+    el.innerHTML =
+      '<div class="gc-eyebrow slide__step">' + s.step + '</div>' +
+      '<div class="slide__emoji">' + s.emoji + '</div>' +
+      '<div class="slide__title">' + s.title + '</div>' +
+      '<div class="slide__ul" style="background:' + s.color + '"></div>' +
+      '<div class="slide__desc">' + s.desc + '</div>' +
+      '<p class="slide__body">' + s.body + '</p>' +
+      '<ul class="slide__bullets">' + s.bullets.map(function (b) { return '<li>' + b + '</li>'; }).join('') + '</ul>';
+    vp.appendChild(el);
 
-  // Expose the model so the jsdom test can exercise bucketing without a DOM.
-  window.GAIC_KANBAN = {
-    COLUMNS: COLUMNS,
-    stageKey: stageKey,
-    columnFor: columnFor,
-    verdictKey: verdictKey,
-  };
-
-  // ============================================================
-  //  DATA LOADING — API first, with 401 -> /login redirect
-  // ============================================================
-  function apiFetch(path) {
-    return fetch('/api' + path, { headers: { 'Content-Type': 'application/json' } })
-      .then(function (r) {
-        if (r.status === 401) {
-          window.location.href = '/login.html';
-          throw new Error('unauthorized');
-        }
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      });
-  }
-
-  var STATE = { workspaces: [], selectedWs: null };
-
-  function loadWorkspaces() {
-    return apiFetch('/workspaces').catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      return [];
-    });
-  }
-
-  function loadPortfolio(wsId) {
-    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
-    return apiFetch('/portfolio' + q).catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
-        return window.GAIC_API.listPortfolio(wsId);
-      }
-      return [];
-    });
-  }
-
-  // Pick the Intel workspace (case-insensitive) else the first.
-  function findIntel(list) {
-    if (!Array.isArray(list) || !list.length) return null;
-    for (var i = 0; i < list.length; i++) {
-      if (list[i] && /intel/i.test(String(list[i].name || ''))) return list[i];
-    }
-    return list[0];
-  }
-
-  // ============================================================
-  //  RENDER
-  // ============================================================
-  function cardHTML(r) {
-    var vk = verdictKey(r.verdict);
-    var vcls = vk === 'go' ? 'is-go' : vk === 'cond' ? 'is-cond' : vk === 'no' ? 'is-no' : 'is-none';
-
-    var feas = num(r.feasibility_composite);
-    var feasHTML = feas === null
-      ? '<span class="feas"><span class="dim">feas —</span></span>'
-      : '<span class="feas"><span class="feas__bar"><span class="feas__fill" style="width:' +
-          Math.max(0, Math.min(100, (feas / 5) * 100)).toFixed(0) + '%"></span></span>' +
-          (Math.round(feas * 10) / 10).toFixed(1) + '<span class="dim"> /5</span></span>';
-
-    var tier = r.advisory_tier ? '<span class="tier">' + esc(r.advisory_tier) + '</span>' : '<span class="tier dim">no tier</span>';
-
-    // Deep-link each card into its Gate 5 summary (real persisted data).
-    var href = r.id ? ('summary.html?id=' + encodeURIComponent(r.id)) : 'intake.html';
-
-    return '<a class="card ' + vcls + '" href="' + esc(href) + '">' +
-      '<div class="card__top">' +
-        '<span class="card__name">' + esc(r.name || 'Untitled use case') + '</span>' +
-        '<span class="vchip ' + vcls + '">' + esc(verdictLabel(r.verdict)) + '</span>' +
-      '</div>' +
-      '<div class="card__dept">' + (r.department ? esc(r.department) : '<span class="dim">Unassigned</span>') + '</div>' +
-      '<div class="card__meta">' + feasHTML + tier + '</div>' +
-    '</a>';
-  }
-
-  function render(rows) {
-    rows = Array.isArray(rows) ? rows : [];
-    el.loading.classList.add('hidden');
-
-    if (!rows.length) {
-      el.board.classList.add('hidden');
-      el.empty.classList.remove('hidden');
-      return;
-    }
-    el.empty.classList.add('hidden');
-    el.board.classList.remove('hidden');
-
-    // Bucket rows into columns.
-    var buckets = {};
-    COLUMNS.forEach(function (c) { buckets[c.key] = []; });
-    rows.forEach(function (r) { buckets[columnFor(r)].push(r); });
-
-    el.board.innerHTML = COLUMNS.map(function (c) {
-      var items = buckets[c.key];
-      var body = items.length
-        ? items.map(cardHTML).join('')
-        : '<div class="col__empty">— empty —</div>';
-      return '<section class="col" data-col="' + c.key + '">' +
-        '<div class="col__head">' +
-          '<span class="col__title"><span class="col__dot is-' + c.key + '"></span>' + esc(c.label) + '</span>' +
-          '<span class="col__count">' + items.length + '</span>' +
-        '</div>' +
-        '<div class="col__body">' + body + '</div>' +
-      '</section>';
-    }).join('');
-  }
-
-  // ============================================================
-  //  WORKSPACE PICKER
-  // ============================================================
-  function populatePicker() {
-    var opts = STATE.workspaces.map(function (w) {
-      var sel = (STATE.selectedWs && w.id === STATE.selectedWs.id) ? ' selected' : '';
-      return '<option value="' + esc(w.id) + '"' + sel + '>' + esc(w.name || 'Untitled workspace') + '</option>';
-    });
-    if (!STATE.workspaces.length) {
-      opts = ['<option value="">All workspaces</option>'];
-    }
-    el.wsPicker.innerHTML = opts.join('');
-    if (STATE.selectedWs) {
-      el.wsChip.textContent = String(STATE.selectedWs.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    }
-  }
-
-  function selectAndLoad(wsId) {
-    var ws = null;
-    for (var i = 0; i < STATE.workspaces.length; i++) {
-      if (STATE.workspaces[i].id === wsId) { ws = STATE.workspaces[i]; break; }
-    }
-    STATE.selectedWs = ws;
-    if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    el.board.classList.add('hidden');
-    el.empty.classList.add('hidden');
-    el.loading.classList.remove('hidden');
-    el.loading.textContent = 'Loading pipeline…';
-    loadPortfolio(wsId).then(render).catch(function (e) {
-      if (e && e.message === 'unauthorized') return;
-      el.loading.textContent = 'Could not load pipeline.';
-    });
-  }
-
-  el.wsPicker.addEventListener('change', function () {
-    selectAndLoad(this.value || null);
+    var d = document.createElement('button');
+    d.className = 'dot' + (i === 0 ? ' is-active' : '');
+    d.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    d.addEventListener('click', function () { go(i); });
+    dotsWrap.appendChild(d);
   });
 
-  // ============================================================
-  //  THEME TOGGLE (light/dark) — mirrors the rest of the app
-  // ============================================================
-  (function initTheme() {
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    try {
-      if (localStorage.getItem(THEME_KEY) === 'light') document.body.classList.add('theme-light');
-    } catch (e) {}
-    btn.addEventListener('click', function () {
-      document.body.classList.toggle('theme-light');
-      try { localStorage.setItem(THEME_KEY, document.body.classList.contains('theme-light') ? 'light' : 'dark'); } catch (e) {}
-    });
-  })();
+  var slides = vp.querySelectorAll('.slide');
+  var dots = dotsWrap.querySelectorAll('.dot');
 
-  // ============================================================
-  //  BOOT
-  // ============================================================
-  loadWorkspaces().then(function (list) {
-    STATE.workspaces = Array.isArray(list) ? list : [];
-    var intel = findIntel(STATE.workspaces);
-    STATE.selectedWs = intel;
-    populatePicker();
-    var wsId = intel ? intel.id : null;
-    return loadPortfolio(wsId).then(render);
-  }).catch(function (e) {
-    if (e && e.message === 'unauthorized') return; // redirecting
-    loadPortfolio(null).then(render).catch(function () {
-      el.loading.textContent = 'Could not load pipeline.';
+  function render() {
+    slides.forEach(function (s, i) { s.classList.toggle('is-active', i === idx); });
+    dots.forEach(function (d, i) { d.classList.toggle('is-active', i === idx); });
+    bar.style.background = stages[idx].color;
+  }
+  function go(i) { idx = (i + stages.length) % stages.length; elapsed = 0; render(); restart(); }
+  function next() { go(idx + 1); }
+  function prev() { go(idx - 1); }
+
+  function restart() {
+    clearInterval(tickTimer); elapsed = 0; bar.style.width = '0%';
+    tickTimer = setInterval(function () {
+      elapsed += TICK;
+      bar.style.width = Math.min(100, (elapsed / DURATION) * 100) + '%';
+      if (elapsed >= DURATION) { idx = (idx + 1) % stages.length; elapsed = 0; render(); bar.style.width = '0%'; }
+    }, TICK);
+  }
+
+  document.getElementById('carNext').addEventListener('click', next);
+  document.getElementById('carPrev').addEventListener('click', prev);
+  var car = document.getElementById('carousel');
+  car.addEventListener('mouseenter', function () { clearInterval(tickTimer); });
+  car.addEventListener('mouseleave', restart);
+
+  render(); restart();
+
+  // ---- Smooth-scroll nav active state ----
+  var navLinks = document.querySelectorAll('.gc-nav a');
+  navLinks.forEach(function (a) {
+    a.addEventListener('click', function () {
+      navLinks.forEach(function (x) { x.classList.remove('is-active'); });
+      a.classList.add('is-active');
     });
   });
 
+  // ---- Optional theme toggle (dark <-> slightly lighter) ----
+  var toggled = false;
+  document.getElementById('themeToggle').addEventListener('click', function () {
+    toggled = !toggled;
+    document.documentElement.style.setProperty('--bg', toggled ? '#11161f' : '#0d1117');
+    document.documentElement.style.setProperty('--surface', toggled ? '#1a212c' : '#161b22');
+  });
 })();
 </script>
 </body>

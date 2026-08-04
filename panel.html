@@ -1,823 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Executive Review Panel — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Shared Google design system (external link kept for standalone deploys) -->
-<link rel="stylesheet" href="assets/theme.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — Google AI Catalyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-/* ==========================================================================
-   Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
-   ========================================================================== */
-:root {
-  --g-blue:#4285F4; --g-blue-d:#1a73e8; --g-blue-l:#8ab4f8;
-  --g-red:#EA4335; --g-red-d:#c5221f; --g-yellow:#FBBC04; --g-yellow-d:#f9ab00;
-  --g-green:#34A853; --g-green-d:#188038; --g-purple:#a142f4; --g-teal:#12b5cb; --g-gray:#9aa0a6;
-  --bg:#0d1117; --bg-hero:#0a0f1e; --surface:#161b22; --surface-2:#1c2230; --surface-3:#232a3a;
-  --border:#2a2f3a; --border-soft:rgba(232,234,237,0.08);
-  --text:#e8eaed; --text-muted:rgba(232,234,237,0.65); --text-dim:rgba(232,234,237,0.45);
-  --font-sans:"Google Sans","Product Sans",Roboto,Inter,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  --radius:6px; --radius-sm:4px; --radius-lg:8px;
-  --shadow-1:0 1px 2px rgba(0,0,0,0.4),0 0 0 1px var(--border);
-  --shadow-2:0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.02) inset;
-  --header-h:48px; --maxw:1280px;
-}
-* { box-sizing:border-box; }
-html { scroll-behavior:smooth; scroll-padding-top:calc(var(--header-h) + 16px); }
-body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
-h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
-a { color:inherit; text-decoration:none; }
-p { margin:0 0 1rem; }
-.gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
-.gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
-.gc-btn--primary { background:var(--g-blue); color:#fff; }
-.gc-btn--primary:hover { background:var(--g-blue-d); box-shadow:0 2px 10px rgba(66,133,244,.4); }
-.gc-btn--accent { background:transparent; color:var(--g-yellow); border-color:var(--g-yellow); }
-.gc-btn--accent:hover { background:rgba(251,188,4,.12); }
-.gc-btn--ghost { border-color:var(--border); color:var(--text); }
-.gc-btn--ghost:hover { border-color:var(--g-blue-l); color:var(--g-blue-l); }
-.gc-btn--sm { padding:7px 14px; font-size:13px; }
-.gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
-.gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
-.gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
-.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
-.gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
-.gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
-.gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
-.gc-header__brand { display:flex; align-items:center; gap:10px; }
-.gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
-.gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
-.gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
-.gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
-.gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
-.gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
-.gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
-.gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
-.glogo { display:inline-block; vertical-align:middle; }
-</style>
-<style>
-  /* ---------------- Page-specific: Executive Review Panel ---------------- */
-  main { padding-top: var(--header-h); }
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
-
-  /* Breadcrumb */
-  .crumb { margin-bottom: 18px; }
-  .crumb a { color: var(--text-dim); }
-  .crumb a:hover { color: var(--g-blue-l); }
-
-  /* ---- Gate stepper (6 gates) ---- */
-  .gates { display: flex; align-items: flex-start; margin-bottom: 22px; position: relative; }
-  .gate { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; position: relative; }
-  .gate__pill {
-    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
-    border: 2px solid var(--surface-3); color: var(--text-dim); background: var(--surface); z-index: 2; transition: all .2s;
+  :root{
+    --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC04; --g-green:#34A853;
+    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2230;
+    --border:#2a3140; --text:#e6edf3; --muted:#8b97a7;
   }
-  .gate.is-active .gate__pill { border-color: var(--g-blue); background: var(--g-blue); color: #fff; box-shadow: 0 0 0 4px rgba(66,133,244,.18); }
-  .gate.is-done .gate__pill { border-color: var(--g-green); background: rgba(52,168,83,.15); color: #81c995; }
-  .gate.is-done .gate__pill svg { width: 14px; height: 14px; }
-  .gate__label { font-size: 11.5px; color: var(--text-dim); line-height: 1.25; max-width: 120px; }
-  .gate.is-active .gate__label { color: var(--g-blue-l); font-weight: 500; }
-  .gate.is-done .gate__label { color: #81c995; }
-  .gate:not(:first-child)::before {
-    content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--surface-3); z-index: 1;
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Roboto',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background-image:radial-gradient(circle at 15% 20%,rgba(66,133,244,.10),transparent 40%),
+      radial-gradient(circle at 85% 80%,rgba(52,168,83,.08),transparent 40%);
   }
-
-  /* ---- Gate banner strip ---- */
-  .banner { display: flex; gap: 14px; align-items: flex-start; background: var(--bg-hero); border: 1px solid var(--border); border-left: 4px solid var(--g-blue); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
-  .banner__body { flex: 1; }
-  .banner__title { font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: .12em; color: var(--g-blue-l); text-transform: uppercase; margin-bottom: 6px; }
-  .banner__desc { color: var(--text-muted); font-size: 13.5px; margin: 0; }
-  .banner__desc b { color: var(--text); font-weight: 500; }
-  .banner__desc i { color: var(--text-muted); font-style: italic; }
-  .banner__actions { flex-shrink: 0; display:flex; align-items:center; }
-  .banner__info { width: 30px; height: 30px; border-radius: 50%; display:flex; align-items:center; justify-content:center; border:1px solid var(--border); color: var(--g-blue-l); background: rgba(66,133,244,.08); }
-  .banner__info svg { width: 15px; height: 15px; }
-
-  /* ---- Workspace context chip ---- */
-  .wschip {
-    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted);
-    background: rgba(52,168,83,.08); border: 1px solid rgba(52,168,83,.3); border-radius: 100px;
-    padding: 7px 14px; margin-bottom: 22px;
+  .card{
+    width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
+    border-radius:16px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.45);
   }
-  .wschip b { color: #81c995; font-weight: 500; }
-
-  /* ============ Committee sub-header row ============ */
-  .subhead { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 14px; }
-  .subhead__left { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-dim); }
-  .subhead__left b { color: var(--g-blue-l); font-weight: 500; }
-
-  /* ============ Thinking steps (collapsible) ============ */
-  .steps { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; margin-bottom: 22px; }
-  .steps__head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding: 13px 20px; cursor:pointer; user-select:none; }
-  .steps__htext { display:flex; align-items:center; gap:10px; }
-  .steps__check { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(52,168,83,.16); color:#81c995; flex-shrink:0; }
-  .steps__check svg { width:13px; height:13px; }
-  .steps__title { font-size: 13.5px; font-weight: 500; }
-  .steps__toggle { font-size: 13px; color: var(--g-blue-l); display:inline-flex; align-items:center; gap:6px; }
-  .steps__toggle .caret { transition: transform .2s; display:inline-block; }
-  .steps.is-open .steps__toggle .caret { transform: rotate(180deg); }
-  .steps__body { display:none; padding: 2px 20px 14px; }
-  .steps.is-open .steps__body { display:block; }
-  .step { display:flex; align-items:flex-start; gap:11px; padding: 9px 0; border-top:1px solid var(--border); font-size: 13px; color: var(--text-muted); }
-  .step:first-child { border-top:none; }
-  .step__dot { width:18px; height:18px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(52,168,83,.16); color:#81c995; margin-top:1px; }
-  .step__dot svg { width:11px; height:11px; }
-
-  /* ============ Deliberation ============ */
-  .delib { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-blue); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 6px 22px 16px; margin-bottom: 26px; }
-  .turn { display:flex; gap:14px; padding: 16px 0; border-top:1px solid var(--border); opacity:0; transform: translateY(8px); transition: opacity .45s ease, transform .45s ease; }
-  .turn:first-child { border-top:none; }
-  .turn.is-in { opacity:1; transform: translateY(0); }
-  .turn__av { width: 40px; height: 40px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 14px; font-weight: 500; color:#fff; }
-  .turn__body { flex:1; }
-  .turn__who { font-size: 14px; font-weight: 500; margin-bottom: 1px; }
-  .turn__role { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
-  .turn__say { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; margin: 8px 0 0; }
-  .turn__say b { color: var(--text); font-weight: 500; }
-  .turn__typing { display:inline-flex; gap:3px; margin-top:8px; }
-  .turn__typing span { width:6px; height:6px; border-radius:50%; background: var(--text-dim); animation: blink 1.2s infinite; }
-  .turn__typing span:nth-child(2){ animation-delay:.2s; } .turn__typing span:nth-child(3){ animation-delay:.4s; }
-  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
-
-  /* ============ Verdict banner ============ */
-  .verdict { border-radius: var(--radius-lg); padding: 24px 28px; margin-bottom: 26px; position: relative; overflow: hidden; border:1px solid; opacity:0; transform: translateY(10px); transition: opacity .5s ease, transform .5s ease; }
-  .verdict.is-in { opacity:1; transform: translateY(0); }
-  .verdict.is-go { background: linear-gradient(120deg, #0f2a1a 0%, #143b4a 55%, #14532d 100%); border-color: rgba(52,168,83,.42); box-shadow: 0 6px 28px rgba(20,90,60,.30); }
-  .verdict.is-cond { background: linear-gradient(120deg, #2a2410 0%, #3b3414 55%, #4a3a10 100%); border-color: rgba(251,188,4,.42); box-shadow: 0 6px 28px rgba(120,90,10,.28); }
-  .verdict.is-nogo { background: linear-gradient(120deg, #2a1010 0%, #3b1414 55%, #4a1010 100%); border-color: rgba(234,67,53,.42); box-shadow: 0 6px 28px rgba(120,20,10,.28); }
-  .verdict__top { display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom: 16px; position:relative; z-index:1; }
-  .verdict__gate { font-family: var(--font-mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.72); }
-  .verdict__label { font-size: 34px; font-weight: 500; letter-spacing: -0.02em; color:#fff; line-height:1; }
-  .verdict__badge { font-family: var(--font-mono); font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; padding: 6px 14px; border-radius: 100px; border:1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.14); color:#fff; }
-  .verdict__cond { font-size: 13.5px; color: rgba(255,255,255,.9); line-height: 1.6; margin: 0 0 16px; position:relative; z-index:1; max-width: 900px; }
-  .verdict__cond b { color:#fff; font-weight:500; }
-  .verdict__stances { display:flex; gap:10px; flex-wrap:wrap; position:relative; z-index:1; }
-  .stance { display:inline-flex; align-items:center; gap:8px; font-family: var(--font-mono); font-size: 11.5px; padding: 6px 12px; border-radius: 100px; border:1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.08); color:#fff; }
-  .stance__dot { width:9px; height:9px; border-radius:50%; }
-  .stance__val { font-weight:500; }
-  .stance--support .stance__val { color:#b6f0c4; } .stance--support .stance__dot{ background:#81c995; }
-  .stance--conditional .stance__val { color:#ffe08a; } .stance--conditional .stance__dot{ background:var(--g-yellow); }
-  .stance--against .stance__val { color:#f6a79f; } .stance--against .stance__dot{ background:#f28b82; }
-
-  /* ============ Executive brief ============ */
-  .brief-launch { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom: 22px; }
-  .brief-launch__note { font-size: 12.5px; color: var(--text-dim); }
-  .brief { display:none; background:#fff; color:#202124; border-radius: var(--radius-lg); box-shadow: 0 8px 40px rgba(0,0,0,.5); overflow:hidden; margin-bottom: 26px; border:1px solid var(--border); }
-  .brief.is-open { display:block; }
-  .brief__head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding: 26px 30px 18px; border-bottom: 2px solid #e8eaed; }
-  .brief__brand { display:flex; align-items:center; gap:12px; }
-  .brief__wordmark { font-family: var(--font-sans); font-weight:500; font-size:16px; color:#202124; }
-  .brief__meta { text-align:right; font-family: var(--font-mono); font-size: 11px; color:#5f6368; line-height:1.7; }
-  .brief__doctitle { font-size: 26px; font-weight:500; color:#202124; margin: 20px 30px 4px; letter-spacing:-0.02em; }
-  .brief__sub { font-size: 13.5px; color:#5f6368; margin: 0 30px 8px; }
-  .brief__verdictline { display:inline-flex; align-items:center; gap:10px; margin: 8px 30px 4px; font-family: var(--font-mono); font-size:13px; font-weight:500; padding: 8px 16px; border-radius: 6px; }
-  .brief__verdictline.is-go { color:#188038; background:rgba(52,168,83,.12); border:1px solid rgba(52,168,83,.4); }
-  .brief__verdictline.is-cond { color:#b06000; background:rgba(251,188,4,.14); border:1px solid rgba(251,188,4,.5); }
-  .brief__verdictline.is-nogo { color:#c5221f; background:rgba(234,67,53,.12); border:1px solid rgba(234,67,53,.4); }
-  .brief__sec { padding: 18px 30px; border-top: 1px solid #e8eaed; }
-  .brief__sec:first-of-type { border-top:none; }
-  .brief__sectitle { font-family: var(--font-mono); font-size: 11px; letter-spacing:.12em; text-transform:uppercase; color:#4285F4; margin-bottom: 10px; font-weight:500; }
-  .brief__sec p { font-size: 13.5px; color:#3c4043; line-height:1.65; margin: 0 0 10px; }
-  .brief__sec p:last-child { margin-bottom:0; }
-  .brief__sec b { color:#202124; font-weight:500; }
-  .brief__kpis { display:grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin: 4px 0 12px; }
-  .brief__kpi { border:1px solid #dadce0; border-radius:8px; padding: 14px 16px; background:#f8f9fa; }
-  .brief__kpi-k { font-family: var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#5f6368; margin-bottom:6px; }
-  .brief__kpi-v { font-family: var(--font-mono); font-size: 24px; font-weight:500; color:#202124; line-height:1; }
-  .brief__kpi.is-p50 .brief__kpi-v { color:#188038; }
-  .brief__list { margin: 0; padding: 0 0 0 4px; list-style:none; }
-  .brief__list li { position:relative; padding: 6px 0 6px 24px; font-size: 13.5px; color:#3c4043; line-height:1.55; }
-  .brief__list li::before { content:""; position:absolute; left:2px; top:12px; width:8px; height:8px; border-radius:50%; background:#4285F4; }
-  .brief__foot { padding: 14px 30px 24px; border-top: 2px solid #e8eaed; font-size: 11px; color:#80868b; font-family: var(--font-mono); }
-  .brief__actions { padding: 0 30px 22px; display:flex; gap:12px; }
-  .brief__btn { font-family: var(--font-sans); font-size: 13px; font-weight:500; padding: 9px 18px; border-radius: 6px; cursor:pointer; border:1px solid; }
-  .brief__btn--print { background:#4285F4; color:#fff; border-color:#4285F4; }
-  .brief__btn--close { background:#fff; color:#5f6368; border-color:#dadce0; }
-
-  /* Footer nav */
-  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--border); }
-  .cardnav__right { display: flex; align-items: center; gap: 14px; }
-
-  @media (max-width: 980px) {
-    .gate__label { display: none; }
-    .verdict__label { font-size: 26px; }
-    .brief__kpis { grid-template-columns: 1fr; }
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .g-logo{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+  .g-logo .b{color:var(--g-blue)} .g-logo .r{color:var(--g-red)}
+  .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
+  .brand h1{font-size:16px;font-weight:500}
+  .brand h1 span{color:var(--muted);font-weight:400}
+  .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+  .field{margin-bottom:18px}
+  input{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;
   }
-
-  /* Print — only the brief prints cleanly */
-  @media print {
-    body { background:#fff; }
-    .gc-header, .crumb, .gates, .banner, .wschip, .subhead, .steps, .delib, .verdict, .brief-launch, .cardnav, .brief__actions { display:none !important; }
-    main { padding-top: 0; }
-    .wrap { padding: 0; max-width: none; }
-    .brief { display:block !important; box-shadow:none; border:none; margin:0; }
+  input:focus{outline:none;border-color:var(--g-blue);box-shadow:0 0 0 3px rgba(66,133,244,.25)}
+  button{
+    width:100%;background:var(--g-blue);color:#fff;border:none;border-radius:8px;
+    padding:13px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s;
+    margin-top:4px;
   }
+  button:hover{background:#3574e0}
+  button:disabled{opacity:.6;cursor:default}
+  .err{
+    display:none;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);
+    color:#ff9b90;font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:16px;
+  }
+  .err.show{display:block}
+  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);font-family:'Roboto Mono',monospace}
+  .bar{height:4px;border-radius:4px;margin-bottom:26px;display:flex;overflow:hidden}
+  .bar i{flex:1} .bar .b{background:var(--g-blue)} .bar .r{background:var(--g-red)}
+  .bar .y{background:var(--g-yellow)} .bar .g{background:var(--g-green)}
 </style>
 </head>
 <body>
+  <div class="card">
+    <div class="brand">
+      <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
+      <h1>AI Catalyst <span>· Sign in</span></h1>
+    </div>
+    <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
 
-<!-- ============================ HEADER ============================ -->
-<header class="gc-header">
-  <div class="gc-header__brand">
-    <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
-      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
-      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
-      <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
-      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
-    </svg>
-    <span class="gc-header__wordmark">Google <b>AI Catalyst</b></span>
+    <div class="err" id="err"></div>
+
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" id="submitBtn">Sign in</button>
+    </form>
+
+    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
   </div>
-  <div class="gc-header__divider"></div>
-  <span class="gc-header__product">Enterprise Advantage</span>
-  <div class="gc-header__right">
-    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
-    <span class="gc-select">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-    <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
-    </button>
-  </div>
-</header>
 
-<main>
-  <div class="wrap">
-    <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;<a href="summary.html">Evaluation Summary</a>&nbsp;&nbsp;/&nbsp;&nbsp;Executive Review Panel</div>
-
-    <!-- 6-gate stepper -->
-    <div class="gates" id="gates">
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Intake</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">BXT Gate</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Feasibility Scoring</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Platform Advisory</div></div>
-      <div class="gate is-done"><div class="gate__pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div><div class="gate__label">Evaluation Summary</div></div>
-      <div class="gate is-active"><div class="gate__pill">6</div><div class="gate__label">Executive Review Panel</div></div>
-    </div>
-
-    <!-- Gate banner -->
-    <div class="banner">
-      <div class="banner__body">
-        <div class="banner__title">Executive Review Panel</div>
-        <p class="banner__desc">AI personas deliberate the case — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>CIO</b>, and <b>Committee Chair</b> each cast a verdict with conditions. <i>Why: Multi-perspective deliberation catches blind spots no single reviewer would find.</i></p>
-      </div>
-      <div class="banner__actions">
-        <span class="banner__info" title="AI personas reason from the persisted gate data; verdict is derived deterministically from Gate 5 readiness." aria-label="About this panel">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        </span>
-      </div>
-    </div>
-
-    <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
-
-    <!-- Committee sub-header -->
-    <div class="subhead">
-      <div class="subhead__left">Committee · <b>7 turns</b></div>
-      <button class="gc-btn gc-btn--ghost gc-btn--sm" id="btnReplay" title="Re-run the streaming deliberation">↻&nbsp;Replay</button>
-    </div>
-
-    <!-- Thinking steps -->
-    <div class="steps is-open" id="steps">
-      <div class="steps__head" id="stepsHead">
-        <div class="steps__htext">
-          <span class="steps__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></span>
-          <span class="steps__title">Completed 4 steps</span>
-        </div>
-        <span class="steps__toggle">Details <span class="caret">▾</span></span>
-      </div>
-      <div class="steps__body" id="stepsBody"></div>
-    </div>
-
-    <!-- Deliberation -->
-    <div class="delib" id="delib"></div>
-
-    <!-- Verdict banner -->
-    <div class="verdict" id="verdictBand">
-      <div class="verdict__top">
-        <div>
-          <div class="verdict__gate">Gate 6 · Committee decision</div>
-          <div class="verdict__label" id="verdictLabel">—</div>
-        </div>
-        <span class="verdict__badge" id="verdictBadge">—</span>
-      </div>
-      <p class="verdict__cond" id="verdictCond">—</p>
-      <div class="verdict__stances" id="verdictStances"></div>
-    </div>
-
-    <!-- Executive brief -->
-    <div class="brief-launch">
-      <button class="gc-btn gc-btn--primary" id="btnBrief">📄&nbsp;Generate Executive Brief</button>
-      <span class="brief-launch__note">Formatted, printable one-pager populated from the persisted gate data.</span>
-    </div>
-    <div class="brief" id="brief"></div>
-
-    <!-- Footer nav -->
-    <div class="cardnav">
-      <a class="gc-btn gc-btn--ghost" href="summary.html" id="btnBack">←&nbsp;Back to Evaluation Summary</a>
-      <div class="cardnav__right">
-        <a class="gc-btn gc-btn--primary" href="index.html" id="btnFinish">Finish / Return to Pipeline&nbsp;→</a>
-      </div>
-    </div>
-  </div>
-</main>
-
-<script src="assets/api-client.js"></script>
-<script src="assets/deep-link.js"></script>
-<script src="assets/auth-ui.js" defer></script>
 <script>
-(function(){
-  'use strict';
+  const form = document.getElementById('loginForm');
+  const err = document.getElementById('err');
+  const btn = document.getElementById('submitBtn');
 
-  // ============================================================
-  //  STORAGE KEYS (shared across the 6-gate pipeline)
-  // ============================================================
-  var INTAKE_KEY   = 'gaic_intake';
-  var FEAS_KEY     = 'gaic_feasibility';
-  var ADVISORY_KEY = 'gaic_advisory';
-  var SUMMARY_KEY  = 'gaic_summary';
-  var THEME_KEY    = 'gaic_theme';
+  function showError(msg){ err.textContent = msg; err.classList.add('show'); }
+  function clearError(){ err.classList.remove('show'); }
 
-  // Deep-link override: when the page is opened with ?id=<use_case_id>, the
-  // fetched case's real intake + Gate 5 summary are stored here and take
-  // precedence over localStorage in loadIntake()/loadSummary().
-  var DEEP = { intake: null, summary: null };
+  // If already authenticated, skip straight to the app.
+  fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/index.html'; }).catch(()=>{});
 
-  // ---------- helpers ----------
-  function esc(str){
-    return String(str).replace(/[&<>"']/g, function(ch){
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch];
-    });
-  }
-  function fmtPct(n){ if (n == null || isNaN(n)) return '—'; return (n >= 0 ? '+' : '') + Math.round(n) + '%'; }
-  function fmtUsd(n){
-    if (n == null || isNaN(n)) return '—';
-    var a = Math.abs(n);
-    if (a >= 1e6) return (n<0?'-':'') + '$' + (Math.round(a/1e5)/10) + 'M';
-    if (a >= 1e3) return (n<0?'-':'') + '$' + Math.round(a/1e3) + 'K';
-    return (n<0?'-':'') + '$' + Math.round(a);
-  }
-
-  // ============================================================
-  //  DEMO FALLBACKS — keep the page meaningful with no prior gates
-  //  (matches the sibling gates' Acme demo persona)
-  // ============================================================
-  var DEMO_INTAKE = {
-    name: 'Automated invoice reconciliation',
-    dept: 'Finance Operations', sponsor: 'VP Finance',
-    value: '$1M–$5M', users: '200–1000',
-    autonomy: 'Supervised', pii: true, audit: true
-  };
-  var DEMO_SUMMARY = {
-    useCase: 'Automated invoice reconciliation',
-    composite: 74,
-    readiness: 'CONDITIONAL',
-    roi: { p10: 62, p50: 141, p90: 233, annualValue: 4200000, cost: 1750000, payback: 11 },
-    frameworks: [
-      { key:'gadf',      name:'GADF v2 (Google AI Decision Framework)', score:77, band:'Strong' },
-      { key:'caf',       name:'Google Cloud Adoption Framework',        score:72, band:'Ready' },
-      { key:'strategic', name:'Strategic Value (McKinsey × MIT Sloan)', score:81, band:'High' },
-      { key:'gartner',   name:'Gartner AI Maturity + ROI',             score:69, band:'Emerging' }
-    ],
-    governance: [],
-    ts: 0
-  };
-
-  function loadJSON(key, demo){
-    var parsed = null;
-    try { parsed = JSON.parse(localStorage.getItem(key)); } catch(e){ parsed = null; }
-    if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
-      return { data: demo, fromDemo: true };
-    }
-    return { data: parsed, fromDemo: false };
-  }
-  function loadIntake(){
-    if (DEEP.intake) return { data: DEEP.intake, fromDemo: false };
-    return loadJSON(INTAKE_KEY,  DEMO_INTAKE);
-  }
-  function loadSummary(){
-    if (DEEP.summary) return { data: DEEP.summary, fromDemo: false };
-    return loadJSON(SUMMARY_KEY, DEMO_SUMMARY);
-  }
-
-  // ============================================================
-  //  VERDICT DERIVATION — pure, from Gate 5 readiness
-  //    READY       -> GO           (green)
-  //    CONDITIONAL -> CONDITIONAL GO(amber)
-  //    BLOCKED     -> NO-GO         (red)
-  // ============================================================
-  function deriveVerdict(readiness){
-    var r = String(readiness || '').toUpperCase();
-    if (r === 'READY')   return { key:'go',   label:'GO',            klass:'is-go',   badge:'Unanimous approval' };
-    if (r === 'BLOCKED') return { key:'nogo', label:'NO-GO',         klass:'is-nogo', badge:'Deferred pending remediation' };
-    // default / CONDITIONAL
-    return { key:'cond', label:'CONDITIONAL GO', klass:'is-cond', badge:'Approved with binding condition' };
-  }
-
-  // The binding governance condition surfaced with the verdict.
-  var BINDING_CONDITION = 'Data residency clause must be executed as a condition precedent to contract signature, and Change Freeze Protocol CF-7 must be invoked before any infrastructure work commences.';
-
-  // ============================================================
-  //  PERSONAS + 7-TURN DELIBERATION SCRIPT
-  //  Google-remapped (Assured Workloads / Google Cloud / Vertex AI /
-  //  Gemini) — Google framing only; no third-party cloud vendor strings.
-  // ============================================================
-  var PERSONAS = {
-    BS: { code:'BS', name:'Business Sponsor',          role:'Executive Sponsor', color:'var(--g-blue)',   colorHex:'#4285F4' },
-    RA: { code:'RA', name:'Risk & Assurance Officer',  role:'Chief Risk Officer',color:'var(--g-purple)', colorHex:'#a142f4' },
-    CI: { code:'CI', name:'Chief Information Officer',  role:'CIO',               color:'var(--g-teal)',   colorHex:'#12b5cb' },
-    CC: { code:'CC', name:'Committee Chair',            role:'IC Moderator',      color:'var(--g-red)',    colorHex:'#EA4335' }
-  };
-
-  var DELIBERATION = [
-    { p:'BS', say:'This initiative delivers a projected <b>34% reduction</b> in operational processing costs within 18 months — that\u2019s <b>$12M in hard savings</b> against a $3.2M investment. We have board mandate, budget allocated, and three pilot departments ready to onboard. I\u2019m committing to a fully measurable ROI dashboard at the 90-day mark.' },
-    { p:'RA', say:'Our top risk is <b>data sovereignty</b>: we cannot confirm where inference workloads will reside across jurisdictions. My condition is simple — vendor contractual lock-in of data residency to Tier-1 compliant regions before any production deployment. Without that, we breach <b>GDPR Article 46</b> and expose the enterprise to eight-figure regulatory liability.' },
-    { p:'CI', say:'Our current architecture is a hybrid <b>Google Cloud</b>-on-prem estate running on a 2021 reference stack — we have not completed the API gateway modernisation that this AI layer depends on. Integration complexity scores a <b>7 out of 10</b> on our internal TOGAF risk matrix. We need six additional weeks for infrastructure readiness before the platform can support production load.' },
-    { p:'BS', say:'I concede both points — they\u2019re valid and I won\u2019t minimise them. My mitigation: we contract <b>Assured Workloads</b> regions for data residency today, locking compliance before go-live, and we absorb the six-week infrastructure runway inside Phase 1, preserving the 18-month ROI timeline. The <b>$12M outcome</b> is not at risk if we sequence correctly.' },
-    { p:'RA', say:'<b>Assured Workloads</b> regions satisfy Article 46 adequacy requirements — I accept that mitigation, provided the data residency clause is executed as a <b>condition precedent to contract signature</b>, not a post-award action. Final position: supportable with that single contractual gate enforced.' },
-    { p:'CI', say:'Absorbing the six-week runway into Phase 1 is technically feasible only if we <b>freeze scope</b> on the API gateway work immediately — no parallel change requests. I\u2019m confirming <b>CONDITIONAL</b> technical readiness: the platform will be production-grade by Week 6, provided we invoke <b>Change Freeze Protocol CF-7</b> starting Monday.' },
-    { p:'CC', say:'All three perspectives align on a viable path: the business case is strong, the compliance risk has a contractually enforceable remedy, and technology readiness is achievable within the existing timeline under a scoped freeze. This committee issues a <b>CONDITIONAL GO</b> — the single gate is execution of the data residency clause prior to contract signature, with <b>CF-7</b> invoked concurrently. Progress review is mandated at the <b>90-day ROI dashboard</b> checkpoint.' }
-  ];
-
-  // Per-persona final stance chips (order: BS, RA, CI).
-  var STANCES = [
-    { persona:'BS', label:'Business Sponsor',   value:'Support',     klass:'stance--support' },
-    { persona:'RA', label:'Risk & Assurance',   value:'Conditional', klass:'stance--conditional' },
-    { persona:'CI', label:'CIO',                value:'Conditional', klass:'stance--conditional' }
-  ];
-
-  // Thinking steps (deterministic, static).
-  var THINKING_STEPS = [
-    'Retrieving framework evaluation scores and composite analysis',
-    'Computing ROI projections and Monte Carlo simulations',
-    'Checking compliance gates and governance status',
-    'Analyzing platform advisory and tier recommendations'
-  ];
-
-  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>';
-
-  // ============================================================
-  //  RENDER — thinking steps
-  // ============================================================
-  function renderSteps(){
-    var body = document.getElementById('stepsBody');
-    if (!body) return;
-    body.innerHTML = '';
-    THINKING_STEPS.forEach(function(txt){
-      var row = document.createElement('div');
-      row.className = 'step';
-      row.setAttribute('data-step','1');
-      row.innerHTML = '<span class="step__dot">' + ICON_CHECK + '</span><span>' + esc(txt) + '</span>';
-      body.appendChild(row);
-    });
-  }
-
-  // ============================================================
-  //  RENDER — deliberation (streamed, deterministic delays)
-  // ============================================================
-  var _timers = [];
-  function clearTimers(){ _timers.forEach(function(t){ clearTimeout(t); }); _timers = []; }
-
-  function buildTurns(){
-    var host = document.getElementById('delib');
-    if (!host) return [];
-    host.innerHTML = '';
-    var els = [];
-    DELIBERATION.forEach(function(turn, i){
-      var persona = PERSONAS[turn.p];
-      var el = document.createElement('div');
-      el.className = 'turn';
-      el.setAttribute('data-turn', String(i+1));
-      el.setAttribute('data-persona', persona.code);
-      el.innerHTML =
-        '<div class="turn__av" style="background:' + persona.color + ';">' + esc(persona.code) + '</div>'
-        + '<div class="turn__body">'
-        +   '<div class="turn__who">' + esc(persona.name) + '</div>'
-        +   '<div class="turn__role">' + esc(persona.role) + '</div>'
-        +   '<p class="turn__say">' + turn.say + '</p>'
-        + '</div>';
-      host.appendChild(el);
-      els.push(el);
-    });
-    return els;
-  }
-
-  function streamTurns(animate){
-    clearTimers();
-    var els = buildTurns();
-    if (!animate){
-      els.forEach(function(el){ el.classList.add('is-in'); });
-      revealVerdict(false);
-      return;
-    }
-    els.forEach(function(el, i){
-      var t = setTimeout(function(){ el.classList.add('is-in'); }, 700 * (i + 1));
-      _timers.push(t);
-    });
-    var vt = setTimeout(function(){ revealVerdict(true); }, 700 * (els.length + 1));
-    _timers.push(vt);
-  }
-
-  // ============================================================
-  //  RENDER — verdict banner
-  // ============================================================
-  function currentVerdict(){
-    var summary = loadSummary().data;
-    var readiness = summary && summary.readiness ? summary.readiness : 'CONDITIONAL';
-    return deriveVerdict(readiness);
-  }
-
-  function renderVerdict(){
-    var v = currentVerdict();
-    var band = document.getElementById('verdictBand');
-    band.className = 'verdict ' + v.klass;
-    document.getElementById('verdictLabel').textContent = v.label;
-    document.getElementById('verdictBadge').textContent = v.badge;
-    document.getElementById('verdictCond').innerHTML =
-      '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
-
-    var host = document.getElementById('verdictStances');
-    host.innerHTML = '';
-    STANCES.forEach(function(s){
-      var chip = document.createElement('span');
-      chip.className = 'stance ' + s.klass;
-      chip.setAttribute('data-stance', s.persona);
-      chip.innerHTML = '<span class="stance__dot"></span>' + esc(s.label)
-        + ' · <span class="stance__val">' + esc(s.value) + '</span>';
-      host.appendChild(chip);
-    });
-  }
-
-  function revealVerdict(animate){
-    renderVerdict();
-    var band = document.getElementById('verdictBand');
-    if (!animate){ band.classList.add('is-in'); return; }
-    var t = setTimeout(function(){ band.classList.add('is-in'); }, 60);
-    _timers.push(t);
-  }
-
-  // ============================================================
-  //  EXECUTIVE BRIEF — 3 sections, populated from persisted data
-  // ============================================================
-  function buildBrief(){
-    var intake  = loadIntake().data;
-    var summary = loadSummary().data;
-    var v = currentVerdict();
-    var roi = (summary && summary.roi) || {};
-    var useCase = (summary && summary.useCase) || (intake && intake.name) || 'Untitled use case';
-    var composite = (summary && summary.composite != null) ? summary.composite : '—';
-    var p50 = roi.p50, p10 = roi.p10, p90 = roi.p90;
-    var payback = roi.payback;
-
-    var verdictSentence =
-      v.key === 'go'
-        ? 'The committee issues a <b>GO</b> — all perspectives align with no outstanding gate.'
-        : v.key === 'nogo'
-          ? 'The committee issues a <b>NO-GO</b> — the initiative is deferred pending remediation of the outstanding risk gate.'
-          : 'The committee issues a <b>CONDITIONAL GO</b> — the business case is strong and the outstanding risks have a contractually enforceable remedy.';
-
-    var html =
-      '<div class="brief__head">'
-      +  '<div class="brief__brand">'
-      +    '<svg width="26" height="26" viewBox="0 0 48 48" aria-label="Google">'
-      +      '<path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>'
-      +      '<path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>'
-      +      '<path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>'
-      +      '<path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>'
-      +    '</svg>'
-      +    '<span class="brief__wordmark">Google AI Catalyst</span>'
-      +  '</div>'
-      +  '<div class="brief__meta">EXECUTIVE BRIEF · GATE 6<br>Investment Committee<br>Acme Financial Services</div>'
-      + '</div>'
-      + '<div class="brief__doctitle">' + esc(useCase) + '</div>'
-      + '<p class="brief__sub">Committee-ready decision memo · portfolio composite <b>' + esc(String(composite)) + '/100</b></p>'
-      + '<span class="brief__verdictline ' + v.klass + '" id="briefVerdictLine">Committee verdict: ' + esc(v.label) + '</span>'
-
-      // Section 1 — Recommendation & Verdict
-      + '<div class="brief__sec" data-brief-sec="recommendation">'
-      +   '<div class="brief__sectitle">1 · Recommendation &amp; Verdict</div>'
-      +   '<p>' + verdictSentence + '</p>'
-      +   '<p>The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.</p>'
-      + '</div>'
-
-      // Section 2 — Business Case & ROI
-      + '<div class="brief__sec" data-brief-sec="business-case">'
-      +   '<div class="brief__sectitle">2 · Business Case &amp; ROI</div>'
-      +   '<div class="brief__kpis">'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P10 · Conservative</div><div class="brief__kpi-v" id="briefP10">' + fmtPct(p10) + '</div></div>'
-      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + fmtPct(p50) + '</div></div>'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + fmtPct(p90) + '</div></div>'
-      +   '</div>'
-      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + '</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + '. Modeled annual value is <b>' + fmtUsd(roi.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(roi.cost) + '</b>'
-      +     (payback != null ? ', with payback in approximately <b>' + esc(String(payback)) + ' months</b>' : '') + '.</p>'
-      +   '<p>The Business Sponsor commits to a fully measurable ROI dashboard at the 90-day mark, targeting a <b>34% reduction</b> in operational processing costs and $12M in hard savings against the phased investment.</p>'
-      + '</div>'
-
-      // Section 3 — Conditions & Next Steps
-      + '<div class="brief__sec" data-brief-sec="conditions">'
-      +   '<div class="brief__sectitle">3 · Conditions &amp; Next Steps</div>'
-      +   '<p><b>Binding condition:</b> ' + esc(BINDING_CONDITION) + '</p>'
-      +   '<ul class="brief__list">'
-      +     '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
-      +     '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
-      +     '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
-      +     '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>'
-      +   '</ul>'
-      + '</div>'
-
-      + '<div class="brief__foot">Generated by Google AI Catalyst · Gate 6 Executive Review Panel · verdict derived deterministically from Gate 5 readiness (' + esc(String(summary && summary.readiness || 'CONDITIONAL')) + ').</div>'
-      + '<div class="brief__actions">'
-      +   '<button class="brief__btn brief__btn--print" id="briefPrint" type="button">🖨 Print / Save as PDF</button>'
-      +   '<button class="brief__btn brief__btn--close" id="briefClose" type="button">Close</button>'
-      + '</div>';
-
-    var brief = document.getElementById('brief');
-    brief.innerHTML = html;
-    brief.classList.add('is-open');
-
-    var printBtn = document.getElementById('briefPrint');
-    if (printBtn) printBtn.addEventListener('click', function(){ try { window.print(); } catch(e){} });
-    var closeBtn = document.getElementById('briefClose');
-    if (closeBtn) closeBtn.addEventListener('click', function(){ brief.classList.remove('is-open'); });
-    return brief;
-  }
-
-  // ============================================================
-  //  THEME TOGGLE (shared behaviour — mirrors summary.html)
-  // ============================================================
-  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
-  function initTheme(){
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    var saved = 'dark';
-    try { if (localStorage.getItem(THEME_KEY) === 'light') saved = 'light'; } catch(e){}
-    applyTheme(saved);
-    btn.addEventListener('click', function(){
-      var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-      var next = cur === 'light' ? 'dark' : 'light';
-      applyTheme(next);
-      try { localStorage.setItem(THEME_KEY, next); } catch(e){}
-    });
-  }
-
-  // ============================================================
-  //  LIVE AI (Gemini) — replace the scripted deliberation with a real one
-  //  when the backend has a key. Fails safe: any error keeps the scripted
-  //  content untouched.
-  // ============================================================
-  var AI_SOURCE = 'scripted';
-
-  function buildAiContext(){
-    var intake  = loadIntake().data || {};
-    var summary = loadSummary().data || {};
-    var feas    = loadJSON(FEAS_KEY, {}) || {};
-    var advisory= loadJSON(ADVISORY_KEY, {}) || {};
-    var v = currentVerdict();
-    return {
-      name: (summary.useCase || intake.name || 'Untitled use case'),
-      department: intake.department || intake.dept || '',
-      description: intake.description || intake.summary || '',
-      verdict: v.label,
-      readiness: (summary.readiness || 'CONDITIONAL'),
-      composite: summary.composite,
-      roi: summary.roi || null,
-      frameworks: summary.frameworks || null,
-      advisoryTier: (advisory && (advisory.tier || advisory.verdict_name)) || null,
-      recommendedPlatform: (advisory && advisory.recommended_platform) || null,
-      feasibilityComposite: (feas && (feas.composite || feas.score)) || null
-    };
-  }
-
-  function applyLiveDeliberation(){
-    // Returns a promise that always resolves (never rejects the boot flow).
-    if (!window.fetch) return Promise.resolve();
-    return fetch('/api/ai/status', { credentials:'same-origin' })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(st){
-        if (!st || !st.enabled) return null;  // no key -> stay scripted
-        return fetch('/api/ai/deliberate', {
-          method:'POST', credentials:'same-origin',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify(buildAiContext())
-        }).then(function(r){ return r.ok ? r.json() : null; });
-      })
-      .then(function(res){
-        if (!res || res.source !== 'gemini') return;  // fallback signalled
-        if (Array.isArray(res.deliberation) && res.deliberation.length) DELIBERATION = res.deliberation;
-        if (Array.isArray(res.stances) && res.stances.length) STANCES = res.stances;
-        if (typeof res.condition === 'string' && res.condition) BINDING_CONDITION = res.condition;
-        AI_SOURCE = 'gemini';
-      })
-      .catch(function(){ /* stay scripted */ });
-  }
-
-  // ============================================================
-  //  BOOT
-  // ============================================================
-  function run(animate){
-    var intake  = loadIntake();
-    var summary = loadSummary();
-    var nm = (summary.data && summary.data.useCase) || (intake.data && intake.data.name) || 'Untitled use case';
-    var fromDemo = summary.fromDemo && intake.fromDemo;
-    document.getElementById('wsEval').innerHTML =
-      'Evaluating: <b>' + esc(nm) + '</b>' + (fromDemo ? ' (demo)' : '');
-    renderSteps();
-    streamTurns(animate);
-  }
-
-  // Persist this run's verdict back to the API for the current use case.
-  function saveVerdict(){
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
     try {
-      if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
-        var _v = currentVerdict();
-        window.GAIC_API.saveGate(_ucId, 'verdict', {
-          verdict: _v.label,
-          binding_condition: BINDING_CONDITION,
-          stances: STANCES,
-          deliberation: DELIBERATION
-        }).catch(function(){});
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        location.href = '/index.html';
+      } else {
+        showError(data.error === 'invalid credentials' ? 'Incorrect username or password.' : (data.error || 'Sign in failed.'));
+        btn.disabled = false; btn.textContent = 'Sign in';
       }
-    } catch(e){}
-  }
-
-  function init(){
-    initTheme();
-
-    // Deep-link: ?id=<use_case_id> loads that case's real data before rendering.
-    var deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId()) || null;
-    if (deepId && window.GAIC_DEEPLINK && typeof GAIC_DEEPLINK.load === 'function'){
-      GAIC_DEEPLINK.load().then(function(opts){
-        if (opts){
-          if (opts.intake) DEEP.intake = opts.intake;
-          if (opts.panelSummary) DEEP.summary = opts.panelSummary;
-          if (opts.id){ try { localStorage.setItem('gaic_use_case_id', opts.id); } catch(e){} }
-        }
-      }).catch(function(){}).then(function(){
-        // Try live Gemini deliberation (fails safe to scripted), then render.
-        applyLiveDeliberation().then(function(){
-          run(true);
-          saveVerdict();
-        });
-      });
-    } else {
-      applyLiveDeliberation().then(function(){
-        run(true);
-        saveVerdict();
-      });
+    } catch (ex) {
+      showError('Network error — please try again.');
+      btn.disabled = false; btn.textContent = 'Sign in';
     }
-
-    // Thinking-steps collapsible
-    var stepsHead = document.getElementById('stepsHead');
-    if (stepsHead) stepsHead.addEventListener('click', function(){
-      document.getElementById('steps').classList.toggle('is-open');
-    });
-
-    // Replay — re-run the streaming animation
-    var replay = document.getElementById('btnReplay');
-    if (replay) replay.addEventListener('click', function(){
-      document.getElementById('verdictBand').classList.remove('is-in');
-      streamTurns(true);
-    });
-
-    // Generate Executive Brief
-    var briefBtn = document.getElementById('btnBrief');
-    if (briefBtn) briefBtn.addEventListener('click', function(){
-      var brief = buildBrief();
-      try { brief.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(e){}
-    });
-  }
-
-  // ============================================================
-  //  TEST API — pure functions + content exposed for Node harness
-  // ============================================================
-  window.__panel = {
-    INTAKE_KEY: INTAKE_KEY, FEAS_KEY: FEAS_KEY, ADVISORY_KEY: ADVISORY_KEY, SUMMARY_KEY: SUMMARY_KEY,
-    PERSONAS: PERSONAS, DELIBERATION: DELIBERATION, STANCES: STANCES, THINKING_STEPS: THINKING_STEPS,
-    BINDING_CONDITION: BINDING_CONDITION,
-    DEMO_INTAKE: DEMO_INTAKE, DEMO_SUMMARY: DEMO_SUMMARY,
-    deriveVerdict: deriveVerdict,
-    loadIntake: loadIntake, loadSummary: loadSummary,
-    currentVerdict: currentVerdict,
-    buildBrief: buildBrief,
-    esc: esc, fmtPct: fmtPct, fmtUsd: fmtUsd,
-    run: run, streamTurns: streamTurns, renderVerdict: renderVerdict
-  };
-
-  if (typeof document !== 'undefined' && document.getElementById('delib')){
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-  }
-})();
+  });
 </script>
 </body>
 </html>

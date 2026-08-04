@@ -1,186 +1,974 @@
-/**
- * Pipeline Board (kanban.html) test suite.
- * Loads the page inside jsdom, mocks fetch() for /api/workspaces and
- * /api/portfolio, and exercises:
- *   - the stage -> column bucketing model (window.GAIC_KANBAN)
- *   - the "panel + verdict=GO -> Approved" special rule
- *   - end-to-end render: 7 columns, cards, verdict chips, summary deep-links
- *
- *   node kanban.test.js      # exit 0 = all green
- */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
-
-const HTML_PATH = path.join(__dirname, 'kanban.html');
-const html = fs.readFileSync(HTML_PATH, 'utf8');
-
-let pass = 0, fail = 0;
-function ok(msg, cond) {
-  if (cond) { pass++; console.log('  \u2713 ' + msg); }
-  else { fail++; console.log('  \u2717 ' + msg); }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Use-Case Intake — Google AI Catalyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Shared Google design system (external link kept for standalone deploys) -->
+<link rel="stylesheet" href="assets/theme.css">
+<style>
+/* ==========================================================================
+   Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
+   ========================================================================== */
+:root {
+  --g-blue:#4285F4; --g-blue-d:#1a73e8; --g-blue-l:#8ab4f8;
+  --g-red:#EA4335; --g-red-d:#c5221f; --g-yellow:#FBBC04; --g-yellow-d:#f9ab00;
+  --g-green:#34A853; --g-green-d:#188038; --g-purple:#a142f4; --g-teal:#12b5cb; --g-gray:#9aa0a6;
+  --bg:#0d1117; --bg-hero:#0a0f1e; --surface:#161b22; --surface-2:#1c2230; --surface-3:#232a3a;
+  --border:#2a2f3a; --border-soft:rgba(232,234,237,0.08);
+  --text:#e8eaed; --text-muted:rgba(232,234,237,0.65); --text-dim:rgba(232,234,237,0.45);
+  --font-sans:"Google Sans","Product Sans",Roboto,Inter,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  --radius:6px; --radius-sm:4px; --radius-lg:8px;
+  --shadow-1:0 1px 2px rgba(0,0,0,0.4),0 0 0 1px var(--border);
+  --shadow-2:0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.02) inset;
+  --header-h:48px; --maxw:1280px;
 }
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; scroll-padding-top:calc(var(--header-h) + 16px); }
+body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
+h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
+a { color:inherit; text-decoration:none; }
+p { margin:0 0 1rem; }
+.gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
+.gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
+.gc-btn--primary { background:var(--g-blue); color:#fff; }
+.gc-btn--primary:hover { background:var(--g-blue-d); box-shadow:0 2px 10px rgba(66,133,244,.4); }
+.gc-btn--accent { background:transparent; color:var(--g-yellow); border-color:var(--g-yellow); }
+.gc-btn--accent:hover { background:rgba(251,188,4,.12); }
+.gc-btn--ghost { border-color:var(--border); color:var(--text); }
+.gc-btn--ghost:hover { border-color:var(--g-blue-l); color:var(--g-blue-l); }
+.gc-btn--sm { padding:7px 14px; font-size:13px; }
+.gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
+.gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
+.gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
+.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
+.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
+.gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
+.gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
+.gc-header__brand { display:flex; align-items:center; gap:10px; }
+.gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
+.gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
+.gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
+.gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
+.gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
+.gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
+.gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
+.gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
+.glogo { display:inline-block; vertical-align:middle; }
+</style>
+<style>
+  /* ---------------- Page-specific: Use-Case Intake ---------------- */
+  main { padding-top: var(--header-h); }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
 
-// Realistic /api/portfolio rows (matches server.js portfolio assembly).
-const PORTFOLIO = [
-  { id: 'uc-1', name: 'Fraud Signal Triage', department: 'Risk & Compliance',
-    stage: 'panel', feasibility_composite: 3.8, advisory_tier: 'Extend', verdict: 'GO' },
-  { id: 'uc-2', name: 'Contract Summarizer', department: 'Legal',
-    stage: 'panel', feasibility_composite: 4.2, advisory_tier: 'Scale', verdict: 'CONDITIONAL GO' },
-  { id: 'uc-3', name: 'Shelf Vision', department: 'Retail Ops',
-    stage: 'panel', feasibility_composite: 2.9, advisory_tier: 'Pilot', verdict: 'NO-GO' },
-  { id: 'uc-4', name: 'Ticket Router', department: 'Support',
-    stage: 'feasibility', feasibility_composite: 3.1, advisory_tier: 'Pilot', verdict: null },
-  { id: 'uc-5', name: 'New Idea', department: 'Marketing',
-    stage: 'intake', feasibility_composite: null, advisory_tier: null, verdict: null },
-  { id: 'uc-6', name: 'Sales Copilot', department: 'Sales',
-    stage: 'bxt', feasibility_composite: 3.5, advisory_tier: 'Extend', verdict: null },
-];
+  /* Breadcrumb */
+  .crumb { margin-bottom: 18px; }
+  .crumb a { color: var(--text-dim); }
+  .crumb a:hover { color: var(--g-blue-l); }
 
-const WORKSPACES = [
-  { id: 'ws-intel', name: 'Intel Corp' },
-  { id: 'ws-other', name: 'Other' },
-];
+  /* ---- Gate stepper (6 gates) ---- */
+  .gates { display: flex; align-items: flex-start; margin-bottom: 22px; position: relative; }
+  .gate { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; position: relative; }
+  .gate__pill {
+    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono); font-size: 13px; font-weight: 500;
+    border: 2px solid var(--surface-3); color: var(--text-dim); background: var(--surface); z-index: 2; transition: all .2s;
+  }
+  .gate.is-active .gate__pill { border-color: var(--g-blue); background: var(--g-blue); color: #fff; box-shadow: 0 0 0 4px rgba(66,133,244,.18); }
+  .gate.is-done .gate__pill { border-color: var(--g-green); background: rgba(52,168,83,.15); color: #81c995; }
+  .gate__label { font-size: 11.5px; color: var(--text-dim); line-height: 1.25; max-width: 120px; }
+  .gate.is-active .gate__label { color: var(--g-blue-l); font-weight: 500; }
+  /* connecting line */
+  .gate:not(:first-child)::before {
+    content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--surface-3); z-index: 1;
+  }
+  .gate.is-active:not(:first-child)::before,
+  .gate.is-done:not(:first-child)::before { background: var(--surface-3); }
 
-// Build a jsdom instance with fetch mocked to serve our fixtures.
-function newDom(opts) {
-  opts = opts || {};
-  const portfolio = opts.portfolio !== undefined ? opts.portfolio : PORTFOLIO;
-  const workspaces = opts.workspaces !== undefined ? opts.workspaces : WORKSPACES;
+  /* ---- Gate banner strip ---- */
+  .banner { display: flex; gap: 14px; background: var(--bg-hero); border: 1px solid var(--border); border-left: 4px solid var(--g-blue); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
+  .banner__body { flex: 1; }
+  .banner__title { font-family: var(--font-mono); font-size: 13px; font-weight: 500; letter-spacing: .12em; color: var(--g-blue-l); text-transform: uppercase; margin-bottom: 6px; }
+  .banner__desc { color: var(--text-muted); font-size: 13.5px; margin: 0; }
+  .banner__desc b { color: var(--text); font-weight: 500; }
 
-  const dom = new JSDOM(html, {
-    runScripts: 'dangerously',
-    url: 'https://example.com/kanban.html',
-    beforeParse(window) {
-      window.fetch = function (url) {
-        const u = String(url);
-        let body;
-        if (u.indexOf('/api/workspaces') !== -1) body = workspaces;
-        else if (u.indexOf('/api/portfolio') !== -1) body = portfolio;
-        else body = [];
-        return Promise.resolve({
-          ok: true, status: 200,
-          json: function () { return Promise.resolve(body); },
-        });
-      };
-      // localStorage is provided by jsdom; nothing else needed.
-    },
+  /* ---- Workspace context chip ---- */
+  .wschip {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted);
+    background: rgba(52,168,83,.08); border: 1px solid rgba(52,168,83,.3); border-radius: 100px;
+    padding: 7px 14px; margin-bottom: 22px;
+  }
+  .wschip b { color: #81c995; font-weight: 500; }
+
+  /* ---- Two-column layout ---- */
+  .cols { display: grid; grid-template-columns: minmax(0,1fr) 400px; gap: 26px; align-items: start; }
+
+  /* ---- Tab bar ---- */
+  .tabbar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 24px; overflow-x: auto; }
+  .tab {
+    display: flex; align-items: center; gap: 8px; padding: 12px 14px; cursor: pointer; background: transparent; border: none;
+    border-bottom: 2px solid transparent; color: var(--text-dim); font-family: var(--font-sans); font-size: 13.5px; white-space: nowrap;
+    transition: color .15s, border-color .15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.is-active { color: var(--g-blue-l); border-bottom-color: var(--g-blue); font-weight: 500; }
+  .tab__check {
+    width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--surface-3); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; transition: all .2s;
+  }
+  .tab.is-active .tab__check { border-color: var(--g-blue); }
+  .tab.is-done .tab__check { border-color: var(--g-green); background: rgba(52,168,83,.2); }
+  .tab.is-done .tab__check svg { width: 10px; height: 10px; color: #81c995; }
+
+  /* ---- Form card ---- */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 28px 30px; }
+  .panel { display: none; }
+  .panel.is-active { display: block; animation: fade .35s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none; } }
+
+  .field { margin-bottom: 20px; }
+  .field--grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .field label, .field .flabel { display: block; font-size: 13.5px; font-weight: 500; margin-bottom: 6px; }
+  .field label .req, .flabel .req { color: var(--g-red); margin-left: 2px; }
+  .field .help { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-top: 6px; line-height: 1.4; }
+  .inp, .sel, textarea.inp {
+    width: 100%; background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
+    border-radius: var(--radius-sm); padding: 10px 12px; font-family: var(--font-sans); font-size: 14px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .inp:focus, .sel:focus, textarea.inp:focus { outline: none; border-color: var(--g-blue); box-shadow: 0 0 0 3px rgba(66,133,244,.18); }
+  .sel { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239aa0a6' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; cursor: pointer; }
+  textarea.inp { min-height: 92px; resize: vertical; line-height: 1.5; }
+
+  .panel__title { font-size: 19px; margin-bottom: 4px; }
+  .panel__sub { color: var(--text-muted); font-size: 13px; margin-bottom: 22px; }
+  .section-h { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--g-yellow); margin: 26px 0 4px; padding-top: 20px; border-top: 1px solid var(--border); }
+  .section-help { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+
+  /* Chips (multi-select) */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 12px; padding: 7px 13px; border-radius: 100px;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-muted); cursor: pointer;
+    transition: all .15s; user-select: none;
+  }
+  .chip:hover { border-color: var(--g-blue-l); color: var(--text); }
+  .chip.is-on { background: rgba(66,133,244,.15); border-color: var(--g-blue); color: var(--g-blue-l); }
+
+  /* Segmented control */
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); }
+  .seg button {
+    border: none; background: transparent; color: var(--text-muted); font-family: var(--font-sans); font-size: 13px;
+    padding: 9px 18px; cursor: pointer; border-right: 1px solid var(--border); transition: background .15s, color .15s;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover { color: var(--text); }
+  .seg button.is-on { background: var(--g-blue); color: #fff; }
+  .seg[data-tone="risk"] button.is-on { background: var(--g-red); }
+
+  /* Toggle switch */
+  .toggle-row { display: flex; align-items: center; gap: 12px; }
+  .switch { position: relative; width: 46px; height: 26px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track { position: absolute; inset: 0; background: var(--surface-3); border: 1px solid var(--border); border-radius: 100px; transition: background .2s, border-color .2s; cursor: pointer; }
+  .switch .track::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: var(--text-muted); border-radius: 50%; transition: transform .2s, background .2s; }
+  .switch input:checked + .track { background: rgba(52,168,83,.3); border-color: var(--g-green); }
+  .switch input:checked + .track::before { transform: translateX(20px); background: var(--g-green); }
+  .switch input:focus + .track { box-shadow: 0 0 0 3px rgba(66,133,244,.18); }
+  .toggle-state { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); }
+  .toggle-state.is-on { color: #81c995; }
+
+  /* Radio cards (delivery preference) */
+  .radiolist { display: flex; flex-direction: column; gap: 10px; }
+  .radiocard {
+    border: 1px solid var(--border); background: var(--surface-2); border-radius: var(--radius);
+    padding: 13px 15px; cursor: pointer; transition: border-color .15s, background .15s; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .radiocard:hover { border-color: var(--g-blue-l); }
+  .radiocard.is-on { border-color: var(--g-blue); background: rgba(66,133,244,.10); }
+  .radiocard__radio { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--surface-3); flex-shrink: 0; margin-top: 2px; position: relative; }
+  .radiocard.is-on .radiocard__radio { border-color: var(--g-blue); }
+  .radiocard.is-on .radiocard__radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--g-blue); }
+  .radiocard__t { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .radiocard__d { font-size: 12px; color: var(--text-muted); line-height: 1.35; }
+
+  /* Footer nav */
+  .cardnav { display: flex; align-items: center; justify-content: space-between; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); }
+  .cardnav__count { font-family: var(--font-mono); font-size: 13px; color: var(--text-dim); letter-spacing: .05em; }
+  .gc-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .gc-btn:disabled:hover { border-color: var(--border); color: var(--text); background: transparent; box-shadow: none; }
+
+  /* ===== Sidebar ===== */
+  .side { position: sticky; top: calc(var(--header-h) + 20px); display: flex; flex-direction: column; gap: 18px; }
+
+  /* AI Assist panel */
+  .assist { background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--g-purple); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); padding: 18px 20px; }
+  .assist__head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .assist__bulb { width: 30px; height: 30px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; background: rgba(161,66,244,.16); color: #d7aefb; flex-shrink: 0; }
+  .assist__bulb svg { width: 17px; height: 17px; }
+  .assist__label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #d7aefb; }
+  .assist__text { font-size: 13px; color: var(--text-muted); line-height: 1.55; margin: 0; }
+
+  /* Live score panel */
+  .score { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; }
+  .score__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; }
+  .score__title { font-family: var(--font-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .score__body { padding: 0 20px 18px; }
+  .score__big { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .score__num { font-size: 48px; font-weight: 500; line-height: 1; color: var(--g-blue-l); transition: color .3s; }
+  .score__den { font-family: var(--font-mono); font-size: 15px; color: var(--text-dim); }
+  .score__quad { font-family: var(--font-mono); font-size: 13px; font-weight: 500; margin-bottom: 16px; }
+
+  .crit { display: grid; grid-template-columns: 78px 1fr 20px; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .crit__k { font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-dim); }
+  .crit__bar { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+  .crit__fill { height: 100%; width: 0; border-radius: 3px; transition: width .4s ease, background .3s; }
+  .crit__v { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; }
+
+  .score__div { height: 1px; background: var(--border); margin: 16px 0 14px; }
+  .cd__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cd__label { font-size: 13px; font-weight: 500; }
+  .cd__pct { font-family: var(--font-mono); font-size: 16px; font-weight: 500; color: var(--g-green); }
+  .cd__bar { height: 8px; background: var(--surface-3); border-radius: 4px; overflow: hidden; margin-bottom: 14px; }
+  .cd__fill { height: 100%; width: 0; background: var(--g-green); border-radius: 4px; transition: width .4s ease; }
+  .cd__line { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 5px; display: flex; align-items: center; gap: 7px; }
+  .cd__line b { color: var(--text); font-weight: 500; }
+
+  @media (max-width: 980px) {
+    .cols { grid-template-columns: 1fr; }
+    .side { position: static; }
+    .gate__label { display: none; }
+    .field--grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================ HEADER ============================ -->
+<header class="gc-header">
+  <div class="gc-header__brand">
+    <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+      <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+    </svg>
+    <span class="gc-header__wordmark">Google <b>AI Catalyst</b></span>
+  </div>
+  <div class="gc-header__divider"></div>
+  <span class="gc-header__product">Enterprise Advantage</span>
+  <div class="gc-header__right">
+    <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
+    <span class="gc-select">WORKSPACE ▾</span>
+    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+    <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <!-- Breadcrumb -->
+    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Pipeline</a>&nbsp;&nbsp;/&nbsp;&nbsp;New Use Case</div>
+
+    <!-- 6-gate stepper -->
+    <div class="gates" id="gates">
+      <div class="gate is-active"><div class="gate__pill">1</div><div class="gate__label">Intake</div></div>
+      <div class="gate"><div class="gate__pill">2</div><div class="gate__label">BXT Gate</div></div>
+      <div class="gate"><div class="gate__pill">3</div><div class="gate__label">Feasibility Scoring</div></div>
+      <div class="gate"><div class="gate__pill">4</div><div class="gate__label">Platform Advisory</div></div>
+      <div class="gate"><div class="gate__pill">5</div><div class="gate__label">Evaluation Summary</div></div>
+      <div class="gate"><div class="gate__pill">6</div><div class="gate__label">Executive Review Panel</div></div>
+    </div>
+
+    <!-- Gate banner -->
+    <div class="banner">
+      <div class="banner__body">
+        <div class="banner__title">Intake</div>
+        <p class="banner__desc">Capture the AI use case with full organisational context. <b>Why:</b> garbage in, garbage out — the quality of every downstream gate depends on this intake.</p>
+      </div>
+    </div>
+
+    <!-- Workspace context chip -->
+    <div class="wschip">🏢 <b>Acme Financial Services</b> — AI maturity, tech stack &amp; compliance context pre-loaded from your workspace profile.</div>
+
+    <div class="cols">
+      <!-- ================= LEFT: intake form ================= -->
+      <div class="main-col">
+        <!-- Tab bar -->
+        <div class="tabbar" id="tabbar"><!-- built by JS --></div>
+
+        <div class="card">
+          <!-- ===== TAB 1: Use Case Details ===== -->
+          <section class="panel is-active" data-panel="0">
+            <h2 class="panel__title">Use Case Details</h2>
+            <p class="panel__sub">Identify the use case and route it to the right reviewers.</p>
+            <div class="field">
+              <label for="f_name">Use Case Name <span class="req">*</span></label>
+              <input class="inp" type="text" id="f_name" data-key="name" placeholder="e.g. Automated invoice reconciliation">
+            </div>
+            <div class="field field--grid2">
+              <div>
+                <label for="f_dept">Department <span class="req">*</span></label>
+                <select class="sel" id="f_dept" data-key="dept">
+                  <option value="">Select…</option>
+                  <option>Finance</option><option>HR</option><option>Operations</option><option>Sales</option>
+                  <option>Marketing</option><option>IT</option><option>Customer Service</option><option>Legal</option><option>Supply Chain</option>
+                </select>
+              </div>
+              <div>
+                <label for="f_sponsor">Executive Sponsor</label>
+                <select class="sel" id="f_sponsor" data-key="sponsor">
+                  <option value="">Select…</option>
+                  <option>CEO</option><option>CFO</option><option>COO</option><option>CTO/CIO</option>
+                  <option>CHRO</option><option>VP-level</option><option>Director-level</option>
+                </select>
+              </div>
+            </div>
+            <div class="field field--grid2">
+              <div>
+                <label for="f_submitter">Submitted By</label>
+                <input class="inp" type="text" id="f_submitter" data-key="submitter" placeholder="Your name">
+              </div>
+              <div>
+                <label for="f_email">Contact Email</label>
+                <input class="inp" type="email" id="f_email" data-key="email" placeholder="name@company.com">
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_desc">Brief Description</label>
+              <textarea class="inp" id="f_desc" data-key="desc" placeholder="What business problem does this AI use case solve?"></textarea>
+            </div>
+          </section>
+
+          <!-- ===== TAB 2: Business Context ===== -->
+          <section class="panel" data-panel="1">
+            <h2 class="panel__title">Business Context</h2>
+            <p class="panel__sub">Quantify the value and strategic weight of this use case.</p>
+            <div class="field field--grid2">
+              <div>
+                <label for="f_driver">Primary Business Driver</label>
+                <select class="sel" id="f_driver" data-key="driver">
+                  <option value="">Select…</option>
+                  <option>Cost Reduction</option><option>Revenue Growth</option><option>Risk Mitigation</option>
+                  <option>Customer Experience</option><option>Employee Productivity</option><option>Compliance</option>
+                </select>
+              </div>
+              <div>
+                <label for="f_value">Expected Annual Value</label>
+                <select class="sel" id="f_value" data-key="value">
+                  <option value="">Select…</option>
+                  <option>&lt;$100K</option><option>$100K–$500K</option><option>$500K–$1M</option>
+                  <option>$1M–$5M</option><option>&gt;$5M</option>
+                </select>
+              </div>
+            </div>
+            <div class="field field--grid2">
+              <div>
+                <label for="f_users">Users / People Affected</label>
+                <select class="sel" id="f_users" data-key="users">
+                  <option value="">Select…</option>
+                  <option>&lt;10</option><option>10–50</option><option>50–200</option><option>200–1000</option><option>&gt;1000</option>
+                </select>
+              </div>
+              <div>
+                <label for="f_align">Strategic Alignment</label>
+                <select class="sel" id="f_align" data-key="align">
+                  <option value="">Select…</option>
+                  <option>Core strategic priority</option><option>Supporting initiative</option><option>Experimental / exploratory</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_justif">Business Justification</label>
+              <textarea class="inp" id="f_justif" data-key="justif" placeholder="Why should the organisation invest in this now?"></textarea>
+            </div>
+          </section>
+
+          <!-- ===== TAB 3: Current State ===== -->
+          <section class="panel" data-panel="2">
+            <h2 class="panel__title">Current State</h2>
+            <p class="panel__sub">How the work is done today — the baseline we improve upon.</p>
+            <div class="field field--grid2">
+              <div>
+                <label for="f_maturity">Current Process Maturity</label>
+                <select class="sel" id="f_maturity" data-key="maturity">
+                  <option value="">Select…</option>
+                  <option>Fully manual</option><option>Partially automated</option><option>Mostly automated</option><option>Highly automated</option>
+                </select>
+              </div>
+              <div>
+                <label for="f_spend">Current Annual Spend / Effort</label>
+                <select class="sel" id="f_spend" data-key="spend">
+                  <option value="">Select…</option>
+                  <option>&lt;$50K</option><option>$50K–$250K</option><option>$250K–$1M</option><option>&gt;$1M</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_volume">Volume / Frequency</label>
+              <input class="inp" type="text" id="f_volume" data-key="volume" placeholder="e.g. 5,000 transactions/month">
+            </div>
+            <div class="field">
+              <label for="f_pain">Pain Points</label>
+              <textarea class="inp" id="f_pain" data-key="pain" placeholder="What is slow, error-prone, or costly today?"></textarea>
+            </div>
+            <div class="field">
+              <span class="flabel">Existing Tools in Use</span>
+              <div class="chips" data-key="tools" data-multi="1">
+                <span class="chip" data-val="Spreadsheets" role="button" tabindex="0">Spreadsheets</span>
+                <span class="chip" data-val="Email" role="button" tabindex="0">Email</span>
+                <span class="chip" data-val="Legacy system" role="button" tabindex="0">Legacy system</span>
+                <span class="chip" data-val="SaaS app" role="button" tabindex="0">SaaS app</span>
+                <span class="chip" data-val="Custom app" role="button" tabindex="0">Custom app</span>
+                <span class="chip" data-val="None" role="button" tabindex="0">None</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- ===== TAB 4: Technical Context ===== -->
+          <section class="panel" data-panel="3">
+            <h2 class="panel__title">Technical Context</h2>
+            <p class="panel__sub">Data, integrations, and real-time needs — drives feasibility and platform fit.</p>
+            <div class="field">
+              <span class="flabel">Primary Data Sources</span>
+              <div class="chips" data-key="sources" data-multi="1">
+                <span class="chip" data-val="Structured DB" role="button" tabindex="0">Structured DB</span>
+                <span class="chip" data-val="Documents/PDFs" role="button" tabindex="0">Documents/PDFs</span>
+                <span class="chip" data-val="Emails" role="button" tabindex="0">Emails</span>
+                <span class="chip" data-val="Chat/Tickets" role="button" tabindex="0">Chat/Tickets</span>
+                <span class="chip" data-val="APIs" role="button" tabindex="0">APIs</span>
+                <span class="chip" data-val="Images" role="button" tabindex="0">Images</span>
+                <span class="chip" data-val="Audio/Video" role="button" tabindex="0">Audio/Video</span>
+                <span class="chip" data-val="Web" role="button" tabindex="0">Web</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_dataavail">Data Availability</label>
+              <select class="sel" id="f_dataavail" data-key="dataavail">
+                <option value="">Select…</option>
+                <option>Readily available &amp; clean</option><option>Available but needs cleaning</option>
+                <option>Partially available</option><option>Not yet available</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="flabel">Integration Points</span>
+              <div class="chips" data-key="integrations" data-multi="1">
+                <span class="chip" data-val="Google Workspace" role="button" tabindex="0">Google Workspace</span>
+                <span class="chip" data-val="BigQuery" role="button" tabindex="0">BigQuery</span>
+                <span class="chip" data-val="Cloud Storage" role="button" tabindex="0">Cloud Storage</span>
+                <span class="chip" data-val="Vertex AI" role="button" tabindex="0">Vertex AI</span>
+                <span class="chip" data-val="Third-party SaaS" role="button" tabindex="0">Third-party SaaS</span>
+                <span class="chip" data-val="On-prem system" role="button" tabindex="0">On-prem system</span>
+                <span class="chip" data-val="None" role="button" tabindex="0">None</span>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">Real-time Requirement</span>
+              <div class="toggle-row">
+                <label class="switch">
+                  <input type="checkbox" id="f_realtime" data-key="realtime" aria-label="Real-time requirement">
+                  <span class="track"></span>
+                </label>
+                <span class="toggle-state" id="realtimeState">No</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_technotes">Technical Notes</label>
+              <textarea class="inp" id="f_technotes" data-key="technotes" placeholder="Any technical constraints, latency needs, or architecture notes."></textarea>
+            </div>
+          </section>
+
+          <!-- ===== TAB 5: Risk & Compliance ===== -->
+          <section class="panel" data-panel="4">
+            <h2 class="panel__title">Risk &amp; Compliance</h2>
+            <p class="panel__sub">Governance signals — sensitivity, autonomy, adoption readiness.</p>
+            <div class="field">
+              <span class="flabel">Data Sensitivity</span>
+              <div class="seg" data-key="sensitivity" data-seg="1" role="group" aria-label="Data Sensitivity">
+                <button type="button" data-val="Low">Low</button>
+                <button type="button" data-val="Medium">Medium</button>
+                <button type="button" data-val="High">High</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">AI Autonomy Level</span>
+              <div class="seg" data-key="autonomy" data-seg="1" role="group" aria-label="AI Autonomy Level">
+                <button type="button" data-val="Advisory">Advisory</button>
+                <button type="button" data-val="Supervised">Supervised</button>
+                <button type="button" data-val="Autonomous">Autonomous</button>
+              </div>
+            </div>
+            <div class="field field--grid2">
+              <div>
+                <span class="flabel">Contains PII Data</span>
+                <div class="toggle-row">
+                  <label class="switch"><input type="checkbox" id="f_pii" data-key="pii" aria-label="Contains PII data"><span class="track"></span></label>
+                  <span class="toggle-state" id="piiState">No</span>
+                </div>
+              </div>
+              <div>
+                <span class="flabel">Audit Trail Required</span>
+                <div class="toggle-row">
+                  <label class="switch"><input type="checkbox" id="f_audit" data-key="audit" aria-label="Audit trail required"><span class="track"></span></label>
+                  <span class="toggle-state" id="auditState">No</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-h">GADF — User Adoption (Google Cloud Adoption Framework: Desirability)</div>
+            <div class="section-help">User desirability directly gates downstream ROI — a technically perfect tool nobody adopts returns nothing.</div>
+            <div class="field">
+              <span class="flabel">User Adoption Readiness <span class="req">*</span></span>
+              <div class="seg" data-key="adoption" data-seg="1" role="group" aria-label="User Adoption Readiness">
+                <button type="button" data-val="Low">Low</button>
+                <button type="button" data-val="Medium">Medium</button>
+                <button type="button" data-val="High">High</button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="flabel">Change Management Plan in Place</span>
+              <div class="toggle-row">
+                <label class="switch"><input type="checkbox" id="f_change" data-key="change" aria-label="Change management plan in place"><span class="track"></span></label>
+                <span class="toggle-state" id="changeState">No</span>
+              </div>
+            </div>
+
+            <div class="section-h">Delivery Preference — Optional</div>
+            <div class="section-help">The algorithm automatically infers the recommended builder profile from your inputs. Only set this if your organisation has a specific constraint (e.g. "we only have AppSheet licences").</div>
+            <div class="field">
+              <div class="radiolist" data-key="delivery" data-radio="1">
+                <div class="radiocard is-on" data-val="No preference"><span class="radiocard__radio"></span><div><div class="radiocard__t">No preference</div><div class="radiocard__d">Algorithm will infer the best delivery model from your inputs</div></div></div>
+                <div class="radiocard" data-val="Citizen Dev / Low-code preferred"><span class="radiocard__radio"></span><div><div class="radiocard__t">Citizen Dev / Low-code preferred</div><div class="radiocard__d">Business users build with AppSheet / Agentspace low-code tooling</div></div></div>
+                <div class="radiocard" data-val="IT-led / Pro-code preferred"><span class="radiocard__radio"></span><div><div class="radiocard__t">IT-led / Pro-code preferred</div><div class="radiocard__d">Engineering builds on Vertex AI Agent Builder / custom code</div></div></div>
+                <div class="radiocard" data-val="Hybrid team (CoE + IT)"><span class="radiocard__radio"></span><div><div class="radiocard__t">Hybrid team (CoE + IT)</div><div class="radiocard__d">Centre of Excellence pairs with engineering on delivery</div></div></div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="f_addnotes">Additional Notes</label>
+              <textarea class="inp" id="f_addnotes" data-key="addnotes" placeholder="Anything else the review panel should know."></textarea>
+            </div>
+          </section>
+
+          <!-- Footer nav -->
+          <div class="cardnav">
+            <button class="gc-btn gc-btn--ghost" id="btnBack">Back&nbsp;←</button>
+            <span class="cardnav__count" id="navCount">Tab 1 of 5</span>
+            <button class="gc-btn gc-btn--primary" id="btnNext">Next&nbsp;→</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= RIGHT: sidebar ================= -->
+      <aside class="side">
+        <!-- AI Assist -->
+        <div class="assist">
+          <div class="assist__head">
+            <div class="assist__bulb">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1h6c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+            </div>
+            <span class="assist__label">AI Assist</span>
+          </div>
+          <p class="assist__text" id="assistText"></p>
+        </div>
+
+        <!-- Live score estimate -->
+        <div class="score">
+          <div class="score__head">
+            <span class="score__title">Live Score Estimate</span>
+            <span class="gc-tag gc-tag--purple">Heuristic</span>
+          </div>
+          <div class="score__body">
+            <div class="score__big">
+              <span class="score__num" id="scoreNum">1.6</span>
+              <span class="score__den">/ 5.0</span>
+            </div>
+            <div class="score__quad" id="scoreQuad"></div>
+            <div id="critList"><!-- built by JS --></div>
+
+            <div class="score__div"></div>
+            <div class="cd__top">
+              <span class="cd__label">Citizen Dev Suitability</span>
+              <span class="cd__pct" id="cdPct">20%</span>
+            </div>
+            <div class="cd__bar"><div class="cd__fill" id="cdFill"></div></div>
+            <div class="cd__line" id="cdProfile">👤 <b>Citizen Developer</b> (Google low-code)</div>
+            <div class="cd__line" id="cdPlatform">🏆 Top platform: <b>Vertex AI Agent Builder</b></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<script src="assets/api-client.js"></script>
+<script src="assets/auth-ui.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var LS_KEY = 'gaic_intake';
+  var THEME_KEY = 'gaic_theme';
+
+  var TABS = ['Use Case Details','Business Context','Current State','Technical Context','Risk & Compliance'];
+  var ASSIST = [
+    'Give the use case a clear, outcome-oriented name. The department and sponsor help route this to the right reviewers.',
+    'Quantify the value. Higher expected annual value and core-strategic alignment lift the Business and Strategic scores that drive the quadrant.',
+    'Describe today\u2019s baseline honestly. A highly manual, high-effort process with clear pain points is exactly where AI delivers the biggest lift.',
+    'Simple, clean, Google-native data (Workspace, BigQuery, Cloud Storage) with no real-time requirement boosts Data, Implementation and Citizen-Dev suitability.',
+    'Delivery preference is optional \u2014 the algorithm already infers the best builder profile from your maturity, budget, data sensitivity, and timeline. Only override if you have a genuine organisational constraint.'
+  ];
+
+  // ---- State ----
+  var state = {};
+  var current = 0;
+
+  // load persisted state BEFORE binding so initial field values reflect correctly
+  loadState();
+
+  function loadState(){
+    var parsed = {};
+    try { parsed = JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch(e){ parsed = {}; }
+    if (typeof parsed !== 'object' || parsed === null) parsed = {};
+    // merge into the existing state object so all closures keep a live reference
+    Object.keys(parsed).forEach(function(k){ state[k] = parsed[k]; });
+  }
+  function save(){
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
+  }
+
+  // ---- Build tab bar ----
+  var tabbar = document.getElementById('tabbar');
+  var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>';
+  TABS.forEach(function(label, i){
+    var b = document.createElement('button');
+    b.className = 'tab' + (i===0 ? ' is-active' : '');
+    b.setAttribute('type','button');
+    b.setAttribute('role','tab');
+    b.setAttribute('aria-selected', i===0 ? 'true':'false');
+    b.dataset.tab = i;
+    b.innerHTML = '<span class="tab__check"></span><span>'+label+'</span>';
+    b.addEventListener('click', function(){ goTo(parseInt(this.dataset.tab,10)); });
+    tabbar.appendChild(b);
   });
-  return dom;
-}
+  var tabEls = Array.prototype.slice.call(tabbar.querySelectorAll('.tab'));
+  var panelEls = Array.prototype.slice.call(document.querySelectorAll('.panel'));
 
-// Wait for the async boot chain (loadWorkspaces -> loadPortfolio -> render).
-function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+  // ---- Tab navigation ----
+  function goTo(i){
+    i = Math.max(0, Math.min(TABS.length-1, i));
+    current = i;
+    panelEls.forEach(function(p){ p.classList.toggle('is-active', parseInt(p.dataset.panel,10)===i); });
+    tabEls.forEach(function(t,idx){
+      t.classList.toggle('is-active', idx===i);
+      t.setAttribute('aria-selected', idx===i ? 'true':'false');
+    });
+    document.getElementById('navCount').textContent = 'Tab '+(i+1)+' of '+TABS.length;
+    document.getElementById('btnBack').disabled = (i===0);
+    var next = document.getElementById('btnNext');
+    next.innerHTML = (i===TABS.length-1) ? 'Submit to BXT Gate&nbsp;\u2192' : 'Next&nbsp;\u2192';
+    document.getElementById('assistText').textContent = ASSIST[i];
+    updateChecks();
+  }
+  document.getElementById('btnBack').addEventListener('click', function(){ goTo(current-1); });
+  document.getElementById('btnNext').addEventListener('click', function(){
+    if (current===TABS.length-1){
+      save();
+      try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
+      // --- API integration (best-effort, non-blocking) ---
+      var _navigated = false;
+      function _go(){ if (_navigated) return; _navigated = true; window.location.href = 'bxt.html'; }
+      try {
+        if (window.GAIC_API && typeof window.GAIC_API.createUseCase === 'function') {
+          var _wsId = null;
+          try { _wsId = localStorage.getItem('gaic_workspace_id') || null; } catch(eW){}
+          window.GAIC_API.createUseCase({
+            workspace_id: _wsId,
+            name: state.name, dept: state.dept, sponsor: state.sponsor,
+            submitter: state.submitter, email: state.email, desc: state.desc,
+            business_context: { driver: state.driver, value: state.value, users: state.users, align: state.align, justif: state.justif },
+            current_state: { maturity: state.maturity, spend: state.spend, volume: state.volume, pain: state.pain, tools: state.tools },
+            technical_context: { sources: state.sources, dataavail: state.dataavail, integrations: state.integrations, realtime: state.realtime, technotes: state.technotes },
+            risk_compliance: { sensitivity: state.sensitivity, autonomy: state.autonomy, pii: state.pii, audit: state.audit, adoption: state.adoption, change: state.change, delivery: state.delivery, addnotes: state.addnotes }
+          }).then(function(uc){
+            try { if (uc && uc.id != null) localStorage.setItem('gaic_use_case_id', uc.id); } catch(e2){}
+            _go();
+          }).catch(function(){ _go(); });
+          // Safety: navigate even if the promise never settles
+          setTimeout(_go, 1500);
+        } else { _go(); }
+      } catch(e) { _go(); }
+      return;
+    }
+    goTo(current+1);
+  });
 
-(async function () {
-console.log('\n=== Pipeline Board (kanban.html) ===\n');
+  // Which fields count a tab as \u201Ctouched/complete\u201D
+  var TAB_FIELDS = [
+    ['name','dept','sponsor','submitter','email','desc'],
+    ['driver','value','users','align','justif'],
+    ['maturity','spend','volume','pain','tools'],
+    ['sources','dataavail','integrations','realtime','technotes'],
+    ['sensitivity','autonomy','pii','audit','adoption','change','delivery','addnotes']
+  ];
+  function tabTouched(i){
+    return TAB_FIELDS[i].some(function(k){
+      var v = state[k];
+      if (Array.isArray(v)) return v.length>0;
+      if (typeof v === 'boolean') return v===true;
+      return v!==undefined && v!==null && v!=='';
+    });
+  }
+  function updateChecks(){
+    tabEls.forEach(function(t,idx){
+      var done = tabTouched(idx) && idx!==current;
+      t.classList.toggle('is-done', done);
+      var chk = t.querySelector('.tab__check');
+      chk.innerHTML = done ? CHECK : '';
+    });
+  }
 
-console.log('== 1. Model surface (window.GAIC_KANBAN) ==');
-let dom = newDom();
-let K = dom.window.GAIC_KANBAN;
-ok('window.GAIC_KANBAN exists', !!K);
-ok('exposes COLUMNS (7 columns)', Array.isArray(K.COLUMNS) && K.COLUMNS.length === 7);
-ok('columns in pipeline order',
-  K.COLUMNS.map(function (c) { return c.key; }).join(',') ===
-  'intake,bxt,feasibility,advisory,summary,panel,approved');
-['stageKey', 'columnFor', 'verdictKey'].forEach(function (fn) {
-  ok('exposes ' + fn + '()', typeof K[fn] === 'function');
-});
+  // ---- Bind text/select/textarea ----
+  Array.prototype.slice.call(document.querySelectorAll('[data-key]')).forEach(function(el){
+    if (el.classList.contains('chips') || el.classList.contains('seg') || el.classList.contains('radiolist')) return;
+    var key = el.dataset.key;
+    if (el.type === 'checkbox'){
+      if (state[key]) el.checked = true;
+      reflectToggle(el);
+      el.addEventListener('change', function(){ state[key]=el.checked; reflectToggle(el); commit(); });
+    } else {
+      if (state[key]!==undefined) el.value = state[key];
+      el.addEventListener('input', function(){ state[key]=el.value; commit(); });
+      el.addEventListener('change', function(){ state[key]=el.value; commit(); });
+    }
+  });
+  function reflectToggle(el){
+    var map = { f_realtime:['realtimeState',['No','Yes']], f_pii:['piiState',['No','Yes']], f_audit:['auditState',['No','Yes']], f_change:['changeState',['No','Yes']] };
+    var m = map[el.id]; if(!m) return;
+    var span = document.getElementById(m[0]);
+    span.textContent = el.checked ? m[1][1] : m[1][0];
+    span.classList.toggle('is-on', el.checked);
+  }
 
-console.log('\n== 2. stageKey() normalization ==');
-ok('intake -> intake', K.stageKey('intake') === 'intake');
-ok('BXT (case) -> bxt', K.stageKey('BXT') === 'bxt');
-ok('feas prefix -> feasibility', K.stageKey('feas') === 'feasibility');
-ok('advisory -> advisory', K.stageKey('advisory') === 'advisory');
-ok('summary -> summary', K.stageKey('summary') === 'summary');
-ok('panel -> panel', K.stageKey('panel') === 'panel');
-ok('approved -> approved', K.stageKey('approved') === 'approved');
-ok('null/unknown -> intake fallback', K.stageKey(null) === 'intake' && K.stageKey('???') === 'intake');
+  // ---- Multi-select chips ----
+  Array.prototype.slice.call(document.querySelectorAll('.chips[data-multi]')).forEach(function(grp){
+    var key = grp.dataset.key;
+    if (!Array.isArray(state[key])) state[key] = [];
+    Array.prototype.slice.call(grp.querySelectorAll('.chip')).forEach(function(chip){
+      if (state[key].indexOf(chip.dataset.val)>-1) chip.classList.add('is-on');
+      function toggle(){
+        var val = chip.dataset.val, arr = state[key];
+        var idx = arr.indexOf(val);
+        if (idx>-1){ arr.splice(idx,1); chip.classList.remove('is-on'); }
+        else { arr.push(val); chip.classList.add('is-on'); }
+        commit();
+      }
+      chip.addEventListener('click', toggle);
+      chip.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+    });
+  });
 
-console.log('\n== 3. columnFor() — panel+GO becomes Approved ==');
-ok('panel + GO -> approved',
-  K.columnFor({ stage: 'panel', verdict: 'GO' }) === 'approved');
-ok('panel + CONDITIONAL GO -> panel (stays)',
-  K.columnFor({ stage: 'panel', verdict: 'CONDITIONAL GO' }) === 'panel');
-ok('panel + NO-GO -> panel (stays)',
-  K.columnFor({ stage: 'panel', verdict: 'NO-GO' }) === 'panel');
-ok('panel + no verdict -> panel (stays)',
-  K.columnFor({ stage: 'panel', verdict: null }) === 'panel');
-ok('feasibility + GO -> feasibility (only panel promotes)',
-  K.columnFor({ stage: 'feasibility', verdict: 'GO' }) === 'feasibility');
-ok('intake -> intake', K.columnFor({ stage: 'intake' }) === 'intake');
+  // ---- Segmented controls ----
+  Array.prototype.slice.call(document.querySelectorAll('.seg[data-seg]')).forEach(function(grp){
+    var key = grp.dataset.key;
+    Array.prototype.slice.call(grp.querySelectorAll('button')).forEach(function(btn){
+      if (state[key]===btn.dataset.val) btn.classList.add('is-on');
+      btn.addEventListener('click', function(){
+        Array.prototype.slice.call(grp.querySelectorAll('button')).forEach(function(b){ b.classList.remove('is-on'); });
+        btn.classList.add('is-on');
+        state[key]=btn.dataset.val;
+        commit();
+      });
+    });
+  });
 
-console.log('\n== 4. verdictKey() classification ==');
-ok('GO -> go', K.verdictKey('GO') === 'go');
-ok('CONDITIONAL GO -> cond', K.verdictKey('CONDITIONAL GO') === 'cond');
-ok('NO-GO -> no', K.verdictKey('NO-GO') === 'no');
-ok('empty -> null', K.verdictKey('') === null && K.verdictKey(null) === null);
+  // ---- Radio cards ----
+  Array.prototype.slice.call(document.querySelectorAll('.radiolist[data-radio]')).forEach(function(grp){
+    var key = grp.dataset.key;
+    var cards = Array.prototype.slice.call(grp.querySelectorAll('.radiocard'));
+    if (state[key]!==undefined){
+      cards.forEach(function(c){ c.classList.toggle('is-on', c.dataset.val===state[key]); });
+    } else {
+      state[key] = cards[0].dataset.val;
+    }
+    cards.forEach(function(card){
+      card.setAttribute('role','radio'); card.setAttribute('tabindex','0');
+      function sel(){
+        cards.forEach(function(c){ c.classList.remove('is-on'); c.setAttribute('aria-checked','false'); });
+        card.classList.add('is-on'); card.setAttribute('aria-checked','true');
+        state[key]=card.dataset.val; commit();
+      }
+      card.addEventListener('click', sel);
+      card.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sel(); } });
+    });
+  });
 
-console.log('\n== 5. End-to-end render (mocked /api) ==');
-dom = newDom();
-await tick(); await tick();
-const doc = dom.window.document;
-const board = doc.getElementById('board');
-ok('loading hidden after render', doc.getElementById('loading').classList.contains('hidden'));
-ok('board visible', !board.classList.contains('hidden'));
+  function commit(){ save(); score(); updateChecks(); }
 
-const cols = board.querySelectorAll('.col');
-ok('renders 7 columns', cols.length === 7);
+  // ============================================================
+  //  SCORING ENGINE (deterministic heuristic, 1\u20135 sub-scores)
+  // ============================================================
+  function pick(map, v, def){ return (v!==undefined && map[v]!==undefined) ? map[v] : def; }
+  function clamp(n,lo,hi){ return Math.max(lo, Math.min(hi, n)); }
 
-function countFor(key) {
-  const c = board.querySelector('.col[data-col="' + key + '"]');
-  return c ? c.querySelectorAll('.card').length : -1;
-}
-ok('Approved column has 1 card (the GO panel case)', countFor('approved') === 1);
-ok('Panel column has 2 cards (CONDITIONAL + NO-GO)', countFor('panel') === 2);
-ok('Feasibility column has 1 card', countFor('feasibility') === 1);
-ok('BXT column has 1 card', countFor('bxt') === 1);
-ok('Intake column has 1 card', countFor('intake') === 1);
-ok('Summary + Advisory columns empty', countFor('summary') === 0 && countFor('advisory') === 0);
+  function subScores(){
+    var s = state;
+    // Business: expected value + driver
+    var biz = pick({'<$100K':1.5,'$100K\u2013$500K':2.5,'$500K\u2013$1M':3.3,'$1M\u2013$5M':4.2,'>$5M':5}, s.value, 1.5);
+    biz += pick({'Revenue Growth':0.4,'Cost Reduction':0.3,'Risk Mitigation':0.2,'Customer Experience':0.3,'Compliance':0.1,'Employee Productivity':0.2}, s.driver, 0);
+    biz = clamp(biz,1,5);
 
-const cardCount = board.querySelectorAll('.card').length;
-ok('all 6 rows rendered as cards', cardCount === 6);
+    // Strategic: alignment + reach
+    var strat = pick({'Core strategic priority':4.6,'Supporting initiative':3,'Experimental / exploratory':2}, s.align, 1.5);
+    strat += pick({'<10':-0.3,'10\u201350':0,'50\u2013200':0.2,'200\u20131000':0.4,'>1000':0.6}, s.users, 0);
+    strat = clamp(strat,1,5);
 
-console.log('\n== 6. Card content: deep-link + verdict chip + dept + feasibility ==');
-const goCard = board.querySelector('.col[data-col="approved"] .card');
-ok('GO card deep-links to summary.html?id=<id>',
-  goCard.getAttribute('href') === 'summary.html?id=uc-1');
-ok('GO card has go-colored verdict chip',
-  goCard.querySelector('.vchip.is-go') !== null);
-ok('GO card left-border is-go class', goCard.classList.contains('is-go'));
-ok('GO card shows department', /Risk & Compliance/.test(goCard.textContent));
-ok('GO card shows feasibility /5', /3\.8\s*\/5/.test(goCard.textContent));
-ok('GO card shows advisory tier', /Extend/.test(goCard.textContent));
+    // Data: availability + source complexity (fewer unstructured = simpler)
+    var data = pick({'Readily available & clean':5,'Available but needs cleaning':3.4,'Partially available':2.3,'Not yet available':1.4}, s.dataavail, 1.5);
+    var complexSrc = (s.sources||[]).filter(function(x){ return ['Audio/Video','Images','Chat/Tickets','Web'].indexOf(x)>-1; }).length;
+    data = clamp(data - complexSrc*0.35, 1, 5);
 
-const condCard = Array.prototype.find.call(
-  board.querySelectorAll('.col[data-col="panel"] .card'),
-  function (c) { return /Contract Summarizer/.test(c.textContent); });
-ok('CONDITIONAL card has cond-colored chip', condCard.querySelector('.vchip.is-cond') !== null);
-const noCard = Array.prototype.find.call(
-  board.querySelectorAll('.col[data-col="panel"] .card'),
-  function (c) { return /Shelf Vision/.test(c.textContent); });
-ok('NO-GO card has no-colored chip', noCard.querySelector('.vchip.is-no') !== null);
+    // Implementation ease: maturity + integration simplicity + no realtime
+    var impl = pick({'Fully manual':2,'Partially automated':2.8,'Mostly automated':3.6,'Highly automated':4.4}, s.maturity, 2);
+    var ints = s.integrations || [];
+    var googleNative = ints.filter(function(x){ return ['Google Workspace','BigQuery','Cloud Storage','Vertex AI'].indexOf(x)>-1; }).length;
+    var hardInts = ints.filter(function(x){ return ['On-prem system','Third-party SaaS'].indexOf(x)>-1; }).length;
+    impl += googleNative*0.25 - hardInts*0.5;
+    if (s.realtime===true) impl -= 0.6;
+    impl = clamp(impl,1,5);
 
-console.log('\n== 7. Column counts shown in headers ==');
-const approvedHead = board.querySelector('.col[data-col="approved"] .col__count');
-ok('Approved header count = 1', approvedHead.textContent.trim() === '1');
+    // Team (citizen-dev friendliness): google-native, low autonomy, clean data
+    var team = 2.5 + googleNative*0.35 - hardInts*0.4;
+    team += pick({'Advisory':0.7,'Supervised':0.3,'Autonomous':-0.6}, s.autonomy, 0);
+    if (s.dataavail==='Readily available & clean') team += 0.6;
+    team = clamp(team,1,5);
 
-console.log('\n== 8. Empty portfolio -> empty state ==');
-const emptyDom = newDom({ portfolio: [] });
-await tick(); await tick();
-const edoc = emptyDom.window.document;
-ok('empty state visible', !edoc.getElementById('empty').classList.contains('hidden'));
-ok('board hidden when empty', edoc.getElementById('board').classList.contains('hidden'));
+    // Time to value: maturity + no realtime + simpler data
+    var time = pick({'Fully manual':2.4,'Partially automated':3,'Mostly automated':3.6,'Highly automated':4.2}, s.maturity, 2.4);
+    if (s.realtime===true) time -= 0.5;
+    time -= complexSrc*0.25;
+    time = clamp(time,1,5);
 
-console.log('\n== 9. Workspace picker populated + Intel preselected ==');
-dom = newDom();
-await tick(); await tick();
-const picker = dom.window.document.getElementById('wsPicker');
-ok('picker has 2 options', picker.querySelectorAll('option').length === 2);
-ok('Intel workspace preselected', picker.value === 'ws-intel');
+    // Safety: autonomy + PII + sensitivity (higher risk = lower safety)
+    var safety = 5;
+    safety -= pick({'Advisory':0,'Supervised':0.6,'Autonomous':1.6}, s.autonomy, 0.3);
+    if (s.pii===true) safety -= 1.1;
+    safety -= pick({'Low':0,'Medium':0.7,'High':1.6}, s.sensitivity, 0.4);
+    safety = clamp(safety,1,5);
 
-console.log('\n---------------------------------------------');
-console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-console.log('---------------------------------------------');
-process.exit(fail ? 1 : 0);
+    // Compliance readiness: audit trail + lower sensitivity + PII controls
+    var comp = 3;
+    if (s.audit===true) comp += 1.2;
+    comp -= pick({'Low':0,'Medium':0.5,'High':1.1}, s.sensitivity, 0.4);
+    if (s.pii===true && s.audit!==true) comp -= 0.8;
+    comp = clamp(comp,1,5);
+
+    // User adoption
+    var user = pick({'Low':1.6,'Medium':3.4,'High':5}, s.adoption, 1.8);
+
+    // Change management
+    var change = s.change===true ? 4.6 : 2.2;
+    change += pick({'Low':-0.4,'Medium':0.2,'High':0.6}, s.adoption, 0);
+    change = clamp(change,1,5);
+
+    return { Business:biz, Strategic:strat, Data:data, Implementation:impl, Team:team, Time:time, Safety:safety, Compliance:comp, User:user, Change:change,
+             _googleNative:googleNative, _hardInts:hardInts };
+  }
+
+  var CRIT_ORDER = ['Business','Strategic','Data','Implementation','Team','Time','Safety','Compliance','User','Change'];
+  var WEIGHTS = { Business:1.4, Strategic:1.2, Data:1.1, Implementation:1.1, Team:0.9, Time:0.8, Safety:1.0, Compliance:1.0, User:1.1, Change:0.8 };
+
+  function bandColor(v){
+    if (v>=4) return 'var(--g-green)';
+    if (v>=3) return 'var(--g-blue)';
+    if (v>=2) return 'var(--g-yellow)';
+    return 'var(--g-red)';
+  }
+
+  // build criterion rows once
+  var critList = document.getElementById('critList');
+  CRIT_ORDER.forEach(function(k){
+    var row = document.createElement('div'); row.className='crit';
+    row.innerHTML = '<span class="crit__k">'+k+'</span><div class="crit__bar"><div class="crit__fill" data-c="'+k+'"></div></div><span class="crit__v" data-cv="'+k+'">1.0</span>';
+    critList.appendChild(row);
+  });
+
+  function score(){
+    var sc = subScores();
+    var num = 0, wsum = 0;
+    CRIT_ORDER.forEach(function(k){
+      var v = sc[k]; num += v*WEIGHTS[k]; wsum += WEIGHTS[k];
+      var fill = critList.querySelector('[data-c="'+k+'"]');
+      var lab = critList.querySelector('[data-cv="'+k+'"]');
+      fill.style.width = (v/5*100).toFixed(0)+'%';
+      fill.style.background = bandColor(v);
+      lab.textContent = v.toFixed(1);
+    });
+    var composite = clamp(num/wsum, 1.0, 5.0);
+    var numEl = document.getElementById('scoreNum');
+    numEl.textContent = composite.toFixed(1);
+    numEl.style.color = bandColor(composite);
+
+    // Quadrant
+    var valueAxis = (sc.Business + sc.Strategic) / 2;            // higher = more valuable
+    var effortEase = (sc.Implementation + sc.Team + sc.Time) / 3; // higher = easier (lower effort)
+    var highValue = valueAxis >= 3.2;
+    var lowEffort = effortEase >= 3.2;
+    var quad, color;
+    if (highValue && lowEffort){ quad='Quick Win'; color='#81c995'; }
+    else if (highValue && !lowEffort){ quad='Strategic Bet'; color='var(--g-blue-l)'; }
+    else if (!highValue && lowEffort){ quad='Fill-In'; color='var(--g-gray)'; }
+    else { quad='Money Pit'; color='#f28b82'; }
+    var qEl = document.getElementById('scoreQuad');
+    qEl.innerHTML = '\u25B8 '+quad+'  <span style="color:var(--text-dim)">projected quadrant</span>';
+    qEl.style.color = color;
+
+    // Citizen Dev Suitability %
+    var cd = 0;
+    cd += (sc.Implementation/5)*30;
+    cd += (sc.Team/5)*30;
+    cd += (sc.Data/5)*20;
+    if (['Advisory','Supervised'].indexOf(state.autonomy)>-1 || state.autonomy===undefined) cd += 10;
+    if (['Low','Medium'].indexOf(state.sensitivity)>-1 || state.sensitivity===undefined) cd += 10;
+    cd = Math.round(clamp(cd,0,100));
+    document.getElementById('cdPct').textContent = cd+'%';
+    document.getElementById('cdFill').style.width = cd+'%';
+    var cdFillEl = document.getElementById('cdFill');
+    cdFillEl.style.background = cd>=65 ? 'var(--g-green)' : (cd>=45 ? 'var(--g-blue)' : 'var(--g-yellow)');
+
+    // Inferred profile + top platform (Google-remapped)
+    var profile, platform;
+    if (cd >= 70){ profile='\uD83D\uDC64 <b>Citizen Developer</b> (Google low-code)'; platform='\uD83C\uDFC6 Top platform: <b>Google AppSheet</b>'; }
+    else if (cd >= 55){ profile='\uD83D\uDC64 <b>Citizen Developer</b> (Google low-code)'; platform='\uD83C\uDFC6 Top platform: <b>Agentspace</b>'; }
+    else { profile='\uD83D\uDC65 <b>Pro / Hybrid team</b> (engineering-led)'; platform='\uD83C\uDFC6 Top platform: <b>Vertex AI Agent Builder</b>'; }
+    document.getElementById('cdProfile').innerHTML = profile;
+    document.getElementById('cdPlatform').innerHTML = platform;
+  }
+
+  // ---- Theme toggle (persisted, same pattern as setup.html) ----
+  var themeBtn = document.getElementById('themeToggle');
+  function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); }
+  (function(){ var t = null; try { t = localStorage.getItem(THEME_KEY); } catch(e){} if(t==='light') applyTheme('light'); })();
+  themeBtn.addEventListener('click', function(){
+    var cur = document.documentElement.getAttribute('data-theme')==='light' ? 'light':'dark';
+    var next = cur==='light' ? 'dark':'light';
+    applyTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch(e){}
+  });
+
+  // ---- Init ----
+  goTo(0);
+  score();
+
+  // Expose for tests
+  window.__gaic = { getState:function(){ return state; }, score:score, goTo:goTo, subScores:subScores, TABS:TABS };
 })();
+</script>
+</body>
+</html>

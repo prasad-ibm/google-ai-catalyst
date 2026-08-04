@@ -1,169 +1,277 @@
-/**
- * Gate 5 — Evaluation Summary (summary.html) test suite.
- * Mirrors advisory.test.js: extracts the inline IIFE, runs it inside jsdom,
- * and exercises the pure window.__sum API plus the rendered DOM.
- *
- *   node summary.test.js      # exit 0 = all green
+'use strict';
+
+/*
+ * End-to-end API test against the LIVE Postgres DB. No external framework.
+ * Runs migrate first, boots the app on an ephemeral port, exercises the full
+ * flow, asserts nested gate rows, then cleans up (cascade delete).
  */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
 
-const HTML_PATH = path.join(__dirname, 'summary.html');
-const html = fs.readFileSync(HTML_PATH, 'utf8');
+require('dotenv').config();
+const assert = require('node:assert');
+const http = require('node:http');
+const { spawnSync } = require('node:child_process');
+const path = require('node:path');
 
-let pass = 0, fail = 0;
-function ok(msg, cond) {
-  if (cond) { pass++; console.log('  \u2713 ' + msg); }
-  else { fail++; console.log('  \u2717 ' + msg); }
+let pass = 0;
+let fail = 0;
+function ok(name, cond) {
+  if (cond) { pass++; console.log('  \u2713 ' + name); }
+  else { fail++; console.log('  \u2717 ' + name); }
 }
 
-// Build a fresh jsdom for a given localStorage seed set (mirrors advisory.test.js).
-function newDom(intake, bxt, feas, advisory) {
-  return new JSDOM(html, {
-    runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/summary.html',
-    beforeParse(w) {
-      if (intake   !== undefined) w.localStorage.setItem('gaic_intake',      JSON.stringify(intake));
-      if (bxt      !== undefined) w.localStorage.setItem('gaic_bxt',         JSON.stringify(bxt));
-      if (feas     !== undefined) w.localStorage.setItem('gaic_feasibility', JSON.stringify(feas));
-      if (advisory !== undefined) w.localStorage.setItem('gaic_advisory',    JSON.stringify(advisory));
-    }
+// Minimal JSON HTTP client against 127.0.0.1:<port>.
+// Shared session cookie captured after login, sent on every subsequent call.
+let SESSION_COOKIE = null;
+
+function call(port, method, apiPath, body) {
+  return new Promise((resolve, reject) => {
+    const data = body === undefined ? null : Buffer.from(JSON.stringify(body));
+    const opts = {
+      host: '127.0.0.1',
+      port,
+      method,
+      path: apiPath,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (SESSION_COOKIE) opts.headers['Cookie'] = SESSION_COOKIE;
+    if (data) opts.headers['Content-Length'] = data.length;
+    const req = http.request(opts, (res) => {
+      // Capture the session cookie from a login response.
+      const setCookie = res.headers['set-cookie'];
+      if (setCookie && setCookie.length) {
+        SESSION_COOKIE = setCookie.map((c) => c.split(';')[0]).join('; ');
+      }
+      let buf = '';
+      res.on('data', (c) => { buf += c; });
+      res.on('end', () => {
+        let json = null;
+        try { json = buf ? JSON.parse(buf) : null; } catch (e) { json = buf; }
+        resolve({ status: res.statusCode, body: json });
+      });
+    });
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
   });
 }
 
-console.log('\n=== Gate 5 · Evaluation Summary (summary.html) ===\n');
+async function main() {
+  // 1. Migrate against live DB.
+  console.log('== Running migration ==');
+  const mig = spawnSync('node', [path.join(__dirname, 'scripts', 'migrate.js')], {
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  process.stdout.write(mig.stdout || '');
+  if (mig.status !== 0) {
+    console.error(mig.stderr || 'migrate failed');
+    process.exit(1);
+  }
+  ok('migrate exited 0', mig.status === 0);
+  ok('migrate listed workspaces table', /(^|\n)workspaces(\n|$)/.test(mig.stdout || ''));
 
-// Representative "full pipeline" state.
-const INTAKE = {
-  name: 'Fraud Signal Triage', value: '$1M–$5M', users: '200–1000',
-  autonomy: 'Supervised', pii: true, audit: true
-};
-const BXT  = { scores: { B:{score:80}, X:{score:72}, T:{score:78} }, verdict:{ verdict:'PASS' } };
-const FEAS = {
-  composite: 3.8,
-  scores: { biz_value:4, strat_align:4, data_value:3, data_avail:3, tech_complex:3, integ_effort:3, ttv:3, safety:4, compliance:4, user_value:4 },
-  pillars: { strategic:4.0, technical:3.5, org:3.7 },
-  quadrant: 'Quick Win', risk: 'Low',
-  citizenDev: { pct:60, path:'Hybrid team' }
-};
-const ADV  = { tier:'Extend', verdictName:'Scale Smart', platform:'AppSheet / Agentspace', compliance:{ label:'COMPLIANT', ok:true } };
+  // 2. Boot app on ephemeral port. Require after migrate so env is loaded.
+  const app = require('./server');
+  const server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  const port = server.address().port;
+  console.log('\n== Server listening on ephemeral port ' + port + ' ==');
 
-const dom = newDom(INTAKE, BXT, FEAS, ADV);
-const api = dom.window.__sum;
-const d = dom.window.document;
+  let createdWorkspaceId = null;
 
-console.log('== 1. Test API surface exposed ==');
-ok('window.__sum exists', !!api);
-['monteCarloROI','frameworkRollup','governanceChecklist','govTally','computeSummary'].forEach(fn =>
-  ok('exposes ' + fn + '()', typeof api[fn] === 'function'));
-ok('storage keys use gaic_ prefix', api.SUMMARY_KEY === 'gaic_summary');
+  try {
+    // Health (public, no auth needed).
+    const health = await call(port, 'GET', '/api/health');
+    ok('health ok:true', health.body && health.body.ok === true);
+    ok('health db:true (live DB reachable)', health.body && health.body.db === true);
 
-console.log('\n== 2. Monte Carlo ROI: P10 <= P50 <= P90 (deterministic) ==');
-const roi = api.monteCarloROI(INTAKE, FEAS, ADV, 10000);
-ok('p10/p50/p90 are numbers', [roi.p10, roi.p50, roi.p90].every(n => typeof n === 'number' && !isNaN(n)));
-ok('P10 <= P50', roi.p10 <= roi.p50);
-ok('P50 <= P90', roi.p50 <= roi.p90);
-ok('reports 10,000 trials', roi.trials === 10000);
-ok('carries value & cost basis', roi.value > 0 && roi.cost > 0);
-ok('usd band present at each percentile', typeof roi.usd.p10 === 'number' && typeof roi.usd.p50 === 'number' && typeof roi.usd.p90 === 'number');
+    // Auth: protected route rejects without a session, then log in.
+    const noAuth = await call(port, 'GET', '/api/portfolio');
+    ok('protected route returns 401 without session', noAuth.status === 401);
+    const login = await call(port, 'POST', '/api/auth/login', { username: 'sandboxuser', password: 'IntelUser1!' });
+    ok('login sandboxuser status 200', login.status === 200);
+    ok('login captured session cookie', SESSION_COOKIE !== null);
 
-console.log('\n== 3. Monte Carlo is deterministic (same inputs -> same result) ==');
-const roiA = api.monteCarloROI(INTAKE, FEAS, ADV, 2000);
-const roiB = api.monteCarloROI(INTAKE, FEAS, ADV, 2000);
-ok('repeat run identical P10', roiA.p10 === roiB.p10);
-ok('repeat run identical P50', roiA.p50 === roiB.p50);
-ok('repeat run identical P90', roiA.p90 === roiB.p90);
-ok('no Math.random() call in source (deterministic PRNG only)', !/Math\.random\s*\(/.test(html));
+    // 3. Create workspace from raw setup { state, current } shape.
+    console.log('\n== POST /api/workspaces ==');
+    const setupPayload = {
+      state: {
+        company: 'Acme Robotics',
+        industry: 'Manufacturing',
+        size: '1000-5000',
+        revenue: '$500M-$1B',
+        region: 'North America',
+        residency1: 'US',
+        cloud: 'Google Cloud',
+        dataPlatform: 'BigQuery',
+        integration: 'Native',
+        aiTools: ['Gemini'],
+        edition: 'Enterprise Plus',
+        geminiSeats: 250,
+        gcpSpend: '$50k-$100k/mo',
+        appsheet: 'Enterprise Plus',
+        vertexApproved: true,
+        maturity: 'Repeatable',
+        engineers: '12',
+        devops: 'Level 3',
+        citizenDev: true,
+        frameworks: ['SOC2', 'ISO27001'],
+        residency5: 'US',
+        security: 'High',
+        euAiTier: 'Limited',
+        priority1: 'Cost reduction',
+        priority2: 'Speed',
+        priority3: 'Quality',
+        budget: '$1M-$5M',
+        delivery: 'Hybrid',
+        goal: 'Automate invoice reconciliation',
+        files: [],
+      },
+      current: 5,
+    };
+    const wsRes = await call(port, 'POST', '/api/workspaces', setupPayload);
+    ok('workspace created status 201', wsRes.status === 201);
+    ok('workspace has id', wsRes.body && !!wsRes.body.id);
+    ok('name mapped company->name', wsRes.body && wsRes.body.name === 'Acme Robotics');
+    ok('gemini_seats parsed to int 250', wsRes.body && wsRes.body.gemini_seats === 250);
+    ok('ai_engineers parsed to int 12', wsRes.body && wsRes.body.ai_engineers === 12);
+    ok('vertex_approved true', wsRes.body && wsRes.body.vertex_approved === true);
+    ok('compliance_frameworks is array', wsRes.body && Array.isArray(wsRes.body.compliance_frameworks) && wsRes.body.compliance_frameworks.length === 2);
+    ok('ai_priorities joined', wsRes.body && wsRes.body.ai_priorities === 'Cost reduction, Speed, Quality');
+    ok('cloud_provider defaulted to Google Cloud', wsRes.body && wsRes.body.cloud_provider === 'Google Cloud');
+    createdWorkspaceId = wsRes.body.id;
 
-console.log('\n== 4. Higher feasibility composite tightens the band ==');
-const tight = api.monteCarloROI(INTAKE, Object.assign({}, FEAS, { composite: 5.0 }), ADV, 4000);
-const loose = api.monteCarloROI(INTAKE, Object.assign({}, FEAS, { composite: 1.5 }), ADV, 4000);
-ok('low-composite band is wider than high-composite band', (loose.p90 - loose.p10) > (tight.p90 - tight.p10));
+    // 4. Create use case with flat intake fields.
+    console.log('\n== POST /api/use-cases ==');
+    const ucPayload = {
+      workspace_id: createdWorkspaceId,
+      name: 'Invoice Reconciliation',
+      dept: 'Finance',
+      sponsor: 'CFO',
+      submitter: 'jane@acme.test',
+      email: 'jane@acme.test',
+      desc: 'Automate matching of invoices to POs.',
+      // tab1 business context
+      driver: 'Cost', value: '>$5M', users: '50', align: 'Core strategic priority', justif: 'High ROI',
+      // tab2 current state
+      maturity: 'Fully manual', spend: '$200k', volume: '10k/mo', pain: 'Slow', tools: 'Spreadsheets',
+      // tab3 technical context
+      sources: 'ERP', dataavail: 'Readily available & clean', integrations: ['Google Workspace', 'BigQuery'], realtime: 'No', technotes: 'n/a',
+      // tab4 risk & compliance
+      sensitivity: 'High', autonomy: 'Assistive', pii: true, audit: 'Yes', adoption: 'Medium', change: 'Low', delivery: 'Phased', addnotes: 'none',
+    };
+    const ucRes = await call(port, 'POST', '/api/use-cases', ucPayload);
+    ok('use case created status 201', ucRes.status === 201);
+    ok('use case has id', ucRes.body && !!ucRes.body.id);
+    ok('department mapped', ucRes.body && ucRes.body.department === 'Finance');
+    ok('business_context grouped jsonb', ucRes.body && ucRes.body.business_context && ucRes.body.business_context.value === '>$5M');
+    ok('technical_context integrations array', ucRes.body && ucRes.body.technical_context && Array.isArray(ucRes.body.technical_context.integrations));
+    ok('risk_compliance pii captured', ucRes.body && ucRes.body.risk_compliance && ucRes.body.risk_compliance.pii === true);
+    const ucId = ucRes.body.id;
 
-console.log('\n== 5. Framework rollup: 4 published frameworks, 0..100 scores ==');
-const fws = api.frameworkRollup(BXT, FEAS, ADV, roi);
-ok('exactly 4 frameworks', fws.length === 4);
-ok('keys are gadf/caf/strategic/gartner', fws.map(f => f.key).join(',') === 'gadf,caf,strategic,gartner');
-ok('all scores within 0..100', fws.every(f => f.score >= 0 && f.score <= 100));
-ok('each framework has metrics', fws.every(f => Array.isArray(f.metrics) && f.metrics.length >= 3));
-ok('GADF averages BXT B/X/T (80,72,78 -> ~77)', fws[0].score === Math.round((80+72+78)/3));
+    // Validation: missing workspace_id -> 400.
+    const badUc = await call(port, 'POST', '/api/use-cases', { name: 'no ws' });
+    ok('use case without workspace_id -> 400', badUc.status === 400);
 
-console.log('\n== 6. Governance checklist: derived, valid statuses ==');
-const gov = api.governanceChecklist(INTAKE, FEAS, ADV);
-ok('produces 6 checklist items', gov.length === 6);
-ok('every status is pass/warn/fail', gov.every(g => ['pass','warn','fail'].includes(g.status)));
-ok('PII item present (intake.pii=true)', gov.some(g => g.key === 'pii'));
-const govTally = api.govTally(gov);
-ok('tally readiness is READY/CONDITIONAL/BLOCKED', ['READY','CONDITIONAL','BLOCKED'].includes(govTally.readiness));
+    // 5. PUT each gate.
+    console.log('\n== PUT gates ==');
+    const bxt = await call(port, 'PUT', `/api/use-cases/${ucId}/bxt`, {
+      business_score: 8.2, experience_score: 7.5, technology_score: 6.9, verdict: 'PROCEED',
+      detail: { notes: 'strong business case' },
+    });
+    ok('bxt upsert ok', bxt.status === 200 && bxt.body && bxt.body.verdict === 'PROCEED');
 
-console.log('\n== 7. Governance responds to inputs (PII w/o audit => fail) ==');
-const govNoAudit = api.governanceChecklist(Object.assign({}, INTAKE, { pii:true, audit:false }), FEAS, ADV);
-ok('PII without audit trail => fail', govNoAudit.find(g => g.key === 'pii').status === 'fail');
-const govLowSafety = api.governanceChecklist(INTAKE, Object.assign({}, FEAS, { scores: Object.assign({}, FEAS.scores, { safety:2 }) }), ADV);
-ok('low safety score => fail', govLowSafety.find(g => g.key === 'safety').status === 'fail');
-const govHighRisk = api.governanceChecklist(INTAKE, Object.assign({}, FEAS, { risk:'High' }), ADV);
-ok('High risk tier => fail on risk gate', govHighRisk.find(g => g.key === 'risk').status === 'fail');
+    // Upsert again (ON CONFLICT path).
+    const bxt2 = await call(port, 'PUT', `/api/use-cases/${ucId}/bxt`, {
+      business_score: 9.0, experience_score: 7.5, technology_score: 6.9, verdict: 'PROCEED',
+      detail: { notes: 'updated' },
+    });
+    ok('bxt upsert conflict updates', bxt2.status === 200 && Number(bxt2.body.business_score) === 9);
 
-console.log('\n== 8. computeSummary() rolls everything into one model ==');
-const model = api.computeSummary({ intake: INTAKE, bxt: BXT, feas: FEAS, advisory: ADV, trials: 3000 });
-ok('model has roi/frameworks/governance/tally', !!(model.roi && model.frameworks && model.governance && model.tally));
-ok('portfolio composite 0..100', model.composite >= 0 && model.composite <= 100);
-ok('useCase name flows through', model.useCase === 'Fraud Signal Triage');
+    const feas = await call(port, 'PUT', `/api/use-cases/${ucId}/feasibility`, {
+      composite: 7.4, quadrant: 'Quick Win', risk_tier: 'Low', citizen_dev_pct: 40,
+      criteria: { data: 8, integration: 7 }, pillars: { people: 6 },
+    });
+    ok('feasibility upsert ok', feas.status === 200 && feas.body && feas.body.quadrant === 'Quick Win');
 
-// Sections 9+ depend on init() which runs on DOMContentLoaded (async in jsdom).
-setTimeout(() => {
-console.log('\n== 9. DOM render: ROI hero + framework cards + governance rows ==');
-ok('ROI name populated (not placeholder)', d.getElementById('roiName').textContent !== '\u2014');
-ok('P50 value shows a percentage', /%$/.test(d.getElementById('p50Val').textContent));
-ok('renders 4 framework cards', d.querySelectorAll('#fwgrid .fwcard').length === 4);
-ok('renders 6 governance rows', d.querySelectorAll('#govList .gov__row').length === 6);
-ok('workspace eval line names the use case', /Fraud Signal Triage/.test(d.getElementById('wsEval').textContent));
+    const adv = await call(port, 'PUT', `/api/use-cases/${ucId}/advisory`, {
+      tier: 'Tier 2', verdict_name: 'Advance', recommended_platform: 'Vertex AI',
+      gate_resolved: 'feasibility', reasoning: { why: 'clean data' }, journey: { steps: ['pilot'] },
+    });
+    ok('advisory upsert ok', adv.status === 200 && adv.body && adv.body.recommended_platform === 'Vertex AI');
 
-console.log('\n== 10. Persistence: writes gaic_summary for Gate 6 ==');
-const stored = JSON.parse(dom.window.localStorage.getItem('gaic_summary'));
-ok('gaic_summary persisted', !!stored);
-ok('persists roi band', stored.roi && typeof stored.roi.p50 === 'number');
-ok('persists 4 framework scores', stored.frameworks.length === 4);
-ok('persists governance readiness', ['READY','CONDITIONAL','BLOCKED'].includes(stored.readiness));
+    const summ = await call(port, 'PUT', `/api/use-cases/${ucId}/summary`, {
+      roi_p10: 1.2, roi_p50: 2.5, roi_p90: 4.8, frameworks: { gadf: true },
+      governance: { owner: 'CFO' }, readiness: 'Ready',
+    });
+    ok('summary upsert ok', summ.status === 200 && summ.body && summ.body.readiness === 'Ready');
 
-console.log('\n== 11. Header / stepper fidelity ==');
-ok('product tag "Enterprise Advantage"', /Enterprise Advantage/.test(html));
-ok('wordmark "Google AI Catalyst"', /Google <b>AI Catalyst<\/b>/.test(html));
-ok('6-gate stepper present', d.querySelectorAll('#gates .gate').length === 6);
-ok('Gate 5 is active', d.querySelector('#gates .gate.is-active .gate__label').textContent === 'Evaluation Summary');
+    const verdict = await call(port, 'PUT', `/api/use-cases/${ucId}/verdict`, {
+      verdict: 'APPROVE', binding_condition: 'Human-in-the-loop for >$10k',
+      stances: { cfo: 'yes' }, deliberation: { rounds: 2 },
+    });
+    ok('verdict upsert ok', verdict.status === 200 && verdict.body && verdict.body.verdict === 'APPROVE');
 
-console.log('\n== 12. Re-run recomputes without error ==');
-d.getElementById('btnRerun').click();
-ok('re-run keeps gaic_summary valid', !!JSON.parse(dom.window.localStorage.getItem('gaic_summary')).roi);
+    // Gate on non-existent use case -> 404.
+    const badGate = await call(port, 'PUT', '/api/use-cases/00000000-0000-0000-0000-000000000000/bxt', { business_score: 1 });
+    ok('gate on missing use case -> 404', badGate.status === 404);
 
-console.log('\n== 13. Footer nav: Back -> advisory, Continue -> panel ==');
-ok('Back button targets advisory.html', d.getElementById('btnBack').getAttribute('href') === 'advisory.html');
-ok('Continue button targets panel.html', d.getElementById('btnContinue').getAttribute('href') === 'panel.html');
-ok('Continue label mentions Executive Review Panel', /Executive Review Panel/.test(d.getElementById('btnContinue').textContent));
+    // 6. GET use case with nested gates.
+    console.log('\n== GET /api/use-cases/:id (nested) ==');
+    const full = await call(port, 'GET', `/api/use-cases/${ucId}`);
+    ok('get use case 200', full.status === 200);
+    ok('nested bxt present & non-null', full.body && full.body.bxt && full.body.bxt.verdict === 'PROCEED');
+    ok('nested feasibility present & non-null', full.body && full.body.feasibility && full.body.feasibility.quadrant === 'Quick Win');
+    ok('nested advisory present & non-null', full.body && full.body.advisory && full.body.advisory.tier === 'Tier 2');
+    ok('nested summary present & non-null', full.body && full.body.summary && full.body.summary.readiness === 'Ready');
+    ok('nested verdict present & non-null', full.body && full.body.verdict && full.body.verdict.verdict === 'APPROVE');
 
-console.log('\n== 14. Graceful demo fallback (no localStorage) ==');
-const domD = newDom(undefined, undefined, undefined, undefined);
-const apiD = domD.window.__sum;
-const dD = domD.window.document;
-ok('loadIntake would fall back to demo', apiD.DEMO_INTAKE.name === 'Customer Sentiment Analysis');
-const demoRoi = apiD.computeSummary().roi;
-ok('demo ROI still ordered P10<=P50<=P90', demoRoi.p10 <= demoRoi.p50 && demoRoi.p50 <= demoRoi.p90);
-// demo dom's own init() runs on its DOMContentLoaded — assert after a tick.
-setTimeout(() => {
-ok('demo model still renders 4 framework cards', dD.querySelectorAll('#fwgrid .fwcard').length === 4);
-ok('demo model still renders 6 governance rows', dD.querySelectorAll('#govList .gov__row').length === 6);
-ok('demo writes gaic_summary', !!domD.window.localStorage.getItem('gaic_summary'));
+    // Missing use case -> 404.
+    const missing = await call(port, 'GET', '/api/use-cases/00000000-0000-0000-0000-000000000000');
+    ok('missing use case -> 404', missing.status === 404);
 
-console.log('\n== 15. Zero Microsoft strings; Google framing present ==');
-ok('contains Google framing (GADF / AppSheet / Agentspace / Cloud Adoption Framework)',
-   /(GADF|AppSheet \/ Agentspace|Google Cloud Adoption Framework|Responsible-AI)/.test(html));
-const microsoft = ['MAIDF','Copilot','Power Platform','Azure','M365','watsonx','Agentforce','Salesforce','Microsoft','Dataverse','Dynamics','Blob'];
-microsoft.forEach(m => ok('NO Microsoft string "'+m+'"',
-  !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
+    // 7. Portfolio.
+    console.log('\n== GET /api/portfolio ==');
+    const portfolio = await call(port, 'GET', `/api/portfolio?workspace_id=${createdWorkspaceId}`);
+    ok('portfolio 200 array', portfolio.status === 200 && Array.isArray(portfolio.body));
+    const found = portfolio.body.find((r) => r.id === ucId);
+    ok('use case appears in portfolio', !!found);
+    ok('portfolio has feasibility_composite', found && Number(found.feasibility_composite) === 7.4);
+    ok('portfolio has verdict', found && found.verdict === 'APPROVE');
 
-console.log('\n---------------------------------------------');
-console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-console.log('---------------------------------------------');
-process.exit(fail ? 1 : 0);
-}, 30);
-}, 30);
+    // 8. Cleanup: delete workspace (cascade).
+    console.log('\n== Cleanup (cascade delete) ==');
+    const { pool } = require('./db');
+    await pool.query('DELETE FROM workspaces WHERE id = $1', [createdWorkspaceId]);
+    const gone = await call(port, 'GET', `/api/use-cases/${ucId}`);
+    ok('use case cascade-deleted (404)', gone.status === 404);
+    const wsGone = await pool.query('SELECT id FROM workspaces WHERE id = $1', [createdWorkspaceId]);
+    ok('workspace deleted', wsGone.rows.length === 0);
+    const childGone = await pool.query('SELECT id FROM bxt_scores WHERE use_case_id = $1', [ucId]);
+    ok('bxt child cascade-deleted', childGone.rows.length === 0);
+    createdWorkspaceId = null;
+  } finally {
+    // Best-effort cleanup if something threw mid-flight.
+    if (createdWorkspaceId) {
+      try {
+        const { pool } = require('./db');
+        await pool.query('DELETE FROM workspaces WHERE id = $1', [createdWorkspaceId]);
+      } catch (_) { /* noop */ }
+    }
+    await new Promise((r) => server.close(r));
+    try {
+      const { pool } = require('./db');
+      await pool.end();
+    } catch (_) { /* noop */ }
+  }
+
+  console.log('\n---------------------------------------------');
+  console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
+  console.log('---------------------------------------------');
+  process.exit(fail ? 1 : 0);
+}
+
+main().catch((err) => {
+  console.error('FATAL:', err);
+  process.exit(1);
+});

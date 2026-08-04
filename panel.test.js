@@ -1,213 +1,1416 @@
-/**
- * Gate 6 — Executive Review Panel (panel.html) test suite.
- * Mirrors summary.test.js: loads the inline IIFE inside jsdom, exercises the
- * pure window.__panel API plus the rendered DOM.
- *
- *   node panel.test.js      # exit 0 = all green
- */
-const fs = require('fs');
-const path = require('path');
-// Resolve jsdom robustly: some sandboxes have a broken/partial local
-// node_modules/jsdom that hangs on load, while a working copy lives elsewhere
-// (e.g. /tmp/node_modules). Try candidates in order and use the first that loads.
-function requireJsdom() {
-  // Prefer the known-good /tmp copy first: a broken local node_modules/jsdom
-  // hangs on load (not a catchable throw), so we must avoid touching it.
-  const candidates = ['/tmp/node_modules/jsdom',
-    path.join(process.env.HOME || '', 'node_modules/jsdom'), 'jsdom'];
-  for (const c of candidates) {
-    try { const m = require(c); if (m && m.JSDOM) return m; } catch (e) { /* next */ }
-  }
-  throw new Error('jsdom not found in any candidate path');
-}
-const { JSDOM } = requireJsdom();
-
-const HTML_PATH = path.join(__dirname, 'panel.html');
-const html = fs.readFileSync(HTML_PATH, 'utf8');
-
-let pass = 0, fail = 0;
-process.on('uncaughtException', e => { console.error('UNCAUGHT:', e && e.stack || e); process.exit(2); });
-const GUARD = setTimeout(() => { console.error('GUARD TIMEOUT — did not reach finish. pass=' + pass + ' fail=' + fail); process.exit(3); }, 20000);
-function finish(){
-  console.log('\n---------------------------------------------');
-  console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-  console.log('---------------------------------------------');
-  clearTimeout(GUARD);
-  process.exit(fail ? 1 : 0);
-}
-function ok(msg, cond) {
-  if (cond) { pass++; console.log('  \u2713 ' + msg); }
-  else { fail++; console.log('  \u2717 ' + msg); }
-}
-
-// Build a fresh jsdom for a given localStorage seed set (mirrors summary.test.js).
-function newDom(summary, intake) {
-  return new JSDOM(html, {
-    runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/panel.html',
-    beforeParse(w) {
-      if (summary !== undefined) w.localStorage.setItem('gaic_summary', JSON.stringify(summary));
-      if (intake  !== undefined) w.localStorage.setItem('gaic_intake',  JSON.stringify(intake));
+{
+  "name": "google-ai-catalyst",
+  "version": "1.0.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "google-ai-catalyst",
+      "version": "1.0.0",
+      "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "pg": "^8.22.0"
+      },
+      "devDependencies": {
+        "jsdom": "^24.0.0"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@asamuzakjp/css-color": {
+      "version": "3.2.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@csstools/css-calc": "^2.1.3",
+        "@csstools/css-color-parser": "^3.0.9",
+        "@csstools/css-parser-algorithms": "^3.0.4",
+        "@csstools/css-tokenizer": "^3.0.3",
+        "lru-cache": "^10.4.3"
+      }
+    },
+    "node_modules/@csstools/color-helpers": {
+      "version": "5.1.0",
+      "dev": true,
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/csstools"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/csstools"
+        }
+      ],
+      "license": "MIT-0",
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/@csstools/css-calc": {
+      "version": "2.1.4",
+      "dev": true,
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/csstools"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/csstools"
+        }
+      ],
+      "license": "MIT",
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {
+        "@csstools/css-parser-algorithms": "^3.0.5",
+        "@csstools/css-tokenizer": "^3.0.4"
+      }
+    },
+    "node_modules/@csstools/css-color-parser": {
+      "version": "3.1.0",
+      "dev": true,
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/csstools"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/csstools"
+        }
+      ],
+      "license": "MIT",
+      "dependencies": {
+        "@csstools/color-helpers": "^5.1.0",
+        "@csstools/css-calc": "^2.1.4"
+      },
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {
+        "@csstools/css-parser-algorithms": "^3.0.5",
+        "@csstools/css-tokenizer": "^3.0.4"
+      }
+    },
+    "node_modules/@csstools/css-parser-algorithms": {
+      "version": "3.0.5",
+      "dev": true,
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/csstools"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/csstools"
+        }
+      ],
+      "license": "MIT",
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {
+        "@csstools/css-tokenizer": "^3.0.4"
+      }
+    },
+    "node_modules/@csstools/css-tokenizer": {
+      "version": "3.0.4",
+      "dev": true,
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/csstools"
+        },
+        {
+          "type": "opencollective",
+          "url": "https://opencollective.com/csstools"
+        }
+      ],
+      "license": "MIT",
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/accepts": {
+      "version": "1.3.8",
+      "license": "MIT",
+      "dependencies": {
+        "mime-types": "~2.1.34",
+        "negotiator": "0.6.3"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/agent-base": {
+      "version": "7.1.4",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">= 14"
+      }
+    },
+    "node_modules/array-flatten": {
+      "version": "1.1.1",
+      "license": "MIT"
+    },
+    "node_modules/asynckit": {
+      "version": "0.4.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/body-parser": {
+      "version": "1.20.6",
+      "license": "MIT",
+      "dependencies": {
+        "bytes": "~3.1.2",
+        "content-type": "~1.0.5",
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "destroy": "~1.2.0",
+        "http-errors": "~2.0.1",
+        "iconv-lite": "~0.4.24",
+        "on-finished": "~2.4.1",
+        "qs": "~6.15.1",
+        "raw-body": "~2.5.3",
+        "type-is": "~1.6.18",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8",
+        "npm": "1.2.8000 || >= 1.4.16"
+      }
+    },
+    "node_modules/bytes": {
+      "version": "3.1.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/call-bind-apply-helpers": {
+      "version": "1.0.2",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "function-bind": "^1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/call-bound": {
+      "version": "1.0.4",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.2",
+        "get-intrinsic": "^1.3.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/combined-stream": {
+      "version": "1.0.8",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "delayed-stream": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/content-disposition": {
+      "version": "0.5.4",
+      "license": "MIT",
+      "dependencies": {
+        "safe-buffer": "5.2.1"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/content-type": {
+      "version": "1.0.5",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/cookie": {
+      "version": "0.7.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/cookie-signature": {
+      "version": "1.0.7",
+      "license": "MIT"
+    },
+    "node_modules/cors": {
+      "version": "2.8.6",
+      "license": "MIT",
+      "dependencies": {
+        "object-assign": "^4",
+        "vary": "^1"
+      },
+      "engines": {
+        "node": ">= 0.10"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/cssstyle": {
+      "version": "4.6.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "@asamuzakjp/css-color": "^3.2.0",
+        "rrweb-cssom": "^0.8.0"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/cssstyle/node_modules/rrweb-cssom": {
+      "version": "0.8.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/data-urls": {
+      "version": "5.0.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "whatwg-mimetype": "^4.0.0",
+        "whatwg-url": "^14.0.0"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/debug": {
+      "version": "2.6.9",
+      "license": "MIT",
+      "dependencies": {
+        "ms": "2.0.0"
+      }
+    },
+    "node_modules/decimal.js": {
+      "version": "10.6.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/delayed-stream": {
+      "version": "1.0.0",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.4.0"
+      }
+    },
+    "node_modules/depd": {
+      "version": "2.0.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/destroy": {
+      "version": "1.2.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8",
+        "npm": "1.2.8000 || >= 1.4.16"
+      }
+    },
+    "node_modules/dotenv": {
+      "version": "16.6.1",
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=12"
+      },
+      "funding": {
+        "url": "https://dotenvx.com"
+      }
+    },
+    "node_modules/dunder-proto": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.1",
+        "es-errors": "^1.3.0",
+        "gopd": "^1.2.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/ee-first": {
+      "version": "1.1.1",
+      "license": "MIT"
+    },
+    "node_modules/encodeurl": {
+      "version": "2.0.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/entities": {
+      "version": "6.0.1",
+      "dev": true,
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=0.12"
+      },
+      "funding": {
+        "url": "https://github.com/fb55/entities?sponsor=1"
+      }
+    },
+    "node_modules/es-define-property": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/es-errors": {
+      "version": "1.3.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/es-object-atoms": {
+      "version": "1.1.2",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/es-set-tostringtag": {
+      "version": "2.1.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "get-intrinsic": "^1.2.6",
+        "has-tostringtag": "^1.0.2",
+        "hasown": "^2.0.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/escape-html": {
+      "version": "1.0.3",
+      "license": "MIT"
+    },
+    "node_modules/etag": {
+      "version": "1.8.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/express": {
+      "version": "4.22.2",
+      "license": "MIT",
+      "dependencies": {
+        "accepts": "~1.3.8",
+        "array-flatten": "1.1.1",
+        "body-parser": "~1.20.5",
+        "content-disposition": "~0.5.4",
+        "content-type": "~1.0.4",
+        "cookie": "~0.7.1",
+        "cookie-signature": "~1.0.6",
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "etag": "~1.8.1",
+        "finalhandler": "~1.3.1",
+        "fresh": "~0.5.2",
+        "http-errors": "~2.0.0",
+        "merge-descriptors": "1.0.3",
+        "methods": "~1.1.2",
+        "on-finished": "~2.4.1",
+        "parseurl": "~1.3.3",
+        "path-to-regexp": "~0.1.12",
+        "proxy-addr": "~2.0.7",
+        "qs": "~6.15.1",
+        "range-parser": "~1.2.1",
+        "safe-buffer": "5.2.1",
+        "send": "~0.19.0",
+        "serve-static": "~1.16.2",
+        "setprototypeof": "1.2.0",
+        "statuses": "~2.0.1",
+        "type-is": "~1.6.18",
+        "utils-merge": "1.0.1",
+        "vary": "~1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.10.0"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/finalhandler": {
+      "version": "1.3.2",
+      "license": "MIT",
+      "dependencies": {
+        "debug": "2.6.9",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "on-finished": "~2.4.1",
+        "parseurl": "~1.3.3",
+        "statuses": "~2.0.2",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/form-data": {
+      "version": "4.0.6",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "asynckit": "^0.4.0",
+        "combined-stream": "^1.0.8",
+        "es-set-tostringtag": "^2.1.0",
+        "hasown": "^2.0.4",
+        "mime-types": "^2.1.35"
+      },
+      "engines": {
+        "node": ">= 6"
+      }
+    },
+    "node_modules/forwarded": {
+      "version": "0.2.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/fresh": {
+      "version": "0.5.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/function-bind": {
+      "version": "1.1.2",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/get-intrinsic": {
+      "version": "1.3.0",
+      "license": "MIT",
+      "dependencies": {
+        "call-bind-apply-helpers": "^1.0.2",
+        "es-define-property": "^1.0.1",
+        "es-errors": "^1.3.0",
+        "es-object-atoms": "^1.1.1",
+        "function-bind": "^1.1.2",
+        "get-proto": "^1.0.1",
+        "gopd": "^1.2.0",
+        "has-symbols": "^1.1.0",
+        "hasown": "^2.0.2",
+        "math-intrinsics": "^1.1.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/get-proto": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "dependencies": {
+        "dunder-proto": "^1.0.1",
+        "es-object-atoms": "^1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/gopd": {
+      "version": "1.2.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/has-symbols": {
+      "version": "1.1.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/has-tostringtag": {
+      "version": "1.0.2",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "has-symbols": "^1.0.3"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/hasown": {
+      "version": "2.0.4",
+      "license": "MIT",
+      "dependencies": {
+        "function-bind": "^1.1.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/html-encoding-sniffer": {
+      "version": "4.0.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "whatwg-encoding": "^3.1.1"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/http-errors": {
+      "version": "2.0.1",
+      "license": "MIT",
+      "dependencies": {
+        "depd": "~2.0.0",
+        "inherits": "~2.0.4",
+        "setprototypeof": "~1.2.0",
+        "statuses": "~2.0.2",
+        "toidentifier": "~1.0.1"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      },
+      "funding": {
+        "type": "opencollective",
+        "url": "https://opencollective.com/express"
+      }
+    },
+    "node_modules/http-proxy-agent": {
+      "version": "7.0.2",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "agent-base": "^7.1.0",
+        "debug": "^4.3.4"
+      },
+      "engines": {
+        "node": ">= 14"
+      }
+    },
+    "node_modules/http-proxy-agent/node_modules/debug": {
+      "version": "4.4.3",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "ms": "^2.1.3"
+      },
+      "engines": {
+        "node": ">=6.0"
+      },
+      "peerDependenciesMeta": {
+        "supports-color": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/http-proxy-agent/node_modules/ms": {
+      "version": "2.1.3",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/https-proxy-agent": {
+      "version": "7.0.6",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "agent-base": "^7.1.2",
+        "debug": "4"
+      },
+      "engines": {
+        "node": ">= 14"
+      }
+    },
+    "node_modules/https-proxy-agent/node_modules/debug": {
+      "version": "4.4.3",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "ms": "^2.1.3"
+      },
+      "engines": {
+        "node": ">=6.0"
+      },
+      "peerDependenciesMeta": {
+        "supports-color": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/https-proxy-agent/node_modules/ms": {
+      "version": "2.1.3",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/iconv-lite": {
+      "version": "0.4.24",
+      "license": "MIT",
+      "dependencies": {
+        "safer-buffer": ">= 2.1.2 < 3"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/inherits": {
+      "version": "2.0.4",
+      "license": "ISC"
+    },
+    "node_modules/ipaddr.js": {
+      "version": "1.9.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.10"
+      }
+    },
+    "node_modules/is-potential-custom-element-name": {
+      "version": "1.0.1",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/jsdom": {
+      "version": "24.1.3",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "cssstyle": "^4.0.1",
+        "data-urls": "^5.0.0",
+        "decimal.js": "^10.4.3",
+        "form-data": "^4.0.0",
+        "html-encoding-sniffer": "^4.0.0",
+        "http-proxy-agent": "^7.0.2",
+        "https-proxy-agent": "^7.0.5",
+        "is-potential-custom-element-name": "^1.0.1",
+        "nwsapi": "^2.2.12",
+        "parse5": "^7.1.2",
+        "rrweb-cssom": "^0.7.1",
+        "saxes": "^6.0.0",
+        "symbol-tree": "^3.2.4",
+        "tough-cookie": "^4.1.4",
+        "w3c-xmlserializer": "^5.0.0",
+        "webidl-conversions": "^7.0.0",
+        "whatwg-encoding": "^3.1.1",
+        "whatwg-mimetype": "^4.0.0",
+        "whatwg-url": "^14.0.0",
+        "ws": "^8.18.0",
+        "xml-name-validator": "^5.0.0"
+      },
+      "engines": {
+        "node": ">=18"
+      },
+      "peerDependencies": {
+        "canvas": "^2.11.2"
+      },
+      "peerDependenciesMeta": {
+        "canvas": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/lru-cache": {
+      "version": "10.4.3",
+      "dev": true,
+      "license": "ISC"
+    },
+    "node_modules/math-intrinsics": {
+      "version": "1.1.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      }
+    },
+    "node_modules/media-typer": {
+      "version": "0.3.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/merge-descriptors": {
+      "version": "1.0.3",
+      "license": "MIT",
+      "funding": {
+        "url": "https://github.com/sponsors/sindresorhus"
+      }
+    },
+    "node_modules/methods": {
+      "version": "1.1.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime": {
+      "version": "1.6.0",
+      "license": "MIT",
+      "bin": {
+        "mime": "cli.js"
+      },
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/mime-db": {
+      "version": "1.52.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/mime-types": {
+      "version": "2.1.35",
+      "license": "MIT",
+      "dependencies": {
+        "mime-db": "1.52.0"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/ms": {
+      "version": "2.0.0",
+      "license": "MIT"
+    },
+    "node_modules/negotiator": {
+      "version": "0.6.3",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/nwsapi": {
+      "version": "2.2.24",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/object-assign": {
+      "version": "4.1.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/object-inspect": {
+      "version": "1.13.4",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/on-finished": {
+      "version": "2.4.1",
+      "license": "MIT",
+      "dependencies": {
+        "ee-first": "1.1.1"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/parse5": {
+      "version": "7.3.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "entities": "^6.0.0"
+      },
+      "funding": {
+        "url": "https://github.com/inikulin/parse5?sponsor=1"
+      }
+    },
+    "node_modules/parseurl": {
+      "version": "1.3.3",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/path-to-regexp": {
+      "version": "0.1.13",
+      "license": "MIT"
+    },
+    "node_modules/pg": {
+      "version": "8.22.0",
+      "license": "MIT",
+      "dependencies": {
+        "pg-connection-string": "^2.14.0",
+        "pg-pool": "^3.14.0",
+        "pg-protocol": "^1.15.0",
+        "pg-types": "2.2.0",
+        "pgpass": "1.0.5"
+      },
+      "engines": {
+        "node": ">= 16.0.0"
+      },
+      "optionalDependencies": {
+        "pg-cloudflare": "^1.4.0"
+      },
+      "peerDependencies": {
+        "pg-native": ">=3.0.1"
+      },
+      "peerDependenciesMeta": {
+        "pg-native": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/pg-cloudflare": {
+      "version": "1.4.0",
+      "license": "MIT",
+      "optional": true
+    },
+    "node_modules/pg-connection-string": {
+      "version": "2.14.0",
+      "license": "MIT"
+    },
+    "node_modules/pg-int8": {
+      "version": "1.0.1",
+      "license": "ISC",
+      "engines": {
+        "node": ">=4.0.0"
+      }
+    },
+    "node_modules/pg-pool": {
+      "version": "3.14.0",
+      "license": "MIT",
+      "peerDependencies": {
+        "pg": ">=8.0"
+      }
+    },
+    "node_modules/pg-protocol": {
+      "version": "1.15.0",
+      "license": "MIT"
+    },
+    "node_modules/pg-types": {
+      "version": "2.2.0",
+      "license": "MIT",
+      "dependencies": {
+        "pg-int8": "1.0.1",
+        "postgres-array": "~2.0.0",
+        "postgres-bytea": "~1.0.0",
+        "postgres-date": "~1.0.4",
+        "postgres-interval": "^1.1.0"
+      },
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/pgpass": {
+      "version": "1.0.5",
+      "license": "MIT",
+      "dependencies": {
+        "split2": "^4.1.0"
+      }
+    },
+    "node_modules/postgres-array": {
+      "version": "2.0.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">=4"
+      }
+    },
+    "node_modules/postgres-bytea": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/postgres-date": {
+      "version": "1.0.7",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/postgres-interval": {
+      "version": "1.2.0",
+      "license": "MIT",
+      "dependencies": {
+        "xtend": "^4.0.0"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/proxy-addr": {
+      "version": "2.0.7",
+      "license": "MIT",
+      "dependencies": {
+        "forwarded": "0.2.0",
+        "ipaddr.js": "1.9.1"
+      },
+      "engines": {
+        "node": ">= 0.10"
+      }
+    },
+    "node_modules/psl": {
+      "version": "1.15.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "punycode": "^2.3.1"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/lupomontero"
+      }
+    },
+    "node_modules/punycode": {
+      "version": "2.3.1",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=6"
+      }
+    },
+    "node_modules/qs": {
+      "version": "6.15.3",
+      "license": "BSD-3-Clause",
+      "dependencies": {
+        "es-define-property": "^1.0.1",
+        "side-channel": "^1.1.1"
+      },
+      "engines": {
+        "node": ">=0.6"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/querystringify": {
+      "version": "2.2.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/range-parser": {
+      "version": "1.2.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/raw-body": {
+      "version": "2.5.3",
+      "license": "MIT",
+      "dependencies": {
+        "bytes": "~3.1.2",
+        "http-errors": "~2.0.1",
+        "iconv-lite": "~0.4.24",
+        "unpipe": "~1.0.0"
+      },
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/requires-port": {
+      "version": "1.0.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/rrweb-cssom": {
+      "version": "0.7.1",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/safe-buffer": {
+      "version": "5.2.1",
+      "funding": [
+        {
+          "type": "github",
+          "url": "https://github.com/sponsors/feross"
+        },
+        {
+          "type": "patreon",
+          "url": "https://www.patreon.com/feross"
+        },
+        {
+          "type": "consulting",
+          "url": "https://feross.org/support"
+        }
+      ],
+      "license": "MIT"
+    },
+    "node_modules/safer-buffer": {
+      "version": "2.1.2",
+      "license": "MIT"
+    },
+    "node_modules/saxes": {
+      "version": "6.0.0",
+      "dev": true,
+      "license": "ISC",
+      "dependencies": {
+        "xmlchars": "^2.2.0"
+      },
+      "engines": {
+        "node": ">=v12.22.7"
+      }
+    },
+    "node_modules/send": {
+      "version": "0.19.2",
+      "license": "MIT",
+      "dependencies": {
+        "debug": "2.6.9",
+        "depd": "2.0.0",
+        "destroy": "1.2.0",
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "etag": "~1.8.1",
+        "fresh": "~0.5.2",
+        "http-errors": "~2.0.1",
+        "mime": "1.6.0",
+        "ms": "2.1.3",
+        "on-finished": "~2.4.1",
+        "range-parser": "~1.2.1",
+        "statuses": "~2.0.2"
+      },
+      "engines": {
+        "node": ">= 0.8.0"
+      }
+    },
+    "node_modules/send/node_modules/ms": {
+      "version": "2.1.3",
+      "license": "MIT"
+    },
+    "node_modules/serve-static": {
+      "version": "1.16.3",
+      "license": "MIT",
+      "dependencies": {
+        "encodeurl": "~2.0.0",
+        "escape-html": "~1.0.3",
+        "parseurl": "~1.3.3",
+        "send": "~0.19.1"
+      },
+      "engines": {
+        "node": ">= 0.8.0"
+      }
+    },
+    "node_modules/setprototypeof": {
+      "version": "1.2.0",
+      "license": "ISC"
+    },
+    "node_modules/side-channel": {
+      "version": "1.1.1",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "object-inspect": "^1.13.4",
+        "side-channel-list": "^1.0.1",
+        "side-channel-map": "^1.0.1",
+        "side-channel-weakmap": "^1.0.2"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-list": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "dependencies": {
+        "es-errors": "^1.3.0",
+        "object-inspect": "^1.13.4"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-map": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "dependencies": {
+        "call-bound": "^1.0.2",
+        "es-errors": "^1.3.0",
+        "get-intrinsic": "^1.2.5",
+        "object-inspect": "^1.13.3"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/side-channel-weakmap": {
+      "version": "1.0.2",
+      "license": "MIT",
+      "dependencies": {
+        "call-bound": "^1.0.2",
+        "es-errors": "^1.3.0",
+        "get-intrinsic": "^1.2.5",
+        "object-inspect": "^1.13.3",
+        "side-channel-map": "^1.0.1"
+      },
+      "engines": {
+        "node": ">= 0.4"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/ljharb"
+      }
+    },
+    "node_modules/split2": {
+      "version": "4.2.0",
+      "license": "ISC",
+      "engines": {
+        "node": ">= 10.x"
+      }
+    },
+    "node_modules/statuses": {
+      "version": "2.0.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/symbol-tree": {
+      "version": "3.2.4",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/toidentifier": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.6"
+      }
+    },
+    "node_modules/tough-cookie": {
+      "version": "4.1.4",
+      "dev": true,
+      "license": "BSD-3-Clause",
+      "dependencies": {
+        "psl": "^1.1.33",
+        "punycode": "^2.1.1",
+        "universalify": "^0.2.0",
+        "url-parse": "^1.5.3"
+      },
+      "engines": {
+        "node": ">=6"
+      }
+    },
+    "node_modules/tr46": {
+      "version": "5.1.1",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "punycode": "^2.3.1"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/type-is": {
+      "version": "1.6.18",
+      "license": "MIT",
+      "dependencies": {
+        "media-typer": "0.3.0",
+        "mime-types": "~2.1.24"
+      },
+      "engines": {
+        "node": ">= 0.6"
+      }
+    },
+    "node_modules/universalify": {
+      "version": "0.2.0",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">= 4.0.0"
+      }
+    },
+    "node_modules/unpipe": {
+      "version": "1.0.0",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/url-parse": {
+      "version": "1.5.10",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "querystringify": "^2.1.1",
+        "requires-port": "^1.0.0"
+      }
+    },
+    "node_modules/utils-merge": {
+      "version": "1.0.1",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.4.0"
+      }
+    },
+    "node_modules/vary": {
+      "version": "1.1.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">= 0.8"
+      }
+    },
+    "node_modules/w3c-xmlserializer": {
+      "version": "5.0.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "xml-name-validator": "^5.0.0"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/webidl-conversions": {
+      "version": "7.0.0",
+      "dev": true,
+      "license": "BSD-2-Clause",
+      "engines": {
+        "node": ">=12"
+      }
+    },
+    "node_modules/whatwg-encoding": {
+      "version": "3.1.1",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "iconv-lite": "0.6.3"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/whatwg-encoding/node_modules/iconv-lite": {
+      "version": "0.6.3",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "safer-buffer": ">= 2.1.2 < 3.0.0"
+      },
+      "engines": {
+        "node": ">=0.10.0"
+      }
+    },
+    "node_modules/whatwg-mimetype": {
+      "version": "4.0.0",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/whatwg-url": {
+      "version": "14.2.0",
+      "dev": true,
+      "license": "MIT",
+      "dependencies": {
+        "tr46": "^5.1.0",
+        "webidl-conversions": "^7.0.0"
+      },
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/ws": {
+      "version": "8.21.1",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=10.0.0"
+      },
+      "peerDependencies": {
+        "bufferutil": "^4.0.1",
+        "utf-8-validate": ">=5.0.2"
+      },
+      "peerDependenciesMeta": {
+        "bufferutil": {
+          "optional": true
+        },
+        "utf-8-validate": {
+          "optional": true
+        }
+      }
+    },
+    "node_modules/xml-name-validator": {
+      "version": "5.0.0",
+      "dev": true,
+      "license": "Apache-2.0",
+      "engines": {
+        "node": ">=18"
+      }
+    },
+    "node_modules/xmlchars": {
+      "version": "2.2.0",
+      "dev": true,
+      "license": "MIT"
+    },
+    "node_modules/xtend": {
+      "version": "4.0.2",
+      "license": "MIT",
+      "engines": {
+        "node": ">=0.4"
+      }
     }
-  });
+  }
 }
-
-console.log('\n=== Gate 6 · Executive Review Panel (panel.html) ===\n');
-
-// Representative persisted Gate 5 hand-off (CONDITIONAL readiness).
-const SUMMARY = {
-  useCase: 'Fraud Signal Triage',
-  composite: 78,
-  readiness: 'CONDITIONAL',
-  roi: { p10: 62, p50: 141, p90: 233, annualValue: 4200000, cost: 1750000, payback: 11 },
-  frameworks: [
-    { key:'gadf',      name:'GADF v2 (Google AI Decision Framework)', score:77, band:'Strong' },
-    { key:'caf',       name:'Google Cloud Adoption Framework',        score:72, band:'Ready' },
-    { key:'strategic', name:'Strategic Value (McKinsey × MIT Sloan)', score:81, band:'High' },
-    { key:'gartner',   name:'Gartner AI Maturity + ROI',             score:69, band:'Emerging' }
-  ],
-  governance: [], ts: 0
-};
-const INTAKE = { name: 'Fraud Signal Triage', value: '$1M–$5M', users: '200–1000', autonomy: 'Supervised', pii: true, audit: true };
-
-const dom = newDom(SUMMARY, INTAKE);
-const api = dom.window.__panel;
-const d = dom.window.document;
-
-console.log('== 1. Test API surface exposed ==');
-ok('window.__panel exists', !!api);
-['deriveVerdict','loadIntake','loadSummary','currentVerdict','buildBrief','run'].forEach(fn =>
-  ok('exposes ' + fn + '()', typeof api[fn] === 'function'));
-ok('storage keys use gaic_ prefix', api.SUMMARY_KEY === 'gaic_summary' && api.INTAKE_KEY === 'gaic_intake');
-
-console.log('\n== 2. Four distinct personas defined ==');
-const pk = Object.keys(api.PERSONAS);
-ok('exactly 4 personas', pk.length === 4);
-ok('persona codes BS/RA/CI/CC', pk.slice().sort().join(',') === 'BS,CC,CI,RA');
-ok('BS = Business Sponsor / Executive Sponsor', api.PERSONAS.BS.name === 'Business Sponsor' && api.PERSONAS.BS.role === 'Executive Sponsor');
-ok('RA = Risk & Assurance Officer / Chief Risk Officer', api.PERSONAS.RA.name === 'Risk & Assurance Officer' && api.PERSONAS.RA.role === 'Chief Risk Officer');
-ok('CI = Chief Information Officer / CIO', api.PERSONAS.CI.name === 'Chief Information Officer' && api.PERSONAS.CI.role === 'CIO');
-ok('CC = Committee Chair / IC Moderator', api.PERSONAS.CC.name === 'Committee Chair' && api.PERSONAS.CC.role === 'IC Moderator');
-ok('distinct avatar colors', new Set(pk.map(k => api.PERSONAS[k].colorHex)).size === 4);
-
-console.log('\n== 3. Seven-turn deliberation script ==');
-ok('exactly 7 turns', api.DELIBERATION.length === 7);
-const seq = api.DELIBERATION.map(t => t.p).join(',');
-ok('turn order BS,RA,CI,BS,RA,CI,CC', seq === 'BS,RA,CI,BS,RA,CI,CC');
-ok('every turn maps to a defined persona', api.DELIBERATION.every(t => !!api.PERSONAS[t.p]));
-ok('T1 mentions $12M savings + 34% reduction', /\$12M/.test(api.DELIBERATION[0].say) && /34%/.test(api.DELIBERATION[0].say));
-ok('T7 (Chair) issues CONDITIONAL GO', /CONDITIONAL GO/.test(api.DELIBERATION[6].say));
-
-console.log('\n== 4. Verdict derivation from Gate 5 readiness ==');
-ok('READY -> GO', api.deriveVerdict('READY').label === 'GO' && api.deriveVerdict('READY').klass === 'is-go');
-ok('CONDITIONAL -> CONDITIONAL GO', api.deriveVerdict('CONDITIONAL').label === 'CONDITIONAL GO' && api.deriveVerdict('CONDITIONAL').klass === 'is-cond');
-ok('BLOCKED -> NO-GO', api.deriveVerdict('BLOCKED').label === 'NO-GO' && api.deriveVerdict('BLOCKED').klass === 'is-nogo');
-ok('unknown/empty defaults to CONDITIONAL GO', api.deriveVerdict('').label === 'CONDITIONAL GO' && api.deriveVerdict(undefined).label === 'CONDITIONAL GO');
-ok('case-insensitive readiness', api.deriveVerdict('ready').label === 'GO');
-ok('currentVerdict() reads persisted CONDITIONAL', api.currentVerdict().label === 'CONDITIONAL GO');
-
-console.log('\n== 5. Binding condition text present ==');
-ok('binding condition names data residency clause', /data residency clause/i.test(api.BINDING_CONDITION));
-ok('binding condition names Change Freeze Protocol CF-7', /Change Freeze Protocol CF-7/.test(api.BINDING_CONDITION));
-ok('condition precedent to contract signature', /condition precedent to contract signature/i.test(api.BINDING_CONDITION));
-
-console.log('\n== 6. Per-persona stance chips ==');
-ok('3 stance chips', api.STANCES.length === 3);
-ok('stances Support / Conditional / Conditional', api.STANCES.map(s => s.value).join(',') === 'Support,Conditional,Conditional');
-
-// DOM assertions: drive the synchronous (non-animated) render path so the
-// suite is deterministic and exits immediately — no reliance on real timers.
-api.run(false);
-console.log('\n== 7. DOM: all 7 turns render with persona + role ==');
-const turns = d.querySelectorAll('#delib .turn');
-ok('renders 7 turn rows', turns.length === 7);
-ok('each turn has avatar initials', Array.from(turns).every(t => t.querySelector('.turn__av').textContent.length === 2));
-ok('turn 1 names Business Sponsor', turns[0].querySelector('.turn__who').textContent === 'Business Sponsor');
-ok('turn 1 role Executive Sponsor', turns[0].querySelector('.turn__role').textContent === 'Executive Sponsor');
-ok('turn 7 names Committee Chair', turns[6].querySelector('.turn__who').textContent === 'Committee Chair');
-ok('turn 7 role IC Moderator', turns[6].querySelector('.turn__role').textContent === 'IC Moderator');
-const personasInDom = new Set(Array.from(turns).map(t => t.getAttribute('data-persona')));
-ok('4 distinct personas present in DOM', personasInDom.size === 4);
-ok('all turns eventually revealed (is-in)', Array.from(turns).every(t => t.classList.contains('is-in')));
-
-console.log('\n== 8. DOM: 4 thinking steps + collapsible ==');
-ok('renders 4 thinking steps', d.querySelectorAll('#stepsBody .step').length === 4);
-ok('step 1 text matches spec', /Retrieving framework evaluation scores/.test(d.querySelector('#stepsBody .step').textContent));
-ok('"Completed 4 steps" label present', /Completed 4 steps/.test(d.getElementById('steps').textContent));
-
-console.log('\n== 9. DOM: verdict banner + condition + stances ==');
-ok('verdict label shows CONDITIONAL GO', d.getElementById('verdictLabel').textContent === 'CONDITIONAL GO');
-ok('verdict band carries is-cond class', d.getElementById('verdictBand').className.indexOf('is-cond') > -1);
-ok('condition text rendered in banner', /Change Freeze Protocol CF-7/.test(d.getElementById('verdictCond').textContent));
-ok('3 stance chips rendered', d.querySelectorAll('#verdictStances .stance').length === 3);
-ok('verdict banner revealed (is-in)', d.getElementById('verdictBand').classList.contains('is-in'));
-
-console.log('\n== 10. Executive Brief: 3 sections + P50 ROI ==');
-// Trigger via the exposed API (equivalent to clicking #btnBrief).
-api.buildBrief();
-const brief = d.getElementById('brief');
-ok('brief opens (is-open)', brief.classList.contains('is-open'));
-const secs = brief.querySelectorAll('.brief__sec');
-ok('brief has 3 sections', secs.length === 3);
-ok('section 1 = Recommendation & Verdict', /Recommendation/.test(secs[0].textContent));
-ok('section 2 = Business Case & ROI', /Business Case/.test(secs[1].textContent));
-ok('section 3 = Conditions & Next Steps', /Conditions/.test(secs[2].textContent));
-ok('brief pulls P50 ROI (+141%)', d.getElementById('briefP50').textContent === '+141%');
-ok('brief pulls P10 & P90 band', d.getElementById('briefP10').textContent === '+62%' && d.getElementById('briefP90').textContent === '+233%');
-ok('brief verdict line matches derivation', /CONDITIONAL GO/.test(d.getElementById('briefVerdictLine').textContent));
-ok('brief conditions name Assured Workloads', /Assured Workloads/.test(secs[2].textContent));
-ok('brief names the use case (Fraud Signal Triage)', /Fraud Signal Triage/.test(brief.textContent));
-ok('brief has a Print button', !!d.getElementById('briefPrint'));
-
-console.log('\n== 11. Header / stepper fidelity ==');
-ok('product tag "Enterprise Advantage"', /Enterprise Advantage/.test(html));
-ok('wordmark "Google AI Catalyst"', /Google <b>AI Catalyst<\/b>/.test(html));
-ok('6-gate stepper present', d.querySelectorAll('#gates .gate').length === 6);
-ok('Gate 6 is active', d.querySelector('#gates .gate.is-active .gate__label').textContent === 'Executive Review Panel');
-ok('Gates 1-5 all complete', d.querySelectorAll('#gates .gate.is-done').length === 5);
-ok('committee sub-header shows 7 turns', /7 turns/i.test(d.querySelector('.subhead').textContent));
-
-console.log('\n== 12. Workspace eval line names the use case ==');
-ok('wsEval names Fraud Signal Triage', /Fraud Signal Triage/.test(d.getElementById('wsEval').textContent));
-
-console.log('\n== 13. Replay re-runs deliberation without error ==');
-d.getElementById('btnReplay').click();
-ok('after replay, 7 turns still present', d.querySelectorAll('#delib .turn').length === 7);
-
-console.log('\n== 14. Footer nav: Back -> summary, Finish -> index ==');
-ok('Back button targets summary.html', d.getElementById('btnBack').getAttribute('href') === 'summary.html');
-ok('Back label mentions Evaluation Summary', /Evaluation Summary/.test(d.getElementById('btnBack').textContent));
-ok('Finish button targets index.html', d.getElementById('btnFinish').getAttribute('href') === 'index.html');
-
-console.log('\n== 15. Verdict responds to READY and BLOCKED seeds ==');
-const domGo = newDom(Object.assign({}, SUMMARY, { readiness:'READY' }), INTAKE);
-const domNo = newDom(Object.assign({}, SUMMARY, { readiness:'BLOCKED' }), INTAKE);
-domGo.window.__panel.run(false);
-domNo.window.__panel.run(false);
-ok('READY seed -> banner GO', domGo.window.document.getElementById('verdictLabel').textContent === 'GO');
-ok('READY seed -> is-go class', domGo.window.document.getElementById('verdictBand').className.indexOf('is-go') > -1);
-ok('BLOCKED seed -> banner NO-GO', domNo.window.document.getElementById('verdictLabel').textContent === 'NO-GO');
-ok('BLOCKED seed -> is-nogo class', domNo.window.document.getElementById('verdictBand').className.indexOf('is-nogo') > -1);
-
-console.log('\n== 16. Graceful demo fallback (no localStorage) ==');
-const domD = newDom(undefined, undefined);
-const apiD = domD.window.__panel;
-const dD = domD.window.document;
-ok('demo summary readiness is CONDITIONAL', apiD.DEMO_SUMMARY.readiness === 'CONDITIONAL');
-ok('demo intake is Acme invoice reconciliation', apiD.DEMO_INTAKE.name === 'Automated invoice reconciliation');
-ok('demo currentVerdict -> CONDITIONAL GO', apiD.currentVerdict().label === 'CONDITIONAL GO');
-apiD.run(false);
-ok('demo renders 7 turns', dD.querySelectorAll('#delib .turn').length === 7);
-ok('demo verdict label CONDITIONAL GO', dD.getElementById('verdictLabel').textContent === 'CONDITIONAL GO');
-ok('demo wsEval shows (demo) marker', /\(demo\)/.test(dD.getElementById('wsEval').textContent));
-apiD.buildBrief();
-ok('demo brief P50 present (+141%)', dD.getElementById('briefP50').textContent === '+141%');
-ok('demo brief names invoice reconciliation', /Automated invoice reconciliation/.test(dD.getElementById('brief').textContent));
-
-console.log('\n== 17. Zero Microsoft strings; Google framing present ==');
-ok('contains Google framing (Assured Workloads / Vertex AI / Gemini / Google Cloud)',
-   /(Assured Workloads|Vertex AI|Gemini|Google Cloud)/.test(html));
-const microsoft = ['Microsoft','Azure','Copilot','M365','Power Platform','Dataverse','Dynamics','watsonx','IBM','Blob Storage','OpenAI','AWS','Bedrock'];
-microsoft.forEach(m => ok('NO Microsoft/competitor string "'+m+'"',
-  !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
-
-finish();
