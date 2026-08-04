@@ -99,6 +99,91 @@ setTimeout(() => {
   // high input scores high on all lenses
   ok('HIGH input: all lenses >= 60', ['B','X','T'].every(k => sc[k].score >= 60));
 
+  // ==================================================================
+  // H2 — intake→BXT field mapping. A fully-populated intake must yield
+  // NON-neutral (non-50) sub-scores regardless of load path: the FLAT
+  // localStorage shape OR the NESTED API/deep-link shape. Root cause was
+  // BXT reading flat accessors (s.value…) against a nested object, so
+  // every factor fell to the pick() 50 default → flat 50/50/50.
+  // ==================================================================
+  console.log('\n== 5b. H2 intake→BXT mapping: flat & nested shapes both score non-neutrally ==');
+
+  // The SAME fully-populated intake, expressed in the two shapes.
+  const FLAT_POP = {
+    name: 'Contract clause extraction', desc: 'Extract and classify obligations across the contract corpus.',
+    sponsor: 'CFO', value: '>$5M', users: '>1000', driver: 'Revenue Growth', align: 'Core strategic priority',
+    adoption: 'High', change: true, autonomy: 'Advisory',
+    dataavail: 'Readily available & clean', integrations: ['Google Workspace','BigQuery','Vertex AI'],
+    maturity: 'Highly automated', sources: ['Structured DB'], realtime: false
+  };
+  const NESTED_POP = {
+    name: 'Contract clause extraction', desc: 'Extract and classify obligations across the contract corpus.',
+    dept: 'Legal', sponsor: 'CFO',
+    business_context: { driver: 'Revenue Growth', value: '>$5M', users: '>1000', align: 'Core strategic priority', justif: 'Board mandate' },
+    current_state: { maturity: 'Highly automated', spend: '>$1M', volume: 'High', pain: 'Manual review', tools: 'ERP' },
+    technical_context: { sources: ['Structured DB'], dataavail: 'Readily available & clean', integrations: ['Google Workspace','BigQuery','Vertex AI'], realtime: false, technotes: '' },
+    risk_compliance: { sensitivity: 'Medium', autonomy: 'Advisory', pii: false, audit: true, adoption: 'High', change: true, delivery: '', addnotes: '' }
+  };
+
+  // normalizeIntake flattens the nested shape into the flat accessor form.
+  const norm = api.normalizeIntake(NESTED_POP);
+  ok('normalizeIntake lifts business_context.value → value', norm.value === '>$5M');
+  ok('normalizeIntake lifts business_context.users → users', norm.users === '>1000');
+  ok('normalizeIntake lifts business_context.driver → driver', norm.driver === 'Revenue Growth');
+  ok('normalizeIntake lifts technical_context.sources → sources', JSON.stringify(norm.sources) === JSON.stringify(['Structured DB']));
+  ok('normalizeIntake lifts technical_context.integrations → integrations', JSON.stringify(norm.integrations) === JSON.stringify(['Google Workspace','BigQuery','Vertex AI']));
+  ok('normalizeIntake keeps top-level sponsor', norm.sponsor === 'CFO');
+  ok('normalizeIntake lifts risk_compliance.adoption → adoption', norm.adoption === 'High');
+
+  // An already-flat object passes through unchanged (localStorage path).
+  const normFlat = api.normalizeIntake(FLAT_POP);
+  ok('normalizeIntake leaves flat value intact', normFlat.value === '>$5M');
+  ok('normalizeIntake leaves flat sources intact', JSON.stringify(normFlat.sources) === JSON.stringify(['Structured DB']));
+
+  // Both shapes → identical, NON-neutral scores.
+  const scFlat = api.bxtScore(api.normalizeIntake(FLAT_POP));
+  const scNested = api.bxtScore(api.normalizeIntake(NESTED_POP));
+  const NEUTRAL = { B:50, X:50, T:50 };
+  ok('flat populated: no lens is flat 50', ['B','X','T'].some(k => scFlat[k].score !== NEUTRAL[k]) && ['B','X','T'].every(k => scFlat[k].score !== 50));
+  ok('nested populated: no lens is flat 50', ['B','X','T'].every(k => scNested[k].score !== 50));
+  ok('nested populated: every sub-factor is non-neutral (≠50)',
+     ['B','X','T'].every(k => scNested[k].factors.every(f => f.v !== 50)));
+  ok('flat and nested shapes produce IDENTICAL scores', JSON.stringify(scFlat) === JSON.stringify(scNested));
+  ok('nested populated: all lenses high (>=60)', ['B','X','T'].every(k => scNested[k].score >= 60));
+  ok('nested populated matches direct-flat score', JSON.stringify(scNested) === JSON.stringify(api.bxtScore(FLAT_POP)));
+
+  // The bug's telltale: a RAW nested object fed straight to bxtScore (no
+  // normalisation) leaves the value/alignment/data factors at the pick() 50
+  // default because s.value / s.sources live inside the context blobs. The fix
+  // (normalising first) lifts them off 50. This guards against a regression
+  // where someone drops normalizeIntake back out of the load path.
+  const scRawNested = api.bxtScore(NESTED_POP);
+  const rawValueFactor = scRawNested.B.factors.find(f => /Value/.test(f.k));
+  const normValueFactor = scNested.B.factors.find(f => /Value/.test(f.k));
+  ok('un-normalised nested: Value-clarity factor stuck at neutral 50', rawValueFactor.v === 50);
+  ok('normalised nested: Value-clarity factor lifted off 50', normValueFactor.v !== 50 && normValueFactor.v > 50);
+  ok('normalising lifts overall Business score above the raw nested score', scNested.B.score > scRawNested.B.score);
+
+  // Full load path: a NESTED payload persisted to localStorage['gaic_intake']
+  // must be normalised by loadIntake() and produce non-neutral rendered scores
+  // (not the DEMO/neutral fallback). This exercises the real page boot, matching
+  // the deep-link/reload scenario in the bug report.
+  {
+    const domN = newDom(NESTED_POP);
+    domN.window.__bxtReady = true;
+    setTimeout(() => {
+      const apiN = domN.window.__bxt;
+      const loaded = apiN.loadIntake();
+      ok('loadIntake: nested localStorage payload is NOT treated as demo', loaded.fromDemo === false);
+      ok('loadIntake: nested payload normalised to flat value', loaded.data.value === '>$5M');
+      const scLoaded = apiN.bxtScore(loaded.data);
+      ok('loadIntake path: nested payload scores non-neutral (no lens == 50)',
+         ['B','X','T'].every(k => scLoaded[k].score !== 50));
+      ok('loadIntake path: nested payload all lenses >= 60',
+         ['B','X','T'].every(k => scLoaded[k].score >= 60));
+    }, 40);
+  }
+
   console.log('\n== 6. Verdict logic at thresholds ==');
   // PASS: all >= 60
   ok('PASS when all three >= 60', api.bxtVerdict({B:{score:80},X:{score:70},T:{score:65}}).verdict === 'PASS');

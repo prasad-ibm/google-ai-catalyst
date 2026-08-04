@@ -117,7 +117,9 @@ setTimeout(() => {
   ok('platform name rendered', document.getElementById('vPlatform').textContent.trim().length > 2);
   ok('platform icon svg rendered', !!document.getElementById('vPlatIcon').querySelector('svg'));
   ok('gate-resolved line references gate id', /gate[123]_/.test(document.getElementById('vGateResolved').textContent));
-  ok('gate sub-label rendered', /Gate [123]/.test(document.getElementById('vGateLabel').textContent));
+  // L7: pill is the GADF ladder tier, relabeled to avoid clashing with the
+  // 6-gate flow stepper (this page = Gate 4). Expect "GADF Tier: <tier>".
+  ok('GADF tier sub-label rendered', /GADF Tier:\s*(Adopt|Low-code|Build)/.test(document.getElementById('vGateLabel').textContent));
 
   console.log('\n== 7. Three reasoning cards with expanders ==');
   const cards = document.querySelectorAll('.rcard');

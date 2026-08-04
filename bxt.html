@@ -246,7 +246,7 @@ p { margin:0 0 1rem; }
     </div>
 
     <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+    <div class="wschip">🏢 <b>Intel</b> — <span id="wsEval">Evaluating: —</span></div>
     <div class="uc-picker"><label for="ucPicker">Use case:</label><select id="ucPicker"></select></div>
 
     <div class="cols">
@@ -388,6 +388,7 @@ p { margin:0 0 1rem; }
 </main>
 
 <script src="assets/api-client.js"></script>
+<script src="assets/deep-link.js"></script>
 <script src="assets/uc-picker.js" defer></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
@@ -409,6 +410,70 @@ p { margin:0 0 1rem; }
     autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
   };
 
+  // H2: normalise BOTH intake shapes into the FLAT accessor form bxtScore reads.
+  // intake.html save() writes a FLAT object to localStorage['gaic_intake']
+  // (s.value / s.sources / s.sponsor ...), but an API/deep-link submission is a
+  // NESTED shape: { name, dept, sponsor, business_context:{driver,value,users,
+  // align,justif}, current_state:{...}, technical_context:{sources,dataavail,
+  // integrations,realtime,technotes}, risk_compliance:{sensitivity,autonomy,
+  // adoption,change,...} }. When BXT was reached via ?id= / reload it saw the
+  // nested object, every flat accessor was undefined, pick() fell to its 50
+  // default and B/X/T collapsed to a flat 50/50/50 with empty rationale text.
+  // normalizeIntake accepts EITHER shape and always returns the flat form.
+  // Flat top-level fields win when present, so an already-flat object (the
+  // localStorage path, or deep-link.js's pre-flattened mapIntake output) passes
+  // through unchanged.
+  function normalizeIntake(raw){
+    if (!raw || typeof raw !== 'object') return raw;
+    var bc = (raw.business_context && typeof raw.business_context === 'object') ? raw.business_context : {};
+    var cs = (raw.current_state && typeof raw.current_state === 'object') ? raw.current_state : {};
+    var tc = (raw.technical_context && typeof raw.technical_context === 'object') ? raw.technical_context : {};
+    var rc = (raw.risk_compliance && typeof raw.risk_compliance === 'object') ? raw.risk_compliance : {};
+    // If there are no nested blobs at all the object is already flat — return as-is.
+    if (raw.business_context === undefined && raw.current_state === undefined &&
+        raw.technical_context === undefined && raw.risk_compliance === undefined){
+      return raw;
+    }
+    // pick flat value first, fall back to the nested blob's value.
+    function P(flat, nested, key){ return flat !== undefined ? flat : nested[key]; }
+    return {
+      // identity — accept flat or common API aliases (department/executive_sponsor)
+      name:       P(raw.name, {}, 'name'),
+      desc:       P(raw.desc, {}, 'desc'),
+      dept:       raw.dept !== undefined ? raw.dept : raw.department,
+      sponsor:    raw.sponsor !== undefined ? raw.sponsor : raw.executive_sponsor,
+      submitter:  raw.submitter,
+      email:      raw.email,
+      // business context
+      driver:     P(raw.driver, bc, 'driver'),
+      value:      P(raw.value, bc, 'value'),
+      users:      P(raw.users, bc, 'users'),
+      align:      P(raw.align, bc, 'align'),
+      justif:     P(raw.justif, bc, 'justif'),
+      // current state
+      maturity:   P(raw.maturity, cs, 'maturity'),
+      spend:      P(raw.spend, cs, 'spend'),
+      volume:     P(raw.volume, cs, 'volume'),
+      pain:       P(raw.pain, cs, 'pain'),
+      tools:      P(raw.tools, cs, 'tools'),
+      // technical context
+      sources:      P(raw.sources, tc, 'sources'),
+      dataavail:    P(raw.dataavail, tc, 'dataavail'),
+      integrations: P(raw.integrations, tc, 'integrations'),
+      realtime:     P(raw.realtime, tc, 'realtime'),
+      technotes:    P(raw.technotes, tc, 'technotes'),
+      // risk & compliance
+      sensitivity: P(raw.sensitivity, rc, 'sensitivity'),
+      autonomy:    P(raw.autonomy, rc, 'autonomy'),
+      pii:         P(raw.pii, rc, 'pii'),
+      audit:       P(raw.audit, rc, 'audit'),
+      adoption:    P(raw.adoption, rc, 'adoption'),
+      change:      P(raw.change, rc, 'change'),
+      delivery:    P(raw.delivery, rc, 'delivery'),
+      addnotes:    P(raw.addnotes, rc, 'addnotes')
+    };
+  }
+
   // A real, scoreable intake must carry the mandatory identifiers (name +
   // description). This mirrors the intake form's required-field rule so an
   // empty/half-filled submission can never be scored as if it were complete.
@@ -423,9 +488,19 @@ p { margin:0 0 1rem; }
   // Bug #2: only score a genuinely complete submission. An empty object, junk,
   // or a leftover draft missing name/description must NOT be scored — otherwise
   // a blank new case inherits the previous case's inputs (and its scores).
+  // When a use case is deep-linked (?id=X), its API-mapped intake is stashed here
+  // and takes precedence over localStorage/DEMO so the gate renders case X (M1).
+  var DEEP_INTAKE = null;
   function loadIntake(){
+    // H2: normalise before use so a nested (?id= / API) payload is scored with
+    // real values instead of collapsing to the neutral 50/50/50 default.
+    var deep = normalizeIntake(DEEP_INTAKE);
+    if (isScoreableIntake(deep)){
+      return { data: deep, fromDemo: false };
+    }
     var parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(LS_KEY)); } catch(e){ parsed = null; }
+    parsed = normalizeIntake(parsed);
     if (!isScoreableIntake(parsed)){
       return { data: DEMO, fromDemo: true };
     }
@@ -675,13 +750,22 @@ p { margin:0 0 1rem; }
   });
 
   // ---- Init ----
-  var result = render();
+  // Rendered result handle; populated by boot() (sync or after deep-link fetch).
+  var result = null;
+
+  // Render the gate and persist its scores. Runs after any deep-link data load
+  // so the SAME case (?id or localStorage) is scored, displayed AND saved.
+  function boot(){
+    result = render();
+    if (window.__bxt) window.__bxt.result = result; // keep test handle current
+    saveGate();
+  }
 
   // --- API integration (best-effort, non-blocking) ---
-  try {
+  function saveGate(){
+   try {
     if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-      var _ucId = null;
-      try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+      var _ucId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
       var _sc = result.scores, _v = result.verdict;
       window.GAIC_API.saveGate(_ucId, 'bxt', {
         business_score: _sc.B.score,
@@ -694,7 +778,24 @@ p { margin:0 0 1rem; }
         }
       }).catch(function(){});
     }
-  } catch(e) {}
+   } catch(e) {}
+  }
+
+  // Resolve active id (URL ?id= first, else localStorage) and carry it through
+  // Continue/Back/breadcrumb links so the next gate scores the SAME case (M1/M2).
+  var _activeId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
+  if (window.GAIC_DEEPLINK && GAIC_DEEPLINK.wireNav) GAIC_DEEPLINK.wireNav(_activeId);
+
+  // Deep-link: when ?id=X is present, load THAT case's data before rendering so
+  // the gate shows case X rather than the localStorage draft / demo (M1).
+  var _deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId && GAIC_DEEPLINK.getId()) || null;
+  if (_deepId && window.GAIC_DEEPLINK && typeof GAIC_DEEPLINK.load === 'function'){
+    GAIC_DEEPLINK.load().then(function(opts){
+      if (opts && opts.intake) DEEP_INTAKE = opts.intake;
+    }).catch(function(){}).then(boot);
+  } else {
+    boot();
+  }
 
   // Bug #2: '+ New Use Case' must start a genuinely clean case — wipe the prior
   // intake draft AND all downstream gate results so nothing leaks forward.
@@ -711,6 +812,7 @@ p { margin:0 0 1rem; }
     bxtScore: bxtScore,
     bxtVerdict: bxtVerdict,
     loadIntake: loadIntake,
+    normalizeIntake: normalizeIntake,
     isScoreableIntake: isScoreableIntake,
     render: render,
     DEMO: DEMO,

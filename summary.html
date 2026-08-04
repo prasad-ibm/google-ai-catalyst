@@ -759,8 +759,7 @@ p { margin:0 0 1rem; }
     // --- API integration (best-effort, non-blocking) ---
     try {
       if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        var _ucId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
         window.GAIC_API.saveGate(_ucId, 'summary', {
           roi_p10: model.roi.p10,
           roi_p50: model.roi.p50,
@@ -895,6 +894,11 @@ p { margin:0 0 1rem; }
     initTheme();
     // Deep-link: ?id=<use_case_id> loads that case's real data from the API.
     var deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId()) || null;
+    // Carry the active id through Continue/Back/breadcrumb links so the same
+    // case flows to the next gate (M1/M2). Uses URL id first, then localStorage.
+    if (window.GAIC_DEEPLINK && GAIC_DEEPLINK.wireNav){
+      GAIC_DEEPLINK.wireNav(GAIC_DEEPLINK.getUcId());
+    }
 
     function boot(opts){
       var model = run(opts || undefined);

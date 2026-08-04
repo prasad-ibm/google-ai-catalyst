@@ -252,9 +252,11 @@
   function hideMsg() { state.els.msg.className = 'gbu-msg hidden'; }
 
   function refreshSubmitEnabled() {
+    // L4: keep Upload clickable once a workspace exists even before a file is
+    // chosen, so a click with no file surfaces an inline hint (see onSubmit)
+    // rather than doing nothing. A missing workspace is a hard block.
     var hasWs = !!state.els.ws.value;
-    var hasRows = Array.isArray(state.parsedRows) && state.parsedRows.length > 0;
-    state.els.submit.disabled = !(hasWs && hasRows);
+    state.els.submit.disabled = !hasWs;
   }
 
   function populateWorkspaces() {
@@ -341,7 +343,11 @@
   }
 
   function onSubmit() {
-    if (!state.parsedRows || !state.parsedRows.length) return;
+    // L4: no file chosen (or an empty parse) -> inline guidance, not a no-op.
+    if (!state.parsedRows || !state.parsedRows.length) {
+      show('Please choose a CSV file first.', 'err');
+      return;
+    }
     var wsId = state.els.ws.value;
     if (!wsId) { show('Pick a target workspace first.', 'err'); return; }
 

@@ -219,4 +219,50 @@ const microsoft = ['Microsoft','Azure','Copilot','M365','Power Platform','Datave
 microsoft.forEach(m => ok('NO Microsoft/competitor string "'+m+'"',
   !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
 
+console.log('\n== 18. H1: BLOCKED -> NO-GO is COHERENT across band, stances, chair & brief ==');
+// A Gate-5 data-privacy FAIL forces readiness=BLOCKED -> NO-GO. The ENTIRE
+// deliberation (band, stances, Committee Chair closing, Executive Brief) must
+// agree — never a hardcoded CONDITIONAL GO narrative under a NO-GO band.
+const domNoGo = newDom(Object.assign({}, SUMMARY, { readiness:'BLOCKED' }), INTAKE);
+const apiN = domNoGo.window.__panel;
+const dN = domNoGo.window.document;
+apiN.run(false);
+// Verdict-derived narrative
+ok('NO-GO deliberation still 7 turns', apiN.DELIBERATION.length === 7);
+ok('NO-GO turn order BS,RA,CI,BS,RA,CI,CC', apiN.DELIBERATION.map(t=>t.p).join(',') === 'BS,RA,CI,BS,RA,CI,CC');
+ok('NO-GO chair (T7) explicitly issues NO-GO', /NO-GO/.test(apiN.DELIBERATION[6].say));
+ok('NO-GO chair does NOT say CONDITIONAL GO', !/CONDITIONAL GO/.test(apiN.DELIBERATION[6].say));
+ok('NO-GO chair reads as deferral', /defer/i.test(apiN.DELIBERATION[6].say));
+ok('NO-GO has a blocking/dissent stance (Against)', apiN.STANCES.some(s=>s.value==='Against'));
+ok('NO-GO no stance says Support', !apiN.STANCES.some(s=>s.value==='Support'));
+ok('NO-GO binding text reads as remediation/deferral', /deferred pending remediation/i.test(apiN.BINDING_CONDITION));
+// Band
+ok('NO-GO band label NO-GO', dN.getElementById('verdictLabel').textContent === 'NO-GO');
+ok('NO-GO band carries is-nogo class', dN.getElementById('verdictBand').className.indexOf('is-nogo') > -1);
+ok('NO-GO badge "Deferred pending remediation"', /Deferred pending remediation/i.test(dN.getElementById('verdictBand').textContent));
+// Rendered chair turn + stance chips in DOM
+const noGoTurns = dN.querySelectorAll('#delib .turn');
+ok('NO-GO DOM chair turn says NO-GO', /NO-GO/.test(noGoTurns[6].textContent));
+ok('NO-GO DOM has a stance--against chip', dN.querySelectorAll('#verdictStances .stance--against').length > 0);
+ok('NO-GO DOM has NO stance--support chip', dN.querySelectorAll('#verdictStances .stance--support').length === 0);
+// Executive Brief agrees
+apiN.buildBrief();
+const briefN = dN.getElementById('brief');
+ok('NO-GO brief verdict line says NO-GO', /NO-GO/.test(dN.getElementById('briefVerdictLine').textContent));
+ok('NO-GO brief verdict line NOT CONDITIONAL GO', !/CONDITIONAL GO/.test(dN.getElementById('briefVerdictLine').textContent));
+ok('NO-GO brief reads as defer/remediate, not proceed', /(defer|remediat)/i.test(briefN.textContent) && !/recommendation is to (proceed|proceed under)/i.test(briefN.textContent));
+ok('NO-GO brief section 3 framed as remediation (not "proceed under conditions")', /remediat/i.test(briefN.querySelectorAll('.brief__sec')[2].textContent));
+
+console.log('\n== 19. H1: CONDITIONAL seed keeps the CONDITIONAL GO narrative ==');
+const domCond = newDom(Object.assign({}, SUMMARY, { readiness:'CONDITIONAL' }), INTAKE);
+const apiC = domCond.window.__panel;
+const dC = domCond.window.document;
+apiC.run(false);
+ok('COND chair (T7) issues CONDITIONAL GO', /CONDITIONAL GO/.test(apiC.DELIBERATION[6].say));
+ok('COND has a Support stance', apiC.STANCES.some(s=>s.value==='Support'));
+ok('COND has no Against stance', !apiC.STANCES.some(s=>s.value==='Against'));
+ok('COND band label CONDITIONAL GO', dC.getElementById('verdictLabel').textContent === 'CONDITIONAL GO');
+apiC.buildBrief();
+ok('COND brief verdict line CONDITIONAL GO', /CONDITIONAL GO/.test(dC.getElementById('briefVerdictLine').textContent));
+
 finish();

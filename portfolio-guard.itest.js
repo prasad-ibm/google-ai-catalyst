@@ -185,12 +185,47 @@ async function main() {
       db.use_cases.get(a).stage === 'intake' && rowA.roi_p50 === null &&
       db.use_cases.get(b).stage === 'summary' && rowB.roi_p50 === 3.4);
 
+    /* ---- Case D: read guard is robust to messy stage strings (case/space) ---- */
+    // A below-gate case whose stored stage has odd casing/whitespace must STILL
+    // have its stale ROI nulled — the guard normalizes via stageKey/stageRank.
+    const d = nextId();
+    db.use_cases.set(d, { id: d, name: 'Messy Stage UC', department: 'Ops', stage: '  Intake  ', workspace_id: 'ws1' });
+    db.evaluation_summaries.set(d, { use_case_id: d, roi_p10: 2.0, roi_p50: 5.0, roi_p90: 8.0 });
+    // A gate-label variant that IS eligible ('Evaluation Summary' -> summary).
+    const e = nextId();
+    db.use_cases.set(e, { id: e, name: 'Label Variant UC', department: 'Fin', stage: 'Evaluation Summary', workspace_id: 'ws1' });
+    db.evaluation_summaries.set(e, { use_case_id: e, roi_p10: 0.5, roi_p50: 2.0, roi_p90: 3.0 });
+
+    port = await get('/api/portfolio');
+    const rowD = port.find((r) => r.id === d);
+    const rowE = port.find((r) => r.id === e);
+    ok('messy "  Intake  " stage: roi_p50 nulled (whitespace-robust guard)', rowD.roi_p50 === null);
+    ok('messy "  Intake  " stage: roi_p10/p90 nulled', rowD.roi_p10 === null && rowD.roi_p90 === null);
+    ok('label variant "Evaluation Summary": roi surfaced (eligible)', rowE.roi_p50 === 2.0);
+
+    /* ---- M3: Avg P50 ROI aggregate EXCLUDES nulled (unevaluated) cases ---- */
+    // Replicate dashboard.html renderKPIs exactly: average of non-null roi_p50.
+    // The stale intake cases (A: FE Test UC, D: Messy Stage) must NOT be folded
+    // into the average, which is the M3 bug (+796% incl FE Test UC's +407%).
+    const p50vals = port
+      .map((r) => (r.roi_p50 === null || r.roi_p50 === undefined ? null : Number(r.roi_p50)))
+      .filter((n) => n !== null && !Number.isNaN(n));
+    const p50avg = p50vals.length ? p50vals.reduce((x, y) => x + y, 0) / p50vals.length : null;
+    // Only the two eligible cases contribute: B (3.4) and E (2.0) -> avg 2.7.
+    ok('avg P50 counts only evaluated cases (2: B + E)', p50vals.length === 2);
+    ok('avg P50 excludes stale intake ROI (== 2.7, not inflated)', Math.abs(p50avg - 2.7) < 1e-9);
+    // Sanity: had the guard leaked, FE Test UC's 4.07 + Messy 5.0 would drag the
+    // average up. Assert neither stale value is present in the contributing set.
+    ok('avg set contains no stale intake roi (4.07 / 5.0)',
+      !p50vals.includes(4.07) && !p50vals.includes(5.0));
+
   } finally {
     await new Promise((r) => server.close(r));
     // DB is in-memory only: nothing to clean in the real database.
     db.use_cases.clear();
     db.evaluation_summaries.clear();
     db.panel_verdicts.clear();
+    idSeq = 0;
   }
 
   console.log('\n---------------------------------------------');

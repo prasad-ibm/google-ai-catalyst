@@ -289,7 +289,7 @@ p { margin:0 0 1rem; }
     </div>
 
     <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+    <div class="wschip">🏢 <b>Intel</b> — <span id="wsEval">Evaluating: —</span></div>
 
     <!-- Committee sub-header -->
     <div class="subhead">
@@ -494,9 +494,6 @@ p { margin:0 0 1rem; }
     return { key:'cond', label:'CONDITIONAL GO', klass:'is-cond', badge:'Approved with binding condition' };
   }
 
-  // The binding governance condition surfaced with the verdict.
-  var BINDING_CONDITION = 'Data residency clause must be executed as a condition precedent to contract signature, and Change Freeze Protocol CF-7 must be invoked before any infrastructure work commences.';
-
   // ============================================================
   //  PERSONAS + 7-TURN DELIBERATION SCRIPT
   //  Google-remapped (Assured Workloads / Google Cloud / Vertex AI /
@@ -509,7 +506,18 @@ p { margin:0 0 1rem; }
     CC: { code:'CC', name:'Committee Chair',            role:'IC Moderator',      color:'var(--g-red)',    colorHex:'#EA4335' }
   };
 
-  var DELIBERATION = [
+  // ------------------------------------------------------------
+  //  H1: verdict-coherent narratives. Two full scripts — one for the
+  //  CONDITIONAL GO / GO approval path, one for the NO-GO deferral path —
+  //  so the streamed deliberation, stance chips and binding condition always
+  //  match the computed verdict banner rather than a single hardcoded script.
+  //  {{SAVINGS}}/{{INVEST}}/{{REDUCTION}} tokens are filled by fillEcon() (#5).
+  // ------------------------------------------------------------
+
+  // CONDITIONAL GO — business case strong, risks have an enforceable remedy.
+  var BINDING_COND = 'Data residency clause must be executed as a condition precedent to contract signature, and Change Freeze Protocol CF-7 must be invoked before any infrastructure work commences.';
+
+  var DELIBERATION_COND = [
     { p:'BS', say:'This initiative delivers a projected <b>{{REDUCTION}} reduction</b> in operational processing costs within 18 months — that\u2019s <b>{{SAVINGS}} in annual value</b> against a {{INVEST}} investment. We have board mandate, budget allocated, and three pilot departments ready to onboard. I\u2019m committing to a fully measurable ROI dashboard at the 90-day mark.' },
     { p:'RA', say:'Our top risk is <b>data sovereignty</b>: we cannot confirm where inference workloads will reside across jurisdictions. My condition is simple — vendor contractual lock-in of data residency to Tier-1 compliant regions before any production deployment. Without that, we breach <b>GDPR Article 46</b> and expose the enterprise to eight-figure regulatory liability.' },
     { p:'CI', say:'Our current architecture is a hybrid <b>Google Cloud</b>-on-prem estate running on a 2021 reference stack — we have not completed the API gateway modernisation that this AI layer depends on. Integration complexity scores a <b>7 out of 10</b> on our internal TOGAF risk matrix. We need six additional weeks for infrastructure readiness before the platform can support production load.' },
@@ -519,12 +527,59 @@ p { margin:0 0 1rem; }
     { p:'CC', say:'All three perspectives align on a viable path: the business case is strong, the compliance risk has a contractually enforceable remedy, and technology readiness is achievable within the existing timeline under a scoped freeze. This committee issues a <b>CONDITIONAL GO</b> — the single gate is execution of the data residency clause prior to contract signature, with <b>CF-7</b> invoked concurrently. Progress review is mandated at the <b>90-day ROI dashboard</b> checkpoint.' }
   ];
 
-  // Per-persona final stance chips (order: BS, RA, CI).
-  var STANCES = [
+  // Per-persona final stance chips (order: BS, RA, CI) — CONDITIONAL GO.
+  var STANCES_COND = [
     { persona:'BS', label:'Business Sponsor',   value:'Support',     klass:'stance--support' },
     { persona:'RA', label:'Risk & Assurance',   value:'Conditional', klass:'stance--conditional' },
     { persona:'CI', label:'CIO',                value:'Conditional', klass:'stance--conditional' }
   ];
+
+  // NO-GO — a hard compliance gate (e.g. Data-privacy FAIL at Gate 5)
+  // forced readiness=BLOCKED. Risk & Assurance holds a blocking dissent;
+  // the Chair defers pending remediation. Text must read as deferral.
+  var BINDING_NOGO = 'This decision is deferred pending remediation. The unresolved data-privacy gate must be closed and Gate 5 re-scored to READY or CONDITIONAL before the committee will re-convene; no production deployment is authorised in the interim.';
+
+  var DELIBERATION_NOGO = [
+    { p:'BS', say:'The business case is compelling — a projected <b>{{REDUCTION}} reduction</b> in operational processing costs and <b>{{SAVINGS}} in annual value</b> against a {{INVEST}} investment, with board mandate and three pilot departments ready. I want to proceed, but I acknowledge the outcome is only realisable if we clear the outstanding governance gate first.' },
+    { p:'RA', say:'I cannot support a go decision. Gate 5 returned a <b>data-privacy FAIL</b>: inference workloads cannot be confirmed within Tier-1 compliant jurisdictions, and there is <b>no enforceable remedy on the table today</b>. Proceeding would breach <b>GDPR Article 46</b> and expose the enterprise to eight-figure regulatory liability. My position is a <b>blocking objection</b> — this is not a conditional risk, it is an unremediated one.' },
+    { p:'CI', say:'Technically I could stand the platform up, but I will not architect around an open compliance gate. Our hybrid <b>Google Cloud</b>-on-prem estate has not completed the API gateway modernisation, and without a confirmed data-residency posture I have <b>no compliant region to deploy into</b>. Integration complexity is a <b>7 out of 10</b>; deploying now would be irresponsible.' },
+    { p:'BS', say:'I hear the objection and I won\u2019t override it. The <b>{{SAVINGS}} outcome</b> is worth protecting properly — I would rather defer than sign into a breach. Let\u2019s treat the residency gate as a hard prerequisite, not a post-award condition.' },
+    { p:'RA', say:'Agreed — and to be explicit: <b>Assured Workloads</b> adequacy has not been contracted, only discussed. Until the data residency clause is executed and the Gate 5 data-privacy control is re-scored to passing, my stance remains <b>against</b>. This must be remediated, not conditioned.' },
+    { p:'CI', say:'I concur with a hold. Once the residency posture is confirmed and <b>Change Freeze Protocol CF-7</b> is scheduled, I can commit to a six-week readiness runway — but that sequencing only begins <b>after</b> the compliance gate clears, not in parallel.' },
+    { p:'CC', say:'The business case is strong, but the committee cannot issue an approval over an unremediated data-privacy gate and a standing blocking objection from Risk &amp; Assurance. This committee issues a <b>NO-GO</b> — the initiative is <b>deferred pending remediation</b>. Close the data-privacy gate, execute the data residency clause, and re-score Gate 5 to READY or CONDITIONAL; the committee will then re-convene. No production deployment is authorised in the interim.' }
+  ];
+
+  var STANCES_NOGO = [
+    { persona:'BS', label:'Business Sponsor',   value:'Defer',   klass:'stance--conditional' },
+    { persona:'RA', label:'Risk & Assurance',   value:'Against', klass:'stance--against' },
+    { persona:'CI', label:'CIO',                value:'Hold',    klass:'stance--against' }
+  ];
+
+  // Resolve the coherent narrative triple for a given verdict key.
+  function narrativeFor(key){
+    if (key === 'nogo'){
+      return { deliberation: DELIBERATION_NOGO, stances: STANCES_NOGO, binding: BINDING_NOGO };
+    }
+    // 'go' and 'cond' both use the CONDITIONAL GO approval narrative.
+    return { deliberation: DELIBERATION_COND, stances: STANCES_COND, binding: BINDING_COND };
+  }
+
+  // Module-level views kept in sync with the current verdict via
+  // syncNarrative() (called at load and at the top of run()/render paths).
+  // This lets the test API surface (window.__panel.DELIBERATION/STANCES/
+  // BINDING_CONDITION) stay backward-compatible while always reflecting the
+  // active verdict. Live-AI (applyLiveDeliberation) may override afterwards.
+  var DELIBERATION, STANCES, BINDING_CONDITION;
+  function syncNarrative(){
+    var n = narrativeFor(currentVerdict().key);
+    // Don't clobber a live Gemini deliberation once applyLiveDeliberation() has
+    // supplied one (M1/M2): the explicit API result must survive re-render.
+    if (typeof AI_SOURCE !== 'undefined' && AI_SOURCE === 'gemini') return n;
+    DELIBERATION = n.deliberation;
+    STANCES = n.stances;
+    BINDING_CONDITION = n.binding;
+    return n;
+  }
 
   // Thinking steps (deterministic, static).
   var THINKING_STEPS = [
@@ -583,6 +638,9 @@ p { margin:0 0 1rem; }
   }
 
   function streamTurns(animate){
+    // Resolve deliberation/stances/binding-condition from the CURRENT verdict
+    // before building turns, so what streams matches the band that follows (H1).
+    syncNarrative();
     clearTimers();
     var els = buildTurns();
     if (!animate){
@@ -608,6 +666,7 @@ p { margin:0 0 1rem; }
   }
 
   function renderVerdict(){
+    syncNarrative();
     var v = currentVerdict();
     var band = document.getElementById('verdictBand');
     band.className = 'verdict ' + v.klass;
@@ -640,6 +699,7 @@ p { margin:0 0 1rem; }
   //  EXECUTIVE BRIEF — 3 sections, populated from persisted data
   // ============================================================
   function buildBrief(){
+    syncNarrative();
     var intake  = loadIntake().data;
     var summary = loadSummary().data;
     var v = currentVerdict();
@@ -660,6 +720,28 @@ p { margin:0 0 1rem; }
           ? 'The committee issues a <b>NO-GO</b> — the initiative is deferred pending remediation of the outstanding risk gate.'
           : 'The committee issues a <b>CONDITIONAL GO</b> — the business case is strong and the outstanding risks have a contractually enforceable remedy.';
 
+    // Section 1 second paragraph must be honest to the verdict: a NO-GO is a
+    // deferral, not an authorisation to proceed (H1).
+    var recommendationLine = v.key === 'nogo'
+      ? 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. Risk &amp; Assurance held a <b>blocking objection</b> over an unremediated data-privacy gate. The committee’s decision is to <b>defer</b>: no deployment is authorised until the remediation steps in Section 3 are complete and Gate 5 is re-scored.'
+      : 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.';
+
+    // Section 3 heading + intro + action list swing between remediation
+    // (NO-GO) and conditions-precedent (CONDITIONAL GO) framings (H1).
+    var sec3Title = v.key === 'nogo' ? 'Remediation &amp; Next Steps' : 'Conditions &amp; Next Steps';
+    var sec3Intro = v.key === 'nogo'
+      ? '<b>Deferred pending remediation:</b> ' + esc(BINDING_CONDITION)
+      : '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
+    var sec3List = v.key === 'nogo'
+      ? '<li>Close the outstanding <b>data-privacy gate</b> at Gate 5 and re-score readiness to READY or CONDITIONAL before the committee re-convenes — this is a <b>prerequisite</b>, not a post-award condition.</li>'
+        + '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions (GDPR Article 46 adequacy) as evidence for re-scoring.</li>'
+        + '<li>Do <b>not</b> commence infrastructure work or contract signature while the gate is open; <b>Change Freeze Protocol CF-7</b> remains in force.</li>'
+        + fillEcon('<li>Re-submit to the committee for a fresh verdict once the gate is closed; the {{SAVINGS}} business case is preserved by remediating rather than proceeding into a breach.</li>')
+      : '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
+        + '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
+        + '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
+        + '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>';
+
     var html =
       '<div class="brief__head">'
       +  '<div class="brief__brand">'
@@ -671,7 +753,7 @@ p { margin:0 0 1rem; }
       +    '</svg>'
       +    '<span class="brief__wordmark">Google AI Catalyst</span>'
       +  '</div>'
-      +  '<div class="brief__meta">EXECUTIVE BRIEF · GATE 6<br>Investment Committee<br>Acme Financial Services</div>'
+      +  '<div class="brief__meta">EXECUTIVE BRIEF · GATE 6<br>Investment Committee<br>Intel</div>'
       + '</div>'
       + '<div class="brief__doctitle">' + esc(useCase) + '</div>'
       + '<p class="brief__sub">Committee-ready decision memo · portfolio composite <b>' + esc(String(composite)) + '/100</b></p>'
@@ -681,7 +763,7 @@ p { margin:0 0 1rem; }
       + '<div class="brief__sec" data-brief-sec="recommendation">'
       +   '<div class="brief__sectitle">1 · Recommendation &amp; Verdict</div>'
       +   '<p>' + verdictSentence + '</p>'
-      +   '<p>The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.</p>'
+      +   '<p>' + recommendationLine + '</p>'
       + '</div>'
 
       // Section 2 — Business Case & ROI
@@ -699,13 +781,10 @@ p { margin:0 0 1rem; }
 
       // Section 3 — Conditions & Next Steps
       + '<div class="brief__sec" data-brief-sec="conditions">'
-      +   '<div class="brief__sectitle">3 · Conditions &amp; Next Steps</div>'
-      +   '<p><b>Binding condition:</b> ' + esc(BINDING_CONDITION) + '</p>'
+      +   '<div class="brief__sectitle">3 · ' + sec3Title + '</div>'
+      +   '<p>' + sec3Intro + '</p>'
       +   '<ul class="brief__list">'
-      +     '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
-      +     '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
-      +     '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
-      +     '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>'
+      +     sec3List
       +   '</ul>'
       + '</div>'
 
@@ -812,9 +891,9 @@ p { margin:0 0 1rem; }
   // Persist this run's verdict back to the API for the current use case.
   function saveVerdict(){
     try {
+      syncNarrative();
       if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        var _ucId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
         var _v = currentVerdict();
         window.GAIC_API.saveGate(_ucId, 'verdict', {
           verdict: _v.label,
@@ -828,6 +907,12 @@ p { margin:0 0 1rem; }
 
   function init(){
     initTheme();
+
+    // Carry the active id through Back/breadcrumb links so the same case flows
+    // between gates (M1/M2). Uses URL id first, then localStorage.
+    if (window.GAIC_DEEPLINK && GAIC_DEEPLINK.wireNav){
+      GAIC_DEEPLINK.wireNav(GAIC_DEEPLINK.getUcId());
+    }
 
     // Deep-link: ?id=<use_case_id> loads that case's real data before rendering.
     var deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId()) || null;
@@ -880,10 +965,21 @@ p { margin:0 0 1rem; }
   // ============================================================
   //  TEST API — pure functions + content exposed for Node harness
   // ============================================================
+  // Resolve the narrative once up front so the getters below reflect the
+  // active verdict even before init()/run() have executed (Node harness).
+  syncNarrative();
   window.__panel = {
     INTAKE_KEY: INTAKE_KEY, FEAS_KEY: FEAS_KEY, ADVISORY_KEY: ADVISORY_KEY, SUMMARY_KEY: SUMMARY_KEY,
-    PERSONAS: PERSONAS, DELIBERATION: DELIBERATION, STANCES: STANCES, THINKING_STEPS: THINKING_STEPS,
-    BINDING_CONDITION: BINDING_CONDITION,
+    PERSONAS: PERSONAS, THINKING_STEPS: THINKING_STEPS,
+    // DELIBERATION / STANCES / BINDING_CONDITION are verdict-derived — expose
+    // as getters so they always mirror the current verdict, never a stale
+    // hardcoded value (H1). syncNarrative() lets a test flip the seed then read.
+    get DELIBERATION(){ syncNarrative(); return DELIBERATION; },
+    get STANCES(){ syncNarrative(); return STANCES; },
+    get BINDING_CONDITION(){ syncNarrative(); return BINDING_CONDITION; },
+    narrativeFor: narrativeFor, syncNarrative: syncNarrative,
+    DELIBERATION_COND: DELIBERATION_COND, STANCES_COND: STANCES_COND, BINDING_COND: BINDING_COND,
+    DELIBERATION_NOGO: DELIBERATION_NOGO, STANCES_NOGO: STANCES_NOGO, BINDING_NOGO: BINDING_NOGO,
     DEMO_INTAKE: DEMO_INTAKE, DEMO_SUMMARY: DEMO_SUMMARY,
     deriveVerdict: deriveVerdict,
     loadIntake: loadIntake, loadSummary: loadSummary,

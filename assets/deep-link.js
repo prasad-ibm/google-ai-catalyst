@@ -27,6 +27,52 @@
     }
   }
 
+  var UC_ID_KEY = 'gaic_use_case_id';
+
+  // Resolve the ACTIVE use-case id for a gate page.
+  //   1. ?id= query param (deep-link / carried from the previous gate) wins.
+  //   2. localStorage['gaic_use_case_id'] fallback (the in-flight case).
+  // Side-effect: when a URL id is present it is persisted back to localStorage so
+  // that any subsequent gate resolves the SAME case even if its link somehow
+  // dropped the query string. This is the core M1/M2 fix — one case flows through
+  // every gate instead of gates drifting to different demo/other cases.
+  function getUcId() {
+    var urlId = getId();
+    if (urlId) {
+      try { localStorage.setItem(UC_ID_KEY, urlId); } catch (e) {}
+      return urlId;
+    }
+    try {
+      var stored = localStorage.getItem(UC_ID_KEY);
+      return stored && stored.trim() ? stored.trim() : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Gate pages the id must be carried between. Any in-page <a> pointing at one of
+  // these (Continue, Back, override, breadcrumb) gets ?id=<id> appended so the
+  // active case survives every hop.
+  var GATE_PAGES = ['bxt.html', 'feasibility.html', 'advisory.html', 'summary.html', 'panel.html'];
+
+  // Append (or replace) ?id=<id> on every gate-to-gate link on the page. Called
+  // at runtime with the RESOLVED id so it uses the same id the page rendered.
+  // No-op when id is falsy. Preserves any other existing query params.
+  function wireNav(id, root) {
+    if (!id) return;
+    var scope = root || (typeof document !== 'undefined' ? document : null);
+    if (!scope || !scope.querySelectorAll) return;
+    var anchors = scope.querySelectorAll('a[href]');
+    Array.prototype.forEach.call(anchors, function (a) {
+      var href = a.getAttribute('href');
+      if (!href) return;
+      // Strip any existing query/hash to inspect just the target file.
+      var path = href.split('?')[0].split('#')[0];
+      if (GATE_PAGES.indexOf(path) === -1) return;
+      a.setAttribute('href', path + '?id=' + encodeURIComponent(id));
+    });
+  }
+
   // Merge the four jsonb context blobs + top-level fields back into the flat
   // intake object the gate compute functions read (name, dept, driver, value,
   // sources[], pii, audit, autonomy, sensitivity, ...). Mirrors the grouping in
@@ -185,6 +231,10 @@
 
   window.GAIC_DEEPLINK = {
     getId: getId,
+    getUcId: getUcId,
+    wireNav: wireNav,
+    UC_ID_KEY: UC_ID_KEY,
+    GATE_PAGES: GATE_PAGES,
     mapUseCase: mapUseCase,
     mapIntake: mapIntake,
     mapBxt: mapBxt,

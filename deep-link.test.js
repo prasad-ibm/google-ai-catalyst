@@ -154,6 +154,57 @@ const errApi = { getUseCase: function () { return Promise.reject(new Error('boom
 const errRes = await newDom('https://x/summary.html?id=uc-42', errApi).window.GAIC_DEEPLINK.load();
 ok('API error -> resolves null (never throws)', errRes === null);
 
+console.log('\n== 12. getUcId() — URL ?id= first, then localStorage (M1) ==');
+['getUcId','wireNav'].forEach(fn => ok('exposes ' + fn + '()', typeof DL[fn] === 'function'));
+// URL id wins even when localStorage holds a different (stale) case.
+let d = newDom('https://x/feasibility.html?id=uc-99');
+d.window.localStorage.setItem('gaic_use_case_id', 'stale-1');
+ok('URL ?id beats localStorage', d.window.GAIC_DEEPLINK.getUcId() === 'uc-99');
+ok('URL id is persisted to localStorage', d.window.localStorage.getItem('gaic_use_case_id') === 'uc-99');
+// No URL id -> fall back to localStorage.
+d = newDom('https://x/advisory.html');
+d.window.localStorage.setItem('gaic_use_case_id', 'ls-7');
+ok('no ?id -> localStorage fallback', d.window.GAIC_DEEPLINK.getUcId() === 'ls-7');
+// Neither -> null.
+ok('no ?id + empty localStorage -> null', newDom('https://x/advisory.html').window.GAIC_DEEPLINK.getUcId() === null);
+
+console.log('\n== 13. wireNav() — carries id through gate links (M2, no drift) ==');
+d = newDom('https://x/feasibility.html?id=uc-77');
+let doc = d.window.document;
+doc.body.innerHTML =
+  '<a id="back" href="bxt.html">Back</a>' +
+  '<a id="cont" href="advisory.html">Continue</a>' +
+  '<a id="crumb" href="summary.html?foo=1">Summary</a>' +
+  '<a id="ext" href="https://google.com/help">Help</a>';
+d.window.GAIC_DEEPLINK.wireNav('uc-77');
+ok('Back link gets ?id', doc.getElementById('back').getAttribute('href') === 'bxt.html?id=uc-77');
+ok('Continue link gets ?id', doc.getElementById('cont').getAttribute('href') === 'advisory.html?id=uc-77');
+ok('existing query replaced with ?id', doc.getElementById('crumb').getAttribute('href') === 'summary.html?id=uc-77');
+ok('non-gate/external link untouched', doc.getElementById('ext').getAttribute('href') === 'https://google.com/help');
+ok('id is URL-encoded', (function(){
+  var dd = newDom('https://x/feasibility.html');
+  dd.window.document.body.innerHTML = '<a id="c" href="advisory.html">c</a>';
+  dd.window.GAIC_DEEPLINK.wireNav('a b/c');
+  return dd.window.document.getElementById('c').getAttribute('href') === 'advisory.html?id=a%20b%2Fc';
+})());
+ok('falsy id -> no-op (links unchanged)', (function(){
+  var dd = newDom('https://x/feasibility.html');
+  dd.window.document.body.innerHTML = '<a id="c" href="advisory.html">c</a>';
+  dd.window.GAIC_DEEPLINK.wireNav(null);
+  return dd.window.document.getElementById('c').getAttribute('href') === 'advisory.html';
+})());
+
+// End-to-end no-drift: feasibility?id=X -> Continue -> advisory resolves SAME X.
+console.log('\n== 14. no-drift across consecutive gates ==');
+let g1 = newDom('https://x/feasibility.html?id=CASE-X');
+g1.window.document.body.innerHTML = '<a id="cont" href="advisory.html">Continue</a>';
+g1.window.GAIC_DEEPLINK.wireNav(g1.window.GAIC_DEEPLINK.getUcId());
+let nextHref = g1.window.document.getElementById('cont').getAttribute('href');
+ok('feasibility Continue -> advisory.html?id=CASE-X', nextHref === 'advisory.html?id=CASE-X');
+// Simulate landing on that next URL: the id resolves to the SAME case, not a demo.
+let g2 = newDom('https://x/' + nextHref);
+ok('advisory resolves the SAME id (no drift to demo)', g2.window.GAIC_DEEPLINK.getUcId() === 'CASE-X');
+
 console.log('\n---------------------------------------------');
 console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
 console.log('---------------------------------------------');

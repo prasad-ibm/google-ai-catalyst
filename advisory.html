@@ -283,13 +283,13 @@ p { margin:0 0 1rem; }
     </div>
 
     <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+    <div class="wschip">🏢 <b>Intel</b> — <span id="wsEval">Evaluating: —</span></div>
     <div class="uc-picker"><label for="ucPicker">Use case:</label><select id="ucPicker"></select></div>
 
     <!-- ============ 1. VERDICT HERO BAND ============ -->
     <div class="verdict" id="verdictBand">
       <div class="verdict__left">
-        <div class="verdict__gate" id="vGateLabel">Gate — —</div>
+        <div class="verdict__gate" id="vGateLabel">GADF Tier —</div>
         <div class="verdict__name" id="vName">—</div>
         <div class="verdict__meta">
           <span class="verdict__tier" id="vTier">—</span>
@@ -358,6 +358,7 @@ p { margin:0 0 1rem; }
 </main>
 
 <script src="assets/api-client.js"></script>
+<script src="assets/deep-link.js"></script>
 <script src="assets/uc-picker.js" defer></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
@@ -377,9 +378,12 @@ p { margin:0 0 1rem; }
   //  "Start Simple, scale when ready."
   // ============================================================
   var TIERS = {
-    Adopt:  { tier:'Adopt',  verdictName:'Start Simple', platform:'Gemini for Google Workspace', gateId:'gate1_adopt',   gateLabel:'Gate 1 — Adopt' },
-    Extend: { tier:'Extend', verdictName:'Scale Smart',  platform:'AppSheet / Agentspace',        gateId:'gate2_lowcode', gateLabel:'Gate 2 — Low-Code' },
-    Build:  { tier:'Build',  verdictName:'Build Custom', platform:'Vertex AI Agent Builder',      gateId:'gate3_build',   gateLabel:'Gate 3 — Build' }
+    // gateLabel is the GADF *ladder tier* (Adopt→Low-code→Build), NOT a step in
+    // the 6-gate evaluation flow shown in the stepper above (this page = Gate 4).
+    // Label it "GADF Tier: …" so the two numbering schemes never read as one (L7).
+    Adopt:  { tier:'Adopt',  verdictName:'Start Simple', platform:'Gemini for Google Workspace', gateId:'gate1_adopt',   gateLabel:'GADF Tier: Adopt' },
+    Extend: { tier:'Extend', verdictName:'Scale Smart',  platform:'AppSheet / Agentspace',        gateId:'gate2_lowcode', gateLabel:'GADF Tier: Low-code' },
+    Build:  { tier:'Build',  verdictName:'Build Custom', platform:'Vertex AI Agent Builder',      gateId:'gate3_build',   gateLabel:'GADF Tier: Build' }
   };
 
   // ---------- PURE: sequential gate resolution ----------
@@ -427,7 +431,15 @@ p { margin:0 0 1rem; }
     autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
   };
 
+  // When ?id=X is deep-linked, that case's API-mapped inputs are stashed here
+  // (keyed by storage key) and take precedence over localStorage/DEMO so the
+  // advisory evaluates case X (M1).
+  var DEEP = {}; // { INTAKE_KEY: {...}, BXT_KEY: {...}, FEAS_KEY: {...} }
   function loadFromKey(key){
+    var deep = DEEP[key];
+    if (deep && typeof deep === 'object' && Object.keys(deep).length){
+      return { data: deep, fromDemo: false };
+    }
     var parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(key)); } catch(e){ parsed = null; }
     if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
@@ -537,8 +549,7 @@ p { margin:0 0 1rem; }
     // --- API integration (best-effort, non-blocking) ---
     try {
       if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        var _ucId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
         window.GAIC_API.saveGate(_ucId, 'advisory', {
           tier: result.tier,
           verdict_name: result.verdictName,
@@ -822,7 +833,30 @@ p { margin:0 0 1rem; }
   // ============================================================
   //  INIT
   // ============================================================
-  var initial = run();
+  var initial = null;
+
+  // Carry the active id (URL ?id= first, else localStorage) through
+  // Continue/Back/breadcrumb links so the next gate evaluates the SAME case (M1/M2).
+  var _activeId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
+  if (window.GAIC_DEEPLINK && GAIC_DEEPLINK.wireNav) GAIC_DEEPLINK.wireNav(_activeId);
+
+  // Deep-link: when ?id=X is present, load THAT case's intake/bxt/feas before the
+  // first run() so the advisory reflects case X rather than localStorage / demo (M1).
+  var _deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId && GAIC_DEEPLINK.getId()) || null;
+  if (_deepId && window.GAIC_DEEPLINK && typeof GAIC_DEEPLINK.load === 'function'){
+    GAIC_DEEPLINK.load().then(function(opts){
+      if (opts){
+        if (opts.intake) DEEP[INTAKE_KEY] = opts.intake;
+        if (opts.bxt)    DEEP[BXT_KEY]    = opts.bxt;
+        if (opts.feas)   DEEP[FEAS_KEY]   = opts.feas;
+      }
+    }).catch(function(){}).then(function(){
+      initial = run();
+      if (window.__adv) window.__adv.result = initial; // keep test handle current
+    });
+  } else {
+    initial = run();
+  }
 
   // Expose pure functions + state for tests
   window.__adv = {

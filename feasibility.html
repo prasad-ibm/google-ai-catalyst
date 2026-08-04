@@ -400,6 +400,7 @@ p { margin:0 0 1rem; }
 </main>
 
 <script src="assets/api-client.js"></script>
+<script src="assets/deep-link.js"></script>
 <script src="assets/uc-picker.js" defer></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
@@ -520,7 +521,13 @@ p { margin:0 0 1rem; }
     autonomy: 'Supervised', sensitivity: 'Medium', pii: true, audit: true
   };
 
+  // When ?id=X is deep-linked, that case's API-mapped intake/bxt are stashed here
+  // and take precedence over localStorage/DEMO so the gate evaluates case X (M1).
+  var DEEP_INTAKE = null, DEEP_BXT = null;
   function loadIntake(){
+    if (DEEP_INTAKE && typeof DEEP_INTAKE === 'object' && Object.keys(DEEP_INTAKE).length){
+      return { data: DEEP_INTAKE, fromDemo: false };
+    }
     var parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(INTAKE_KEY)); } catch(e){ parsed = null; }
     if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
@@ -530,6 +537,9 @@ p { margin:0 0 1rem; }
   }
 
   function loadBxt(){
+    if (DEEP_BXT && typeof DEEP_BXT === 'object' && Object.keys(DEEP_BXT).length){
+      return { data: DEEP_BXT, fromDemo: false };
+    }
     var parsed = null;
     try { parsed = JSON.parse(localStorage.getItem(BXT_KEY)); } catch(e){ parsed = null; }
     if (!parsed || typeof parsed !== 'object' || Object.keys(parsed).length === 0){
@@ -623,8 +633,7 @@ p { margin:0 0 1rem; }
     // --- API integration (best-effort, non-blocking) ---
     try {
       if (window.GAIC_API && typeof window.GAIC_API.saveGate === 'function') {
-        var _ucId = null;
-        try { _ucId = localStorage.getItem('gaic_use_case_id'); } catch(eU){}
+        var _ucId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
         var _cd = citizenDev(scores);
         window.GAIC_API.saveGate(_ucId, 'feasibility', {
           composite: payload.composite,
@@ -795,17 +804,41 @@ p { margin:0 0 1rem; }
   // ============================================================
   //  INIT
   // ============================================================
-  var loaded = loadSeed();
-  STATE.scores = loaded.scores;
+  var result = null;
 
-  // eval line
-  var nm = (loaded.intake.data && loaded.intake.data.name) ? loaded.intake.data.name : 'Untitled use case';
-  document.getElementById('wsEval').innerHTML = 'Evaluating: <b>' + escapeHtml(nm) + '</b>' + (loaded.intake.fromDemo ? ' (demo)' : '');
+  // Render the gate from whatever loadSeed() resolves (deep-linked case, saved
+  // draft, or demo). Runs after any ?id= fetch so the SAME case is shown+saved.
+  function boot(){
+    var loaded = loadSeed();
+    STATE.scores = loaded.scores;
 
-  wireTabs();
-  buildCards();
-  var result = renderLive();
-  persist(STATE.scores); // write initial AI-suggested scores
+    // eval line
+    var nm = (loaded.intake.data && loaded.intake.data.name) ? loaded.intake.data.name : 'Untitled use case';
+    document.getElementById('wsEval').innerHTML = 'Evaluating: <b>' + escapeHtml(nm) + '</b>' + (loaded.intake.fromDemo ? ' (demo)' : '');
+
+    wireTabs();
+    buildCards();
+    result = renderLive();
+    if (window.__feas) window.__feas.result = result; // keep test handle current
+    persist(STATE.scores); // write initial AI-suggested scores
+  }
+
+  // Carry the active id (URL ?id= first, else localStorage) through
+  // Continue/Back/breadcrumb links so the next gate evaluates the SAME case (M1/M2).
+  var _activeId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getUcId && GAIC_DEEPLINK.getUcId()) || null;
+  if (window.GAIC_DEEPLINK && GAIC_DEEPLINK.wireNav) GAIC_DEEPLINK.wireNav(_activeId);
+
+  // Deep-link: when ?id=X is present, load THAT case's intake/bxt before rendering
+  // so the gate evaluates case X rather than the localStorage draft / demo (M1).
+  var _deepId = (window.GAIC_DEEPLINK && GAIC_DEEPLINK.getId && GAIC_DEEPLINK.getId()) || null;
+  if (_deepId && window.GAIC_DEEPLINK && typeof GAIC_DEEPLINK.load === 'function'){
+    GAIC_DEEPLINK.load().then(function(opts){
+      if (opts && opts.intake) DEEP_INTAKE = opts.intake;
+      if (opts && opts.bxt) DEEP_BXT = opts.bxt;
+    }).catch(function(){}).then(boot);
+  } else {
+    boot();
+  }
 
   // Expose for tests
   window.__feas = {
