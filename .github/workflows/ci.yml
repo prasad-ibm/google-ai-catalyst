@@ -50,5 +50,23 @@ jobs:
       - name: Run migrations
         run: npm run migrate
 
+      # Our suites are standalone scripts (custom ok() harness), each doing its
+      # own process.exit(0/1) — NOT node:test cases. So run them individually and
+      # fail the job if ANY suite exits non-zero. (Running them under `node --test`
+      # yields false failures/hangs because most files register zero node:test cases
+      # and server.test.js boots a live server.)
       - name: Run tests
-        run: node --test *.test.js
+        run: |
+          set +e
+          fail=0
+          for f in *.test.js; do
+            echo "::group::$f"
+            node "$f"
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              echo "::error file=$f::$f FAILED (exit $code)"
+              fail=1
+            fi
+          done
+          exit $fail

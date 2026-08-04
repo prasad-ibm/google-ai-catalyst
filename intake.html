@@ -162,6 +162,12 @@ p { margin:0 0 1rem; }
   }
   .chip:hover { border-color: var(--g-blue-l); color: var(--text); }
   .chip.is-on { background: rgba(66,133,244,.15); border-color: var(--g-blue); color: var(--g-blue-l); }
+  .chip.is-custom { padding-right: 6px; }
+  .chip .chip-x { margin-left: 6px; opacity: .6; cursor: pointer; font-weight: 600; }
+  .chip .chip-x:hover { opacity: 1; }
+  .chip-add { display: inline-flex; align-items: center; }
+  .chip-add__in { background: transparent; border: 1px dashed var(--border); color: var(--text); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13px; min-width: 210px; outline: none; }
+  .chip-add__in:focus { border-color: var(--g-blue); border-style: solid; }
 
   /* Segmented control */
   .seg { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface-2); }
@@ -428,13 +434,14 @@ p { margin:0 0 1rem; }
             </div>
             <div class="field">
               <span class="flabel">Existing Tools in Use</span>
-              <div class="chips" data-key="tools" data-multi="1">
+              <div class="chips" data-key="tools" data-multi="1" data-freeform="1">
                 <span class="chip" data-val="Spreadsheets" role="button" tabindex="0">Spreadsheets</span>
                 <span class="chip" data-val="Email" role="button" tabindex="0">Email</span>
                 <span class="chip" data-val="Legacy system" role="button" tabindex="0">Legacy system</span>
                 <span class="chip" data-val="SaaS app" role="button" tabindex="0">SaaS app</span>
                 <span class="chip" data-val="Custom app" role="button" tabindex="0">Custom app</span>
                 <span class="chip" data-val="None" role="button" tabindex="0">None</span>
+                <span class="chip-add"><input type="text" class="chip-add__in" placeholder="+ Add other (e.g. JIRA, SharePoint)" aria-label="Add another tool"></span>
               </div>
             </div>
           </section>
@@ -445,7 +452,7 @@ p { margin:0 0 1rem; }
             <p class="panel__sub">Data, integrations, and real-time needs — drives feasibility and platform fit.</p>
             <div class="field">
               <span class="flabel">Primary Data Sources</span>
-              <div class="chips" data-key="sources" data-multi="1">
+              <div class="chips" data-key="sources" data-multi="1" data-freeform="1">
                 <span class="chip" data-val="Structured DB" role="button" tabindex="0">Structured DB</span>
                 <span class="chip" data-val="Documents/PDFs" role="button" tabindex="0">Documents/PDFs</span>
                 <span class="chip" data-val="Emails" role="button" tabindex="0">Emails</span>
@@ -454,6 +461,7 @@ p { margin:0 0 1rem; }
                 <span class="chip" data-val="Images" role="button" tabindex="0">Images</span>
                 <span class="chip" data-val="Audio/Video" role="button" tabindex="0">Audio/Video</span>
                 <span class="chip" data-val="Web" role="button" tabindex="0">Web</span>
+                <span class="chip-add"><input type="text" class="chip-add__in" placeholder="+ Add other (e.g. Snowflake, S3)" aria-label="Add another data source"></span>
               </div>
             </div>
             <div class="field">
@@ -821,6 +829,53 @@ p { margin:0 0 1rem; }
       chip.addEventListener('click', toggle);
       chip.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
     });
+
+    // ---- Free-form 'Add other' entries (e.g. JIRA, SharePoint) ----
+    if (grp.getAttribute('data-freeform')){
+      var adder = grp.querySelector('.chip-add');
+      var input = adder && adder.querySelector('.chip-add__in');
+      function addCustom(raw){
+        var val = (raw||'').trim();
+        if (!val) return;
+        var arr = state[key];
+        // case-insensitive dedupe against existing values
+        if (arr.some(function(x){ return String(x).toLowerCase() === val.toLowerCase(); })){
+          input.value=''; return;
+        }
+        arr.push(val);
+        var chip = document.createElement('span');
+        chip.className = 'chip is-on is-custom';
+        chip.setAttribute('data-val', val);
+        chip.setAttribute('role','button');
+        chip.setAttribute('tabindex','0');
+        chip.textContent = val;
+        var x = document.createElement('span');
+        x.className = 'chip-x'; x.textContent = '\u00d7'; x.setAttribute('aria-label','Remove ' + val);
+        chip.appendChild(x);
+        // remove handler
+        x.addEventListener('click', function(e){
+          e.stopPropagation();
+          var i = state[key].indexOf(val);
+          if (i>-1) state[key].splice(i,1);
+          grp.removeChild(chip);
+          commit(); score();
+        });
+        grp.insertBefore(chip, adder);
+        input.value='';
+        commit(); score();
+      }
+      if (input){
+        input.addEventListener('keydown', function(e){
+          if (e.key==='Enter'){ e.preventDefault(); addCustom(input.value); }
+        });
+        input.addEventListener('blur', function(){ addCustom(input.value); });
+      }
+      // Re-hydrate any previously-saved custom values not in the preset chips
+      var presets = Array.prototype.slice.call(grp.querySelectorAll('.chip')).map(function(c){ return c.dataset.val; });
+      state[key].slice().forEach(function(v){
+        if (presets.indexOf(v) === -1){ state[key].splice(state[key].indexOf(v),1); addCustom(v); }
+      });
+    }
   });
 
   // ---- Segmented controls ----

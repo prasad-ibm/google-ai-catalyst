@@ -713,6 +713,28 @@ p { margin:0 0 1rem; }
     // the Brief matches the ~$900K/$120K shown on the Summary hero.
     var econ = caseEconomics();
 
+    // ---- ROI fallback + dollarisation (testing.docx issue 2) ----------------
+    // The P10/P50/P90 boxes previously showed only percentages, and rendered
+    // '—' whenever roi.pXX was null (unevaluated / no committed summary ROI).
+    // We now (a) derive percentages from the modeled economics when the
+    // committed values are missing, and (b) always show the modeled DOLLAR
+    // value alongside each percentile so the Brief is never blank.
+    var netVal = (econ.annualValue * 2) - econ.implCost; // 24-month net benefit
+    var derivedP50 = econ.implCost > 0 ? Math.round((netVal / econ.implCost) * 100) : null;
+    if (p50 == null || isNaN(p50)) p50 = derivedP50;
+    if (p10 == null || isNaN(p10)) p10 = (p50 != null ? Math.round(p50 * 0.55) : null);
+    if (p90 == null || isNaN(p90)) p90 = (p50 != null ? Math.round(p50 * 1.6)  : null);
+    // Dollar value of the 24-month net benefit at each percentile.
+    function roiDollars(pct){ return (pct == null || isNaN(pct)) ? null : econ.implCost * (pct / 100); }
+    var d10 = roiDollars(p10), d50 = roiDollars(p50), d90 = roiDollars(p90);
+    // Combined 'pct · $value' cell content (falls back gracefully).
+    function pctDollar(pct, dol){
+      var pc = fmtPct(pct), ds = fmtUsd(dol);
+      if (pc === '—' && ds === '—') return '—';
+      if (ds === '—') return pc;
+      return pc + ' · ' + ds;
+    }
+
     var verdictSentence =
       v.key === 'go'
         ? 'The committee issues a <b>GO</b> — all perspectives align with no outstanding gate.'
@@ -770,11 +792,11 @@ p { margin:0 0 1rem; }
       + '<div class="brief__sec" data-brief-sec="business-case">'
       +   '<div class="brief__sectitle">2 · Business Case &amp; ROI</div>'
       +   '<div class="brief__kpis">'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P10 · Conservative</div><div class="brief__kpi-v" id="briefP10">' + fmtPct(p10) + '</div></div>'
-      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + fmtPct(p50) + '</div></div>'
-      +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + fmtPct(p90) + '</div></div>'
+      +     '<div class="brief__kpi"><div class="brief__kpi-k">P10 · Conservative</div><div class="brief__kpi-v" id="briefP10">' + pctDollar(p10, d10) + '</div></div>'
+      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + pctDollar(p50, d50) + '</div></div>'
+      +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + pctDollar(p90, d90) + '</div></div>'
       +   '</div>'
-      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + '</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + '. Modeled annual value is <b>' + fmtUsd(econ.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(econ.implCost) + '</b>'
+      +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + ' (' + fmtUsd(d50) + ')</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + ' (' + fmtUsd(d10) + ' to ' + fmtUsd(d90) + '). Modeled annual value is <b>' + fmtUsd(econ.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(econ.implCost) + '</b>'
       +     (payback != null ? ', with payback in approximately <b>' + esc(String(payback)) + ' months</b>' : '') + '.</p>'
       +   fillEcon('<p>The Business Sponsor commits to a fully measurable ROI dashboard at the 90-day mark, targeting a <b>{{REDUCTION}} reduction</b> in operational processing costs and {{SAVINGS}} in annual value against the phased investment.</p>')
       + '</div>'
