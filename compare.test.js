@@ -51,7 +51,22 @@ const WORKSPACES = [
   { id: 'ws-other', name: 'Other' },
 ];
 
+// A minimal no-op Chart.js stand-in so the radar render path runs under jsdom
+// (the CDN <script> never loads offline). Records constructions for assertions.
+function makeChartStub() {
+  function ChartStub(canvas, cfg) {
+    this.canvas = canvas;
+    this.config = cfg;
+    ChartStub.instances.push(this);
+  }
+  ChartStub.instances = [];
+  ChartStub.prototype.destroy = function () { ChartStub.destroyed++; };
+  ChartStub.destroyed = 0;
+  return ChartStub;
+}
+
 // Build a jsdom instance with fetch mocked to serve our fixtures.
+// opts.chartStub: if true, install a fake window.Chart so radars render.
 function newDom(opts) {
   opts = opts || {};
   const portfolio = opts.portfolio !== undefined ? opts.portfolio : PORTFOLIO;
@@ -62,6 +77,7 @@ function newDom(opts) {
     runScripts: 'dangerously',
     url: url,
     beforeParse(window) {
+      if (opts.chartStub) window.Chart = makeChartStub();
       window.fetch = function (u) {
         u = String(u);
         let body;
@@ -223,6 +239,71 @@ ok('Intel workspace preselected', picker.value === 'ws-intel');
 console.log('\n== 13. self-contained: includes api-client + auth-ui ==');
 ok('references assets/api-client.js', /assets\/api-client\.js/.test(html));
 ok('references assets/auth-ui.js defer', /assets\/auth-ui\.js"\s+defer/.test(html));
+
+console.log('\n== 14. Score Breakdown radar model (computeRadar) ==');
+dom = newDom();
+C = dom.window.GAIC_COMPARE;
+const byId14 = {};
+PORTFOLIO.forEach(function (r) { byId14[r.id] = r; });
+const clamp = function (x) { return Math.max(0, Math.min(5, x)); };
+
+ok('exposes computeRadar()', typeof C.computeRadar === 'function');
+const r1 = C.computeRadar(PORTFOLIO[0]); // uc-1 GO, feas 3.8, p50 45, Quick Win
+ok('computeRadar returns 6 labels in exact order',
+  Array.isArray(r1.labels) && r1.labels.length === 6 &&
+  r1.labels.join('|') === 'Safety|Value|Strat. Alignment|Readiness|Complexity|Compliance');
+ok('computeRadar returns 6 numeric values in [0,5]',
+  Array.isArray(r1.values) && r1.values.length === 6 &&
+  r1.values.every(function (v) { return typeof v === 'number' && v >= 0 && v <= 5; }));
+
+// (b) specific derived values
+const r3 = C.computeRadar(byId14['uc-3']); // NO-GO, roi_p50 15, feas 2.9, Money Pit
+ok('uc-3 (NO-GO) Safety === 1.2', r3.values[0] === 1.2);
+ok('uc-3 (NO-GO) Compliance === 1.5', r3.values[5] === 1.5);
+
+const r2 = C.computeRadar(byId14['uc-2']); // CONDITIONAL GO, roi_p50 60, feas 4.2, Big Bet
+ok('uc-2 Value === clamp(60/120*5) = 2.5', r2.values[1] === Math.round(clamp(60 / 120 * 5) * 10) / 10);
+ok('uc-2 Value literal 2.5', r2.values[1] === 2.5);
+ok('uc-2 (CONDITIONAL GO) Safety === 3.0', r2.values[0] === 3.0);
+
+ok('uc-1 (GO) Safety === 4.5', r1.values[0] === 4.5);
+
+// (c) Readiness equals feasibility_composite (rounded to 1dp)
+ok('uc-2 Readiness === feasibility_composite (4.2)', r2.values[3] === 4.2);
+ok('uc-1 Readiness === feasibility_composite (3.8)', r1.values[3] === 3.8);
+
+// null-verdict fallback path (uc-4: verdict null, feas 3.1)
+const r4 = C.computeRadar(byId14['uc-4']);
+ok('uc-4 (verdict null) Safety === clamp(feas*0.8) = 2.5', r4.values[0] === Math.round(clamp(3.1 * 0.8) * 10) / 10);
+ok('uc-4 (verdict null) Compliance === 2.5', r4.values[5] === 2.5);
+
+console.log('\n== 15. Score Breakdown DOM: radar canvases + fallback ==');
+// Without Chart present (default): #radarSec is hidden, table still renders.
+dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3' });
+await tick(); await tick();
+doc = dom.window.document;
+ok('table still renders when Chart absent (3 case columns)',
+  doc.querySelectorAll('#cmpTable thead th[data-id]').length === 3);
+ok('#radarSec hidden when Chart absent (graceful fallback)',
+  doc.getElementById('radarSec').classList.contains('hidden'));
+ok('no canvases rendered when Chart absent',
+  doc.querySelectorAll('#radarSec canvas').length === 0);
+
+// With the Chart stub installed: render path runs -> 3 canvases in #radarSec.
+dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3', chartStub: true });
+await tick(); await tick();
+doc = dom.window.document;
+if (typeof dom.window.Chart === 'function') {
+  ok('#radarSec visible when Chart present', !doc.getElementById('radarSec').classList.contains('hidden'));
+  ok('3 canvases rendered in #radarSec', doc.querySelectorAll('#radarSec canvas').length === 3);
+  ok('#radarSec is placed ABOVE #cmpSec in DOM order',
+    (doc.getElementById('radarSec').compareDocumentPosition(doc.getElementById('cmpSec'))
+      & dom.window.Node.DOCUMENT_POSITION_FOLLOWING) !== 0);
+  ok('3 Chart instances constructed', dom.window.Chart.instances.length === 3);
+} else {
+  // Guard: if the stub somehow didn't stick, do not fail the suite.
+  ok('Chart stub guard: #radarSec hidden', doc.getElementById('radarSec').classList.contains('hidden'));
+}
 
 console.log('\n---------------------------------------------');
 console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');

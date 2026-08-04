@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Chart.js for the Score Breakdown radar charts (graceful fallback if it fails to load) -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <!-- Shared Google design system (external link kept for standalone deploys) -->
 <link rel="stylesheet" href="assets/theme.css">
 <style>
@@ -165,6 +167,19 @@ p { margin:0 0 1rem; }
   .empty__title { font-size:16px; font-weight:500; color:var(--text); margin-bottom:8px; }
   .empty a { color:var(--g-blue-l); }
 
+  /* ---- Score Breakdown radars ---- */
+  .radars { display:flex; flex-wrap:wrap; gap:18px; }
+  .radarcard {
+    flex:1 1 240px; min-width:220px; max-width:340px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-2); padding:16px 16px 12px; display:flex; flex-direction:column; gap:10px;
+  }
+  .radarcard__cap { display:flex; flex-direction:column; gap:6px; }
+  .radarcard__name { font-family:var(--font-sans); font-size:14px; font-weight:500; color:var(--text); letter-spacing:-0.01em; }
+  .radarcard__name:hover { color:var(--g-blue-l); }
+  .radarcard__dept { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--text-dim); }
+  .radarcard__canvaswrap { position:relative; width:100%; aspect-ratio:1 / 1; }
+
   .loading { color:var(--text-dim); font-family:var(--font-mono); font-size:13px; padding:40px 0; text-align:center; }
   .hidden { display:none !important; }
 
@@ -240,7 +255,16 @@ p { margin:0 0 1rem; }
         </div>
       </section>
 
-      <!-- 2. COMPARISON TABLE -->
+      <!-- 2. SCORE BREAKDOWN (radar per selected case) -->
+      <section class="sec" id="radarSec">
+        <div class="sec__head">
+          <h2 class="sec__title">Score Breakdown</h2>
+          <span class="gc-tag gc-tag--blue" id="radarCount">—</span>
+        </div>
+        <div class="radars" id="radars"></div>
+      </section>
+
+      <!-- 3. COMPARISON TABLE -->
       <section class="sec" id="cmpSec">
         <div class="sec__head">
           <h2 class="sec__title">Side-by-side comparison</h2>
@@ -288,6 +312,9 @@ p { margin:0 0 1rem; }
     cmpTable:     document.getElementById('cmpTable'),
     cmpCount:     document.getElementById('cmpCount'),
     cmpSec:       document.getElementById('cmpSec'),
+    radarSec:     document.getElementById('radarSec'),
+    radars:       document.getElementById('radars'),
+    radarCount:   document.getElementById('radarCount'),
     wsPicker:     document.getElementById('wsPicker'),
     wsChip:       document.getElementById('wsChip'),
   };
@@ -404,6 +431,69 @@ p { margin:0 0 1rem; }
     return out;
   }
 
+  // ---------- Score Breakdown radar model ----------
+  // The exact per-axis panel scores are NOT persisted (see CONTRACT.md), so we
+  // DERIVE 6 axes deterministically from canonical /api/portfolio fields.
+  // All axes are on a 0..5 scale where higher = further out = better.
+  var RADAR_LABELS = ['Safety', 'Value', 'Strat. Alignment', 'Readiness', 'Complexity', 'Compliance'];
+
+  function clamp(x) { return Math.max(0, Math.min(5, x)); }
+  function round1(x) { return Math.round(x * 10) / 10; }
+
+  // computeRadar(caseRow) -> { labels:[6], values:[6 numbers 0..5] }
+  function computeRadar(row) {
+    row = row || {};
+    var vk = verdictKey(row.verdict);            // 'go' | 'cond' | 'no' | null
+    var feas = num(row.feasibility_composite);   // 0..5 or null
+    var p50 = num(row.roi_p50);                   // percent or null
+    var quad = String(row.quadrant == null ? '' : row.quadrant).toLowerCase();
+
+    // 1) Safety — driven by verdict; falls back to feasibility when unevaluated.
+    var safety;
+    if (vk === 'go') safety = 4.5;
+    else if (vk === 'cond') safety = 3.0;
+    else if (vk === 'no') safety = 1.2;
+    else safety = clamp((feas == null ? 2.5 : feas) * 0.8);
+
+    // 2) Value — ROI P50 mapped 0%->0, 120%+->5, negatives clamp to 0.
+    var value = clamp((p50 == null ? 0 : p50) / 120 * 5);
+
+    // 3) Strat. Alignment — by quadrant (case-insensitive contains).
+    var strat;
+    if (quad.indexOf('quick win') !== -1) strat = 4.5;
+    else if (quad.indexOf('accelerate') !== -1) strat = 4.5;
+    else if (quad.indexOf('big bet') !== -1) strat = 4.0;
+    else if (quad.indexOf('incremental') !== -1) strat = 3.0;
+    else if (quad.indexOf('watch') !== -1 || quad.indexOf('explore') !== -1) strat = 2.5;
+    else if (quad.indexOf('deprioritize') !== -1) strat = 1.5;
+    else if (quad.indexOf('money pit') !== -1) strat = 1.0;
+    else strat = 2.5; // default (also covers quadrant null)
+
+    // 4) Readiness — feasibility composite directly.
+    var readiness = clamp(feas == null ? 2.5 : feas);
+
+    // 5) Complexity — higher = LESS complex / more manageable.
+    var quadBonus;
+    if (quad.indexOf('quick win') !== -1 || quad.indexOf('incremental') !== -1) quadBonus = 1.5;
+    else if (quad.indexOf('accelerate') !== -1) quadBonus = 1.0;
+    else if (quad.indexOf('big bet') !== -1) quadBonus = 0.3;
+    else if (quad.indexOf('money pit') !== -1 || quad.indexOf('deprioritize') !== -1) quadBonus = 0.2;
+    else quadBonus = 0.8;
+    var complexity = clamp((feas == null ? 2.5 : feas) * 0.6 + quadBonus);
+
+    // 6) Compliance — driven by verdict.
+    var compliance;
+    if (vk === 'go') compliance = 4.2;
+    else if (vk === 'cond') compliance = 3.0;
+    else if (vk === 'no') compliance = 1.5;
+    else compliance = 2.5;
+
+    return {
+      labels: RADAR_LABELS.slice(),
+      values: [safety, value, strat, readiness, complexity, compliance].map(round1),
+    };
+  }
+
   // Expose the pure model for tests.
   window.GAIC_COMPARE = {
     MAX_SELECT: MAX_SELECT,
@@ -413,6 +503,8 @@ p { margin:0 0 1rem; }
     highlightsFor: highlightsFor,
     resolveSelection: resolveSelection,
     readIdsFromURL: readIdsFromURL,
+    computeRadar: computeRadar,
+    RADAR_LABELS: RADAR_LABELS,
   };
 
   // ============================================================
@@ -571,6 +663,7 @@ p { margin:0 0 1rem; }
       el.cmpSec.classList.add('hidden');
       el.emptyCompare.classList.remove('hidden');
       el.cmpCount.textContent = '0 selected';
+      renderRadars([]); // hide Score Breakdown too
       return;
     }
     el.emptyCompare.classList.add('hidden');
@@ -601,6 +694,118 @@ p { margin:0 0 1rem; }
     }).join('') + '</tbody>';
 
     el.cmpTable.innerHTML = thead + tbody;
+
+    // Keep the Score Breakdown radars in sync with the table selection.
+    renderRadars(cases);
+  }
+
+  // ---------- Score Breakdown radars (Chart.js, graceful fallback) ----------
+  // Per-column palette from the shared Google design system.
+  var RADAR_COLORS = [
+    { stroke: '#4285F4' }, // col1 blue  (--g-blue)
+    { stroke: '#a142f4' }, // col2 purple
+    { stroke: '#34A853' }, // col3 green  (--g-green)
+    { stroke: '#FBBC04' }, // col4 yellow (--g-yellow)
+  ];
+  var radarCharts = []; // live Chart instances (destroyed/recreated per render)
+
+  function destroyRadars() {
+    radarCharts.forEach(function (ch) {
+      try { if (ch && typeof ch.destroy === 'function') ch.destroy(); } catch (e) {}
+    });
+    radarCharts = [];
+  }
+
+  function renderRadars(cases) {
+    destroyRadars();
+    if (!el.radarSec) return;
+
+    // Nothing selected -> hide (mirrors the table's empty behaviour).
+    // Chart.js unavailable (offline / jsdom) -> hide WITHOUT throwing so the
+    // table still renders and existing tests keep passing.
+    if (!cases || !cases.length || typeof window.Chart === 'undefined') {
+      el.radars.innerHTML = '';
+      el.radarSec.classList.add('hidden');
+      if (el.radarCount) el.radarCount.textContent = '0 selected';
+      return;
+    }
+
+    el.radarSec.classList.remove('hidden');
+    el.radarCount.textContent = cases.length + ' of ' + MAX_SELECT;
+
+    // Build one card (with a <canvas>) per selected case.
+    el.radars.innerHTML = cases.map(function (c, i) {
+      var href = 'summary.html?id=' + encodeURIComponent(c.id);
+      return '<div class="radarcard" data-id="' + esc(String(c.id)) + '">' +
+        '<div class="radarcard__cap">' +
+          '<a class="radarcard__name" href="' + esc(href) + '">' + esc(c.name || 'Untitled') + '</a>' +
+          '<span class="radarcard__dept">' + esc(c.department || '') + '</span>' +
+        '</div>' +
+        '<div class="radarcard__canvaswrap"><canvas id="radarCanvas' + i + '"></canvas></div>' +
+      '</div>';
+    }).join('');
+
+    cases.forEach(function (c, i) {
+      var canvas = document.getElementById('radarCanvas' + i);
+      if (!canvas) return;
+      var data = computeRadar(c);
+      var color = RADAR_COLORS[i % RADAR_COLORS.length].stroke;
+      var chart;
+      try {
+        chart = new window.Chart(canvas, {
+          type: 'radar',
+          data: {
+            labels: data.labels,
+            datasets: [{
+              label: c.name || 'Use case',
+              data: data.values,
+              fill: true,
+              backgroundColor: hexAlpha(color, 0.18), // ~18% alpha fill
+              borderColor: color,
+              borderWidth: 2,
+              pointBackgroundColor: color,
+              pointBorderColor: color,
+              pointRadius: 3,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) {
+                    var lbl = (ctx.chart.data.labels && ctx.chart.data.labels[ctx.dataIndex]) || '';
+                    var val = Number(ctx.parsed && ctx.parsed.r != null ? ctx.parsed.r : ctx.raw);
+                    return lbl + ': ' + val.toFixed(1) + ' / 5';
+                  },
+                },
+              },
+            },
+            scales: {
+              r: {
+                min: 0, max: 5,
+                ticks: { stepSize: 1, showLabelBackdrop: false },
+                pointLabels: { font: { size: 11 } },
+              },
+            },
+          },
+        });
+      } catch (e) {
+        // If Chart construction fails at runtime, degrade gracefully.
+        return;
+      }
+      if (chart) radarCharts.push(chart);
+    });
+  }
+
+  // Convert '#RRGGBB' + alpha(0..1) to an 'rgba(...)' string for fills.
+  function hexAlpha(hex, a) {
+    var m = /^#?([0-9a-f]{6})$/i.exec(String(hex));
+    if (!m) return hex;
+    var n = parseInt(m[1], 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
 
   // ============================================================
