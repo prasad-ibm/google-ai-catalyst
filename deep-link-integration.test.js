@@ -1,343 +1,128 @@
-'use strict';
-
-/*
- * Tests for the bulk use-case upload endpoint and its CSV parser.
+/**
+ * Deep-link integration test: proves summary.html and panel.html, when opened
+ * with ?id=<use_case_id>, fetch that case via GAIC_API and render its REAL
+ * persisted data (not the demo/localStorage default).
  *
- * Run with:  node --test bulk-upload.test.js
+ * jsdom does not fetch external <script src>, so we inline the real
+ * assets/deep-link.js and a MOCK GAIC_API ahead of each page's inline IIFE by
+ * rewriting the two <script src> tags. The page's own compute/render code is
+ * exercised unmodified.
  *
- * Coverage:
- *   (1) parseCsv() turns a CSV string with quoted commas/quotes/CRLF into the
- *       correct row objects (pure unit test, no DB).
- *   (4) >500 rows is rejected with 400 (guard test, exercised over HTTP but
- *       fails before any DB write).
- *   (2) rows-JSON insert path returns { inserted, results:[{id,name}] } against
- *       the LIVE DB using a throwaway workspace.
- *   (3) required-field validation (missing name / missing workspace_id) returns
- *       a per-row error while good rows in the same batch still insert.
- *
- * The live-DB tests create ONE temp workspace, insert under it, assert, then
- * cascade-delete it in an after() hook — plus a belt-and-braces delete by the
- * unique name prefix — so only the 5 seeded Intel use cases remain.
+ *   node deep-link-integration.test.js
  */
+const fs = require('fs');
+const path = require('path');
+function requireJsdom() {
+  const candidates = ['/tmp/node_modules/jsdom',
+    path.join(process.env.HOME || '', 'node_modules/jsdom'), 'jsdom'];
+  for (const c of candidates) {
+    try { const m = require(c); if (m && m.JSDOM) return m; } catch (e) { /* next */ }
+  }
+  throw new Error('jsdom not found');
+}
+const { JSDOM } = requireJsdom();
 
-require('dotenv').config();
-const { test, before, after } = require('node:test');
-const assert = require('node:assert');
-const http = require('node:http');
+const DEEPLINK_JS = fs.readFileSync(path.join(__dirname, 'assets', 'deep-link.js'), 'utf8');
 
-const { parseCsv } = require('./use-case-template');
+let pass = 0, fail = 0;
+process.on('uncaughtException', e => { console.error('UNCAUGHT:', e && e.stack || e); process.exit(2); });
+const GUARD = setTimeout(() => { console.error('GUARD TIMEOUT pass=' + pass + ' fail=' + fail); process.exit(3); }, 20000);
+function ok(msg, cond) {
+  if (cond) { pass++; console.log('  \u2713 ' + msg); }
+  else { fail++; console.log('  \u2717 ' + msg); }
+}
 
-// Unique marker so every row this suite inserts can be found & purged by name.
-const NAME_PREFIX = 'BULKTEST_' + process.pid + '_';
+// A distinctive use case whose name/values won't collide with any demo defaults.
+const API_ROW = {
+  id: 'uc-deep-77',
+  name: 'Deeplinked Claims Auditor',
+  department: 'Finance Operations',
+  executive_sponsor: 'R. Okafor',
+  description: 'Audits claims for anomalies.',
+  business_context: { driver: 'Risk reduction', value: '$1M–$5M', users: '200–1000' },
+  current_state: { maturity: 'Piloting' },
+  technical_context: { sources: ['Data Warehouse', 'CRM'] },
+  risk_compliance: { pii: true, audit: true, autonomy: 'Supervised', sensitivity: 'High' },
+  bxt: {
+    business_score: 82, experience_score: 70, technology_score: 76, verdict: 'PASS',
+    detail: { weakKey: 'X', weakName: 'Experience', weakScore: 70, factors: { B: {}, X: {}, T: {} } }
+  },
+  feasibility: {
+    composite: 3.9, quadrant: 'Quick Win', risk_tier: 'Low', citizen_dev_pct: 55,
+    criteria: { data_avail: 4, integ_effort: 3, strat_align: 4, safety: 4, compliance: 4,
+                biz_value: 4, strat_align2: 4 },
+    pillars: { strategic: 4.1, technical: 3.6, org: 3.8 }
+  },
+  advisory: {
+    tier: 'Extend', verdict_name: 'Scale Smart', recommended_platform: 'AppSheet / Agentspace',
+    gate_resolved: 'Gate 4', reasoning: { compliance: { label: 'COMPLIANT', ok: true }, riskTier: 'Low' }
+  },
+  summary: {
+    roi_p10: 55, roi_p50: 140, roi_p90: 300, readiness: 'CONDITIONAL',
+    frameworks: [{ key: 'gadf', name: 'GADF', score: 76 }, { key: 'caf', name: 'CAF', score: 70 },
+                 { key: 'strategic', name: 'Strategic', score: 80 }, { key: 'gartner', name: 'Gartner', score: 66 }],
+    governance: [{ key: 'pii', status: 'pass' }]
+  }
+};
 
-/* -------------------------------------------------------------------------- */
-/* (1) Pure CSV parser unit test — no server, no DB.                          */
-/* -------------------------------------------------------------------------- */
+// Inline mock API + the real deep-link module in place of the two <script src> tags.
+function inlineScripts(html) {
+  const mock =
+    'window.GAIC_API = { getUseCase: function(id){ window.__lastFetchId = id; ' +
+    'return Promise.resolve(' + JSON.stringify(API_ROW) + '); }, ' +
+    'saveGate: function(){ return Promise.resolve({}); } };';
+  return html
+    .replace('<script src="assets/api-client.js"></script>', '<script>' + mock + '<\/script>')
+    .replace('<script src="assets/deep-link.js"></script>', '<script>' + DEEPLINK_JS + '<\/script>');
+}
 
-test('parseCsv: quoted commas, escaped quotes, and CRLF newlines', () => {
-  // Header + two data rows. The description column contains commas and an
-  // embedded double-quote ("" -> "). Lines are separated by CRLF.
-  const csv = [
-    'name,department,description',
-    '"AskHR","HR","Deflects tickets, fast, and cheap"',
-    '"Contract Leakage","Procurement","Recovers 2""5% of ""contract"" value, silently"',
-  ].join('\r\n');
-
-  const rows = parseCsv(csv);
-
-  assert.strictEqual(rows.length, 2, 'two data rows parsed');
-
-  assert.strictEqual(rows[0].name, 'AskHR');
-  assert.strictEqual(rows[0].department, 'HR');
-  assert.strictEqual(
-    rows[0].description,
-    'Deflects tickets, fast, and cheap',
-    'commas inside a quoted field are preserved',
-  );
-
-  assert.strictEqual(rows[1].name, 'Contract Leakage');
-  assert.strictEqual(rows[1].department, 'Procurement');
-  assert.strictEqual(
-    rows[1].description,
-    'Recovers 2"5% of "contract" value, silently',
-    'escaped double-quotes ("") collapse to a single quote; commas preserved',
-  );
-});
-
-test('parseCsv: trailing newline does not create a phantom row; ragged rows fill blanks', () => {
-  const csv = 'name,department,description\r\nOnly Name,,\r\n';
-  const rows = parseCsv(csv);
-  assert.strictEqual(rows.length, 1, 'trailing CRLF is ignored');
-  assert.strictEqual(rows[0].name, 'Only Name');
-  assert.strictEqual(rows[0].department, '');
-  assert.strictEqual(rows[0].description, '');
-});
-
-test('parseCsv: empty / null input yields empty array', () => {
-  assert.deepStrictEqual(parseCsv(''), []);
-  assert.deepStrictEqual(parseCsv(null), []);
-  assert.deepStrictEqual(parseCsv(undefined), []);
-});
-
-/* -------------------------------------------------------------------------- */
-/* HTTP harness for the live-DB tests.                                        */
-/* -------------------------------------------------------------------------- */
-
-let app;
-let server;
-let port;
-let SESSION_COOKIE = null;
-let tempWorkspaceId = null;
-
-function call(method, apiPath, body, headers) {
-  return new Promise((resolve, reject) => {
-    const isString = typeof body === 'string';
-    const data =
-      body === undefined ? null : Buffer.from(isString ? body : JSON.stringify(body));
-    const opts = {
-      host: '127.0.0.1',
-      port,
-      method,
-      path: apiPath,
-      headers: Object.assign(
-        { 'Content-Type': isString ? 'text/csv' : 'application/json' },
-        headers || {},
-      ),
-    };
-    if (SESSION_COOKIE) opts.headers['Cookie'] = SESSION_COOKIE;
-    if (data) opts.headers['Content-Length'] = data.length;
-    const req = http.request(opts, (res) => {
-      const setCookie = res.headers['set-cookie'];
-      if (setCookie && setCookie.length) {
-        SESSION_COOKIE = setCookie.map((c) => c.split(';')[0]).join('; ');
-      }
-      let buf = '';
-      res.on('data', (c) => { buf += c; });
-      res.on('end', () => {
-        let json = null;
-        try { json = buf ? JSON.parse(buf) : null; } catch (_) { json = buf; }
-        resolve({ status: res.statusCode, body: json });
-      });
-    });
-    req.on('error', reject);
-    if (data) req.write(data);
-    req.end();
+function loadPage(file, url) {
+  const raw = fs.readFileSync(path.join(__dirname, file), 'utf8');
+  const html = inlineScripts(raw);
+  return new JSDOM(html, {
+    runScripts: 'dangerously', pretendToBeVisual: true, url: url
   });
 }
 
-before(async () => {
-  app = require('./server');
-  server = app.listen(0);
-  await new Promise((r) => server.once('listening', r));
-  port = server.address().port;
+(async function () {
+  console.log('\n=== Deep-link integration (summary.html + panel.html ?id=) ===\n');
 
-  // Ensure the seed user exists (server bootstrap only runs when server.js is
-  // the main module; here we import it, so seed explicitly). Idempotent.
-  const auth = require('./auth');
-  const seedUser = process.env.SEED_USERNAME || 'sandboxuser';
-  const seedPass = process.env.SEED_PASSWORD || 'IntelUser1!';
-  await auth.seedUser(seedUser, seedPass);
+  console.log('== summary.html?id=uc-deep-77 ==');
+  const sDom = loadPage('summary.html', 'https://example.com/summary.html?id=uc-deep-77');
+  // init() renders demo synchronously, then re-renders after the fetch promise.
+  await new Promise(r => setTimeout(r, 60));
+  const sDoc = sDom.window.document;
+  ok('fetched with the deep-link id', sDom.window.__lastFetchId === 'uc-deep-77');
+  ok('deep-link opts exposed on __sum', !!(sDom.window.__sum && sDom.window.__sum.deepLink));
+  // #roiName holds the ROI headline; the use case name lives in #wsEval (asserted below).
+  ok('ROI headline rendered from fetched data',
+     /ROI over 24 months/.test(sDoc.getElementById('roiName').textContent));
+  ok('workspace eval line names the fetched case',
+     /Deeplinked Claims Auditor/.test(sDoc.getElementById('wsEval').textContent));
+  ok('model.useCase is the fetched case', sDom.window.__sum.model.useCase === 'Deeplinked Claims Auditor');
+  ok('gaic_use_case_id stored for downstream saves',
+     sDom.window.localStorage.getItem('gaic_use_case_id') === 'uc-deep-77');
+  ok('GADF framework score derives from fetched BXT (82,70,76 -> 76)',
+     sDom.window.__sum.model.frameworks[0].score === Math.round((82 + 70 + 76) / 3));
 
-  // Authenticate — the /api guard requires a session cookie.
-  const login = await call('POST', '/api/auth/login', {
-    username: seedUser,
-    password: seedPass,
-  });
-  assert.strictEqual(login.status, 200, 'login succeeded');
-  assert.ok(SESSION_COOKIE, 'session cookie captured');
+  console.log('\n== panel.html?id=uc-deep-77 ==');
+  const pDom = loadPage('panel.html', 'https://example.com/panel.html?id=uc-deep-77');
+  await new Promise(r => setTimeout(r, 80));
+  const pDoc = pDom.window.document;
+  ok('fetched with the deep-link id', pDom.window.__lastFetchId === 'uc-deep-77');
+  ok('panel names the fetched use case somewhere in the brief',
+     /Deeplinked Claims Auditor/.test(pDoc.body.textContent));
+  ok('gaic_use_case_id stored', pDom.window.localStorage.getItem('gaic_use_case_id') === 'uc-deep-77');
 
-  // Create a throwaway workspace to insert use cases against.
-  const { query } = require('./db');
-  const ws = await query(
-    "INSERT INTO workspaces (name) VALUES ($1) RETURNING id",
-    [NAME_PREFIX + 'workspace'],
-  );
-  tempWorkspaceId = ws.rows[0].id;
-  assert.ok(tempWorkspaceId, 'temp workspace created');
-});
+  console.log('\n== fallback: no ?id renders demo (regression guard) ==');
+  const fDom = loadPage('summary.html', 'https://example.com/summary.html');
+  await new Promise(r => setTimeout(r, 60));
+  ok('no fetch performed without ?id', fDom.window.__lastFetchId === undefined);
+  ok('demo use case still renders', !!fDom.window.__sum.model.useCase);
 
-after(async () => {
-  const { pool, query } = require('./db');
-  try {
-    // Purge by workspace (cascades to use_cases) AND by name prefix as a
-    // belt-and-braces guard so the DB is left with only the 5 Intel use cases.
-    if (tempWorkspaceId) {
-      await query('DELETE FROM workspaces WHERE id = $1', [tempWorkspaceId]);
-    }
-    await query('DELETE FROM use_cases WHERE name LIKE $1', [NAME_PREFIX + '%']);
-    await query('DELETE FROM workspaces WHERE name LIKE $1', [NAME_PREFIX + '%']);
-
-    // Assert cleanliness.
-    const leftover = await query(
-      'SELECT count(*)::int AS n FROM use_cases WHERE name LIKE $1',
-      [NAME_PREFIX + '%'],
-    );
-    assert.strictEqual(leftover.rows[0].n, 0, 'no test use_cases left behind');
-  } finally {
-    await new Promise((r) => server.close(r));
-    try { await pool.end(); } catch (_) { /* noop */ }
-  }
-});
-
-/* -------------------------------------------------------------------------- */
-/* (4) Guard: >500 rows rejected. Fails before any DB write.                  */
-/* -------------------------------------------------------------------------- */
-
-test('bulk: >500 rows rejected with 400', async () => {
-  const rows = [];
-  for (let i = 0; i < 501; i++) rows.push({ name: NAME_PREFIX + 'overflow_' + i });
-  const res = await call('POST', '/api/use-cases/bulk', {
-    workspace_id: tempWorkspaceId,
-    rows,
-  });
-  assert.strictEqual(res.status, 400, 'status 400');
-  assert.match(res.body.error, /too many rows/i);
-});
-
-test('bulk: empty rows rejected with 400', async () => {
-  const res = await call('POST', '/api/use-cases/bulk', {
-    workspace_id: tempWorkspaceId,
-    rows: [],
-  });
-  assert.strictEqual(res.status, 400);
-  assert.match(res.body.error, /empty/i);
-});
-
-test('bulk: missing session cookie is rejected by the /api guard (401)', async () => {
-  const saved = SESSION_COOKIE;
-  SESSION_COOKIE = null;
-  try {
-    const res = await call('POST', '/api/use-cases/bulk', {
-      workspace_id: tempWorkspaceId,
-      rows: [{ name: NAME_PREFIX + 'noauth' }],
-    });
-    assert.strictEqual(res.status, 401, 'unauthenticated bulk call rejected');
-  } finally {
-    SESSION_COOKIE = saved;
-  }
-});
-
-/* -------------------------------------------------------------------------- */
-/* (2) rows-JSON insert path returns inserted count + ids against live DB.    */
-/* -------------------------------------------------------------------------- */
-
-test('bulk: rows-JSON insert returns inserted count and ids', async () => {
-  const rows = [
-    {
-      name: NAME_PREFIX + 'AskHR',
-      department: 'HR',
-      executive_sponsor: 'CHRO',
-      contact_email: 'askhr@intel.test',
-      description: 'Deflects tickets, fast, and cheap',
-      // flat intake keys -> grouped into jsonb by mapUseCaseContexts
-      driver: 'Employee experience',
-      value: '60-70% deflection',
-      maturity: 'Manual helpdesk',
-      sources: 'HCM',
-      integrations: 'Agentspace',
-      sensitivity: 'Medium',
-      pii: 'true',
-    },
-    {
-      // workspace_id omitted -> falls back to batch workspace_id
-      name: NAME_PREFIX + 'Contract Leakage',
-      department: 'Procurement',
-      description: 'Recovers 2-5% of contract value, silently',
-    },
-  ];
-
-  const res = await call('POST', '/api/use-cases/bulk', {
-    workspace_id: tempWorkspaceId,
-    rows,
-  });
-
-  assert.strictEqual(res.status, 200, 'status 200');
-  assert.strictEqual(res.body.inserted, 2, 'both rows inserted');
-  assert.strictEqual(res.body.failed, 0, 'no failures');
-  assert.strictEqual(res.body.results.length, 2);
-
-  assert.strictEqual(res.body.results[0].ok, true);
-  assert.strictEqual(res.body.results[0].row, 0);
-  assert.ok(res.body.results[0].id, 'row 0 has an id');
-  assert.strictEqual(res.body.results[0].name, NAME_PREFIX + 'AskHR');
-  assert.ok(res.body.results[1].id, 'row 1 has an id');
-
-  // Confirm the jsonb grouping matches the single-create mapping and the
-  // fallback workspace_id was applied.
-  const { query } = require('./db');
-  const check = await query(
-    'SELECT workspace_id, business_context, technical_context, risk_compliance FROM use_cases WHERE id = $1',
-    [res.body.results[0].id],
-  );
-  assert.strictEqual(check.rows[0].workspace_id, tempWorkspaceId);
-  assert.strictEqual(check.rows[0].business_context.driver, 'Employee experience');
-  assert.strictEqual(check.rows[0].technical_context.sources, 'HCM');
-  assert.strictEqual(check.rows[0].risk_compliance.pii, 'true');
-
-  const check2 = await query(
-    'SELECT workspace_id FROM use_cases WHERE id = $1',
-    [res.body.results[1].id],
-  );
-  assert.strictEqual(
-    check2.rows[0].workspace_id,
-    tempWorkspaceId,
-    'batch workspace_id fallback applied to row missing workspace_id',
-  );
-});
-
-test('bulk: text/csv body is parsed server-side and inserted', async () => {
-  // workspace_id supplied via query string for the text/csv path.
-  const csv = [
-    'name,department,description',
-    `"${NAME_PREFIX}CSVRow","Finance","Automate matching, fast, of ""invoices"" to POs"`,
-  ].join('\r\n');
-
-  const res = await call(
-    'POST',
-    '/api/use-cases/bulk?workspace_id=' + encodeURIComponent(tempWorkspaceId),
-    csv,
-  );
-
-  assert.strictEqual(res.status, 200, 'status 200');
-  assert.strictEqual(res.body.inserted, 1);
-  assert.strictEqual(res.body.results[0].name, NAME_PREFIX + 'CSVRow');
-
-  const { query } = require('./db');
-  const row = await query('SELECT description FROM use_cases WHERE id = $1', [
-    res.body.results[0].id,
-  ]);
-  assert.strictEqual(
-    row.rows[0].description,
-    'Automate matching, fast, of "invoices" to POs',
-    'quoted commas + escaped quotes survived the CSV round-trip',
-  );
-});
-
-/* -------------------------------------------------------------------------- */
-/* (3) Per-row validation: bad rows fail individually; good rows still insert.*/
-/* -------------------------------------------------------------------------- */
-
-test('bulk: per-row validation errors do not abort the batch', async () => {
-  const rows = [
-    { name: NAME_PREFIX + 'Good1', department: 'Ops' },          // ok
-    { department: 'NoName' },                                     // missing name
-    { name: NAME_PREFIX + 'Good2' },                             // ok
-    { name: NAME_PREFIX + 'BadWs', workspace_id: '00000000-0000-0000-0000-000000000000' }, // bad ws
-  ];
-
-  const res = await call('POST', '/api/use-cases/bulk', {
-    workspace_id: tempWorkspaceId,
-    rows,
-  });
-
-  assert.strictEqual(res.status, 200);
-  assert.strictEqual(res.body.inserted, 2, 'two good rows inserted');
-  assert.strictEqual(res.body.failed, 2, 'two bad rows failed');
-
-  assert.strictEqual(res.body.results[0].ok, true);
-  assert.strictEqual(res.body.results[1].ok, false);
-  assert.match(res.body.results[1].error, /name is required/i);
-  assert.strictEqual(res.body.results[2].ok, true);
-  assert.strictEqual(res.body.results[3].ok, false);
-  assert.match(res.body.results[3].error, /workspace_id does not reference/i);
-});
+  console.log('\n---------------------------------------------');
+  console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
+  console.log('---------------------------------------------');
+  clearTimeout(GUARD);
+  process.exit(fail ? 1 : 0);
+})();

@@ -1,223 +1,194 @@
-/* DOM verification test for advisory.html — run with: node advisory.test.js */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
+/* ==========================================================================
+ * ai-service.js — Gemini integration for the Executive Review Panel + AI Assist
+ *
+ * Uses the Gemini REST API via Node's built-in https (no SDK dependency, so it
+ * deploys cleanly on Railway). Reads the key from process.env.GOOGLE_API_KEY.
+ *
+ * If no key is present, or a call fails, callers fall back to the scripted
+ * content already in the front-end — the feature degrades gracefully and never
+ * breaks the page.
+ * ========================================================================== */
+'use strict';
 
-const html = fs.readFileSync(path.join(__dirname, 'advisory.html'), 'utf8');
+const https = require('https');
 
-let pass = 0, fail = 0;
-function ok(name, cond){ if(cond){ pass++; console.log('  \u2713 '+name); } else { fail++; console.log('  \u2717 '+name); } }
-function click(w, el){ el.dispatchEvent(new w.MouseEvent('click', {bubbles:true})); }
+const MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+const API_KEY = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '';
 
-// A feasibility payload that pushes AI complexity high → Build tier when combined with rich intake
-const FEAS_STATE = {
-  composite: 3.8,
-  scores: { biz_value:4, strat_align:4, data_value:3, data_avail:3, tech_complex:3, integ_effort:3, ttv:3, safety:4, compliance:4, user_value:3 },
-  quadrant: { name:'Quick Win' },
-  risk: 'Medium',
-  citizenDev: { pct:50, path:'Hybrid team' }
-};
-const BXT_STATE   = { scores: { B:{score:80}, X:{score:70}, T:{score:75} }, verdict:{verdict:'PASS'} };
-const INTAKE_STATE = {
-  name: 'Automated invoice reconciliation', sponsor:'CFO', value:'>$5M', users:'>1000',
-  align:'Core strategic priority', driver:'Cost Reduction', maturity:'Partially automated',
-  sources:['Structured DB','Documents/PDFs','Chat/Tickets','Audio/Video'], integrations:['Google Workspace','BigQuery'],
-  realtime:true, autonomy:'Autonomous', sensitivity:'Medium', pii:false, audit:true
-};
+function isEnabled() {
+  return Boolean(API_KEY);
+}
 
-function newDom(seedIntake, seedBxt, seedFeas){
-  return new JSDOM(html, {
-    runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/advisory.html',
-    beforeParse(w){
-      if (seedIntake !== undefined) w.localStorage.setItem('gaic_intake', JSON.stringify(seedIntake));
-      if (seedBxt !== undefined) w.localStorage.setItem('gaic_bxt', JSON.stringify(seedBxt));
-      if (seedFeas !== undefined) w.localStorage.setItem('gaic_feasibility', JSON.stringify(seedFeas));
-    }
+/**
+ * Low-level call to Gemini generateContent. Returns the model's text.
+ * Rejects on network / API / parse errors so the caller can fall back.
+ */
+function generate(prompt, { temperature = 0.7, maxOutputTokens = 2048 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!API_KEY) return reject(new Error('GOOGLE_API_KEY not set'));
+
+    const body = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature, maxOutputTokens, responseMimeType: 'application/json' },
+    });
+
+    const options = {
+      hostname: 'generativelanguage.googleapis.com',
+      path: `/v1beta/models/${encodeURIComponent(MODEL)}:generateContent?key=${encodeURIComponent(API_KEY)}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 25000,
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', (c) => { data += c; });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) {
+          return reject(new Error('Gemini HTTP ' + res.statusCode + ': ' + data.slice(0, 300)));
+        }
+        try {
+          const json = JSON.parse(data);
+          const text = json &&
+            json.candidates && json.candidates[0] &&
+            json.candidates[0].content && json.candidates[0].content.parts &&
+            json.candidates[0].content.parts[0] && json.candidates[0].content.parts[0].text;
+          if (!text) return reject(new Error('Gemini: empty response'));
+          resolve(text);
+        } catch (e) { reject(new Error('Gemini parse error: ' + e.message)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(new Error('Gemini request timed out')); });
+    req.write(body);
+    req.end();
   });
 }
 
-const dom = newDom(INTAKE_STATE, BXT_STATE, FEAS_STATE);
-const { window } = dom;
-const { document } = window;
+/** Safely extract the first JSON object/array from a model response string. */
+function parseJsonLoose(text) {
+  try { return JSON.parse(text); } catch (e) { /* fall through */ }
+  const start = text.search(/[[{]/);
+  const end = Math.max(text.lastIndexOf(']'), text.lastIndexOf('}'));
+  if (start !== -1 && end > start) {
+    return JSON.parse(text.slice(start, end + 1));
+  }
+  throw new Error('No JSON found in model output');
+}
 
-setTimeout(() => {
-  const api = window.__adv;
+/* --------------------------------------------------------------------------
+ * Executive Review Panel deliberation
+ * ------------------------------------------------------------------------ */
 
-  console.log('\n== 1. Header / theme toggle present ==');
-  ok('theme toggle button exists', !!document.getElementById('themeToggle'));
-  ok('Google wordmark present', /Google/.test(document.querySelector('.gc-header__wordmark').textContent));
-  ok('Enterprise Advantage tag present', /Enterprise Advantage/.test(document.querySelector('.gc-header__product').textContent));
-  ok('+ New Use Case button present', /New Use Case/.test(document.body.innerHTML));
-  ok('WORKSPACE select present', /WORKSPACE/.test(document.body.innerHTML));
-  click(window, document.getElementById('themeToggle'));
-  ok('theme toggle sets data-theme=light', document.documentElement.getAttribute('data-theme') === 'light');
-  ok('theme persisted to gaic_theme', window.localStorage.getItem('gaic_theme') === 'light');
+function buildDeliberationPrompt(ctx) {
+  const c = ctx || {};
+  return [
+    'You are simulating an enterprise AI Investment Committee reviewing a proposed AI use case.',
+    'Four personas deliberate over exactly 7 turns and reach a committee verdict.',
+    '',
+    'PERSONAS (use these exact codes):',
+    '  BS = Business Sponsor (Executive Sponsor) — champions ROI and business value',
+    '  RA = Risk & Assurance Officer (Chief Risk Officer) — compliance, data residency, regulatory risk',
+    '  CI = Chief Information Officer (CIO) — architecture, integration, technical readiness',
+    '  CC = Committee Chair (IC Moderator) — synthesises and issues the final verdict',
+    '',
+    'TURN ORDER (exactly 7 turns): BS, RA, CI, BS, RA, CI, CC.',
+    'The CC turn (last) must state the final committee decision and any binding condition.',
+    '',
+    'IMPORTANT CONTEXT — this is a GOOGLE CLOUD platform. Reference ONLY Google technologies',
+    '(Vertex AI, Gemini, Google Cloud, Assured Workloads, BigQuery, Agentspace, AppSheet).',
+    'Do NOT mention Azure, AWS, Microsoft, OpenAI, or any non-Google vendor.',
+    '',
+    'USE CASE UNDER REVIEW:',
+    '  Name: ' + (c.name || 'Untitled AI use case'),
+    '  Department: ' + (c.department || 'n/a'),
+    '  Description: ' + (c.description || 'n/a'),
+    '  Feasibility composite (0-5): ' + (c.composite != null ? c.composite : 'n/a'),
+    '  Quadrant: ' + (c.quadrant || 'n/a'),
+    '  Advisory tier: ' + (c.tier || 'n/a') + ' (recommended platform: ' + (c.platform || 'n/a') + ')',
+    '  ROI P50: ' + (c.roiP50 != null ? c.roiP50 + '%' : 'n/a') + ' over 24 months',
+    '  Governance status: ' + (c.governance || 'n/a'),
+    '  Prior verdict signal (from readiness): ' + (c.verdictHint || 'CONDITIONAL GO'),
+    '',
+    'Return ONLY valid JSON (no markdown) with this exact shape:',
+    '{',
+    '  "deliberation": [ { "p": "BS", "say": "<one turn, 2-4 sentences, may use <b>bold</b> for key figures>" }, ... 7 items ... ],',
+    '  "stances": [',
+    '    { "persona": "BS", "label": "Business Sponsor", "value": "Support|Conditional|Oppose" },',
+    '    { "persona": "RA", "label": "Risk & Assurance", "value": "Support|Conditional|Oppose" },',
+    '    { "persona": "CI", "label": "CIO", "value": "Support|Conditional|Oppose" }',
+    '  ],',
+    '  "verdict": "GO|CONDITIONAL GO|NO-GO",',
+    '  "condition": "<the single binding condition if CONDITIONAL GO, else empty string>"',
+    '}',
+  ].join('\n');
+}
 
-  console.log('\n== 2. Six-gate stepper: Gates 1-3 done, Gate 4 active ==');
-  const gates = document.querySelectorAll('.gates .gate');
-  ok('exactly 6 gates', gates.length === 6);
-  ok('Gate 1 (Intake) is-done', gates[0].classList.contains('is-done'));
-  ok('Gate 1 has checkmark svg', !!gates[0].querySelector('svg'));
-  ok('Gate 2 (BXT Gate) is-done', gates[1].classList.contains('is-done'));
-  ok('Gate 2 has checkmark svg', !!gates[1].querySelector('svg'));
-  ok('Gate 3 (Feasibility Scoring) is-done', gates[2].classList.contains('is-done'));
-  ok('Gate 3 has checkmark svg', !!gates[2].querySelector('svg'));
-  ok('Gate 4 (Platform Advisory) is-active', gates[3].classList.contains('is-active'));
-  ok('Gates 5-6 upcoming (not active/done)',
-     [4,5].every(i => !gates[i].classList.contains('is-active') && !gates[i].classList.contains('is-done')));
-  const labels = Array.from(gates).map(g => g.querySelector('.gate__label').textContent.trim());
-  ok('gate labels in correct order',
-     JSON.stringify(labels) === JSON.stringify(['Intake','BXT Gate','Feasibility Scoring','Platform Advisory','Evaluation Summary','Executive Review Panel']));
+/**
+ * Generate a live deliberation from Gemini. Resolves to the panel-shaped object,
+ * or rejects (caller falls back to scripted content).
+ */
+async function deliberate(ctx) {
+  const raw = await generate(buildDeliberationPrompt(ctx), { temperature: 0.8, maxOutputTokens: 2048 });
+  const obj = parseJsonLoose(raw);
 
-  console.log('\n== 3. Gate banner references GADF (and NOT MAIDF) ==');
-  ok('banner title "Platform Advisory"', /Platform Advisory/.test(document.querySelector('.banner__title').textContent));
-  ok('banner names Google AI Decision Framework (GADF)', /Google AI Decision Framework \(GADF\)/.test(document.querySelector('.banner__desc').innerHTML));
-  ok('banner mentions 5 dimensions', /5 dimensions/.test(document.querySelector('.banner__desc').textContent));
-  ok('banner has a "Why:" bold', /Why:/.test(document.querySelector('.banner__desc').innerHTML));
-  ok('banner does NOT reference MAIDF', !/MAIDF/.test(document.body.innerHTML));
-  ok('Re-run button present', !!document.getElementById('btnRerun'));
+  // Validate the shape so we never hand the UI something broken.
+  if (!obj || !Array.isArray(obj.deliberation) || obj.deliberation.length < 4) {
+    throw new Error('Gemini deliberation: invalid shape');
+  }
+  const ok = { BS: 1, RA: 1, CI: 1, CC: 1 };
+  obj.deliberation = obj.deliberation
+    .filter((t) => t && ok[t.p] && typeof t.say === 'string')
+    .slice(0, 7);
+  if (!obj.deliberation.length) throw new Error('Gemini deliberation: no valid turns');
+  if (!obj.verdict) obj.verdict = 'CONDITIONAL GO';
 
-  console.log('\n== 4. resolveTier — sequential gate thresholds ==');
-  // ADOPT: high coverage, low custom, low complexity
-  const adopt = api.resolveTier({ workspace_coverage:5, custom_workflow:1, ai_complexity:1 });
-  ok('Adopt tier', adopt.tier === 'Adopt');
-  ok('Adopt verdict name "Start Simple"', adopt.verdictName === 'Start Simple');
-  ok('Adopt platform "Gemini for Google Workspace"', adopt.platform === 'Gemini for Google Workspace');
-  ok('Adopt gateId gate1_adopt', adopt.gateId === 'gate1_adopt');
-  // EXTEND: custom workflow, moderate complexity
-  const extend = api.resolveTier({ workspace_coverage:2, custom_workflow:4, ai_complexity:3 });
-  ok('Extend tier', extend.tier === 'Extend');
-  ok('Extend verdict name "Scale Smart"', extend.verdictName === 'Scale Smart');
-  ok('Extend platform "AppSheet / Agentspace"', extend.platform === 'AppSheet / Agentspace');
-  ok('Extend gateId gate2_lowcode', extend.gateId === 'gate2_lowcode');
-  // BUILD: high AI complexity
-  const build = api.resolveTier({ workspace_coverage:2, custom_workflow:4, ai_complexity:5 });
-  ok('Build tier', build.tier === 'Build');
-  ok('Build verdict name "Build Custom"', build.verdictName === 'Build Custom');
-  ok('Build platform "Vertex AI Agent Builder"', build.platform === 'Vertex AI Agent Builder');
-  ok('Build gateId gate3_build', build.gateId === 'gate3_build');
-  // boundary: high complexity beats a would-be adopt
-  ok('high AI complexity forces Build even w/ high coverage', api.resolveTier({workspace_coverage:5, custom_workflow:1, ai_complexity:4}).tier === 'Build');
-  // boundary: coverage=4 custom=2 complexity=2 → Adopt (edge of gate 1)
-  ok('edge coverage=4,custom=2,complexity=2 → Adopt', api.resolveTier({workspace_coverage:4, custom_workflow:2, ai_complexity:2}).tier === 'Adopt');
-  // just past edge: custom=3 → Extend
-  ok('custom=3 blocks Adopt → Extend', api.resolveTier({workspace_coverage:4, custom_workflow:3, ai_complexity:2}).tier === 'Extend');
-  // determinism
-  ok('resolveTier deterministic', api.resolveTier({workspace_coverage:2,custom_workflow:4,ai_complexity:3}).tier === api.resolveTier({workspace_coverage:2,custom_workflow:4,ai_complexity:3}).tier);
+  // Normalise stances to the panel's shape: { persona, label, value, klass }.
+  var STANCE_CLASS = { Support: 'stance--support', Conditional: 'stance--conditional', Oppose: 'stance--oppose' };
+  var LABELS = { BS: 'Business Sponsor', RA: 'Risk & Assurance', CI: 'CIO' };
+  if (!Array.isArray(obj.stances) || !obj.stances.length) {
+    obj.stances = ['BS', 'RA', 'CI'].map(function (p) {
+      return { persona: p, label: LABELS[p], value: 'Conditional', klass: 'stance--conditional' };
+    });
+  } else {
+    obj.stances = obj.stances.map(function (s) {
+      var value = (s.value || 'Conditional');
+      var persona = s.persona || '';
+      return {
+        persona: persona,
+        label: s.label || LABELS[persona] || persona,
+        value: value,
+        klass: STANCE_CLASS[value] || 'stance--conditional',
+      };
+    });
+  }
+  if (typeof obj.condition !== 'string') obj.condition = '';
+  obj.source = 'gemini';
+  obj.model = MODEL;
+  return obj;
+}
 
-  console.log('\n== 5. Compliance chip derives from risk tier ==');
-  ok('High risk → REVIEW NEEDED', api.compliance('High').label === 'REVIEW NEEDED' && api.compliance('High').ok === false);
-  ok('Medium risk → COMPLIANT', api.compliance('Medium').label === 'COMPLIANT' && api.compliance('Medium').ok === true);
-  ok('Low risk → COMPLIANT', api.compliance('Low').label === 'COMPLIANT' && api.compliance('Low').ok === true);
+/* --------------------------------------------------------------------------
+ * AI Assist — short contextual hint for a given gate/tab
+ * ------------------------------------------------------------------------ */
 
-  console.log('\n== 6. Verdict hero band rendered ==');
-  ok('verdict name rendered', document.getElementById('vName').textContent.trim().length > 2);
-  ok('verdict tier rendered', ['Adopt','Extend','Build'].indexOf(document.getElementById('vTier').textContent.trim()) > -1);
-  ok('compliance chip rendered', /(COMPLIANT|REVIEW NEEDED)/.test(document.getElementById('vCompliance').textContent));
-  ok('platform name rendered', document.getElementById('vPlatform').textContent.trim().length > 2);
-  ok('platform icon svg rendered', !!document.getElementById('vPlatIcon').querySelector('svg'));
-  ok('gate-resolved line references gate id', /gate[123]_/.test(document.getElementById('vGateResolved').textContent));
-  ok('gate sub-label rendered', /Gate [123]/.test(document.getElementById('vGateLabel').textContent));
+async function assist(ctx) {
+  const c = ctx || {};
+  const prompt = [
+    'You are an AI advisor embedded in a Google Cloud AI use-case evaluation platform.',
+    'Give ONE concise, practical hint (max 2 sentences) for the current step.',
+    'Reference only Google technologies (Vertex AI, Gemini, Agentspace, AppSheet, BigQuery). No other vendors.',
+    '',
+    'Current gate/step: ' + (c.step || 'intake'),
+    'Use case: ' + (c.name || 'n/a') + ' | Department: ' + (c.department || 'n/a'),
+    'Notes: ' + (c.notes || 'n/a'),
+    '',
+    'Return ONLY valid JSON: { "hint": "<your hint>" }',
+  ].join('\n');
+  const raw = await generate(prompt, { temperature: 0.6, maxOutputTokens: 256 });
+  const obj = parseJsonLoose(raw);
+  if (!obj || typeof obj.hint !== 'string') throw new Error('assist: invalid shape');
+  return { hint: obj.hint, source: 'gemini', model: MODEL };
+}
 
-  console.log('\n== 7. Three reasoning cards with expanders ==');
-  const cards = document.querySelectorAll('.rcard');
-  ok('exactly 3 reasoning cards', cards.length === 3);
-  ok('api exposes 3 REASON_CARDS', api.REASON_CARDS.length === 3);
-  const cardTitles = Array.from(cards).map(c => c.querySelector('.rcard__title').textContent.trim());
-  ok('card titles: Workspace Coverage / Custom Workflow / AI Complexity',
-     JSON.stringify(cardTitles) === JSON.stringify(['Workspace Coverage','Custom Workflow','AI Complexity']));
-  ok('each card has a question', Array.from(cards).every(c => c.querySelector('.rcard__q').textContent.trim().length > 5));
-  ok('each card has an answer', Array.from(cards).every(c => c.querySelector('.rcard__a').textContent.trim().length > 10));
-  ok('each card has a tier chip', Array.from(cards).every(c => c.querySelector('.rcard__tier')));
-  ok('each card has "See rationale" expander', Array.from(cards).every(c => /See rationale/.test(c.querySelector('.rcard__exp').textContent)));
-  // expander toggles
-  const c0 = cards[0];
-  const wasOpen = c0.classList.contains('is-open');
-  click(window, c0.querySelector('.rcard__exp'));
-  ok('clicking expander toggles is-open', c0.classList.contains('is-open') !== wasOpen);
-
-  console.log('\n== 8. Platform journey: 3 phases ==');
-  const phases = document.querySelectorAll('.phase');
-  ok('exactly 3 journey phases', phases.length === 3);
-  ok('api exposes 3 PHASES', api.PHASES.length === 3);
-  const phasePlats = Array.from(phases).map(p => p.querySelector('.phase__plat').textContent.trim());
-  ok('phase platforms map correctly',
-     JSON.stringify(phasePlats) === JSON.stringify(['Gemini for Google Workspace','AppSheet / Agentspace','Vertex AI Agent Builder']));
-  ok('subtitle "Start where you are, scale when ready" present', /Start where you are, scale when ready/.test(document.body.innerHTML));
-  ok('Phase 1 badge "Now" present', /Now/.test(phases[0].querySelector('.phase__badge').textContent));
-  ok('a "Ready to move on when" box present', /Ready to move on when/i.test(document.body.innerHTML));
-  ok('a "Scale trigger" box present', /Scale trigger/i.test(document.body.innerHTML));
-  ok('exactly one phase is-current (matches verdict tier)', document.querySelectorAll('.phase.is-current').length === 1);
-  const currentPhaseTier = document.querySelector('.phase.is-current').getAttribute('data-phase');
-  ok('current phase matches verdict tier', currentPhaseTier === document.getElementById('vTier').textContent.trim());
-  ok('journey arrows between phases (2)', document.querySelectorAll('.journey__arrow').length === 2);
-
-  console.log('\n== 9. Advisor debate renders turns ==');
-  const debate = document.getElementById('debate');
-  const debTurns = document.querySelectorAll('#debateBody .turn');
-  ok('debate renders at least 3 turns', debTurns.length >= 3);
-  ok('debate has a consensus turn', document.querySelectorAll('#debateBody .turn.is-consensus').length === 1);
-  ok('advisors are Google-flavored (Workspace Advocate / Platform Architect / Governance Lead)',
-     /Workspace Advocate/.test(document.body.innerHTML) && /Platform Architect/.test(document.body.innerHTML) && /Governance Lead/.test(document.body.innerHTML));
-  ok('consensus turn references the verdict name', new RegExp(document.getElementById('vName').textContent.trim()).test(document.querySelector('#debateBody .turn.is-consensus').textContent));
-  // collapsible toggles
-  const debOpenBefore = debate.classList.contains('is-open');
-  click(window, document.getElementById('debateHead'));
-  ok('debate head click toggles is-open', debate.classList.contains('is-open') !== debOpenBefore);
-  ok('debateScript returns >= 3 turns for a tier', api.debateScript({tier:'Extend', verdictName:'Scale Smart', platform:'AppSheet / Agentspace'}).length >= 3);
-
-  console.log('\n== 10. deriveDimensions produces 5 dims in 1-5 ==');
-  const dims = api.deriveDimensions(FEAS_STATE, INTAKE_STATE);
-  const dimKeys = ['workspace_coverage','custom_workflow','ai_complexity','data_sensitivity','scale_need'];
-  ok('all 5 GADF dimensions present', dimKeys.every(k => typeof dims[k] === 'number'));
-  ok('all dims within 1-5', dimKeys.every(k => dims[k] >= 1 && dims[k] <= 5));
-
-  console.log('\n== 11. Data flow: reads keys + writes gaic_advisory ==');
-  ok('page references gaic_feasibility key', /gaic_feasibility/.test(html));
-  ok('page references gaic_bxt key', /gaic_bxt/.test(html));
-  ok('page references gaic_intake key', /gaic_intake/.test(html));
-  ok('page references gaic_advisory key', /gaic_advisory/.test(html));
-  ok('loadIntake returns seeded intake (not demo)', api.loadIntake().fromDemo === false);
-  const persisted = JSON.parse(window.localStorage.getItem('gaic_advisory'));
-  ok('gaic_advisory persisted on load', persisted && typeof persisted.tier === 'string');
-  ok('persisted payload has tier/verdictName/platform/dims/compliance',
-     persisted.tier && persisted.verdictName && persisted.platform && persisted.dims && persisted.compliance);
-
-  console.log('\n== 12. Re-run recomputes ==');
-  window.localStorage.removeItem('gaic_advisory');
-  click(window, document.getElementById('btnRerun'));
-  ok('Re-run re-writes gaic_advisory', !!window.localStorage.getItem('gaic_advisory'));
-  ok('Re-run keeps a valid tier', ['Adopt','Extend','Build'].indexOf(JSON.parse(window.localStorage.getItem('gaic_advisory')).tier) > -1);
-
-  console.log('\n== 13. Footer nav: Back → feasibility, Continue → summary ==');
-  ok('Back button targets feasibility.html', document.getElementById('btnBack').getAttribute('href') === 'feasibility.html');
-  ok('Continue button targets summary.html', document.getElementById('btnContinue').getAttribute('href') === 'summary.html');
-  ok('Continue label mentions Evaluation Summary', /Evaluation Summary/.test(document.getElementById('btnContinue').textContent));
-
-  console.log('\n== 14. Graceful demo fallback (no localStorage) → Extend / Scale Smart ==');
-  const domD = newDom(undefined, undefined, undefined);
-  setTimeout(() => {
-    const apiD = domD.window.__adv;
-    const dD = domD.window.document;
-    ok('loadIntake falls back to demo', apiD.loadIntake().fromDemo === true);
-    ok('loadBxt falls back (no bxt state)', apiD.loadBxt().fromDemo === true);
-    ok('loadFeasibility falls back (no feas state)', apiD.loadFeasibility().fromDemo === true);
-    ok('demo eval line shows Customer Sentiment Analysis', /Customer Sentiment Analysis/.test(dD.getElementById('wsEval').textContent));
-    ok('demo resolves to Extend tier', apiD.result.tier === 'Extend');
-    ok('demo verdict name "Scale Smart"', apiD.result.verdictName === 'Scale Smart');
-    ok('demo platform "AppSheet / Agentspace"', apiD.result.platform === 'AppSheet / Agentspace');
-    ok('demo writes gaic_advisory', !!domD.window.localStorage.getItem('gaic_advisory'));
-
-    console.log('\n== 15. Zero Microsoft strings; Google framing present ==');
-    ok('contains Google framing (Gemini / AppSheet / Agentspace / Vertex AI / Workspace)',
-       /(Gemini for Google Workspace|AppSheet \/ Agentspace|Vertex AI Agent Builder)/.test(html));
-    const microsoft = ['MAIDF','Copilot','Power Platform','Azure','M365','watsonx','Agentforce','Salesforce','Microsoft','Dataverse','Dynamics','Blob','CAF:'];
-    microsoft.forEach(m => ok('NO Microsoft string "'+m+'"',
-      !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
-
-    console.log('\n---------------------------------------------');
-    console.log('  RESULT: '+pass+' passed, '+fail+' failed');
-    console.log('---------------------------------------------');
-    process.exit(fail ? 1 : 0);
-  }, 60);
-}, 60);
+module.exports = { isEnabled, deliberate, assist, generate, MODEL };

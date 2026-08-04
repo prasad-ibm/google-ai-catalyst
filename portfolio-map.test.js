@@ -1,484 +1,123 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pipeline Board — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Shared Google design system (external link kept for standalone deploys) -->
-<link rel="stylesheet" href="assets/theme.css">
-<style>
-/* ==========================================================================
-   Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
-   ========================================================================== */
-:root {
-  --g-blue:#4285F4; --g-blue-d:#1a73e8; --g-blue-l:#8ab4f8;
-  --g-red:#EA4335; --g-red-d:#c5221f; --g-yellow:#FBBC04; --g-yellow-d:#f9ab00;
-  --g-green:#34A853; --g-green-d:#188038; --g-purple:#a142f4; --g-teal:#12b5cb; --g-gray:#9aa0a6;
-  --bg:#0d1117; --bg-hero:#0a0f1e; --surface:#161b22; --surface-2:#1c2230; --surface-3:#232a3a;
-  --border:#2a2f3a; --border-soft:rgba(232,234,237,0.08);
-  --text:#e8eaed; --text-muted:rgba(232,234,237,0.65); --text-dim:rgba(232,234,237,0.45);
-  --font-sans:"Google Sans","Product Sans",Roboto,Inter,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  --radius:6px; --radius-sm:4px; --radius-lg:8px;
-  --shadow-1:0 1px 2px rgba(0,0,0,0.4),0 0 0 1px var(--border);
-  --shadow-2:0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.02) inset;
-  --header-h:48px; --maxw:1280px;
+/**
+ * Portfolio Map (portfolio-map.html) test suite.
+ * Mirrors summary.test.js / advisory.test.js: loads the inline IIFE inside
+ * jsdom, injects test rows via window.__PFMAP_TEST_ROWS so the page renders
+ * without any network, then exercises the pure window.__pfmap API + the DOM.
+ *
+ *   node portfolio-map.test.js      # exit 0 = all green
+ */
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+const HTML_PATH = path.join(__dirname, 'portfolio-map.html');
+const html = fs.readFileSync(HTML_PATH, 'utf8');
+
+let pass = 0, fail = 0;
+function ok(msg, cond) {
+  if (cond) { pass++; console.log('  \u2713 ' + msg); }
+  else { fail++; console.log('  \u2717 ' + msg); }
 }
-* { box-sizing:border-box; }
-html { scroll-behavior:smooth; scroll-padding-top:calc(var(--header-h) + 16px); }
-body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
-h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
-a { color:inherit; text-decoration:none; }
-p { margin:0 0 1rem; }
-.gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
-.gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
-.gc-btn--primary { background:var(--g-blue); color:#fff; }
-.gc-btn--primary:hover { background:var(--g-blue-d); box-shadow:0 2px 10px rgba(66,133,244,.4); }
-.gc-btn--accent { background:transparent; color:var(--g-yellow); border-color:var(--g-yellow); }
-.gc-btn--accent:hover { background:rgba(251,188,4,.12); }
-.gc-btn--ghost { border-color:var(--border); color:var(--text); }
-.gc-btn--ghost:hover { border-color:var(--g-blue-l); color:var(--g-blue-l); }
-.gc-btn--sm { padding:7px 14px; font-size:13px; }
-.gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
-.gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
-.gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
-.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
-.gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
-.gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
-.gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
-.gc-header__brand { display:flex; align-items:center; gap:10px; }
-.gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
-.gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
-.gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
-.gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
-.gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
-.gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
-.gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
-.gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
-.glogo { display:inline-block; vertical-align:middle; }
-</style>
-<style>
-  /* ---------------- Page-specific: Pipeline Board (Kanban) ---------------- */
-  main { padding-top: var(--header-h); }
-  .wrap { max-width: 100%; margin: 0 auto; padding: 22px 32px 64px; }
 
-  /* Breadcrumb */
-  .crumb { margin-bottom: 18px; }
-  .crumb a { color: var(--text-dim); }
-  .crumb a:hover { color: var(--g-blue-l); }
+// Representative portfolio (shape mirrors GET /api/portfolio in server.js).
+const ROWS = [
+  { id: 'uc-1', name: 'Fraud Signal Triage', department: 'Risk & Compliance', stage: 'gate5', quadrant: 'Quick Win',        advisory_tier: 'Extend',   roi_p50: 180, verdict: 'GO' },
+  { id: 'uc-2', name: 'Claims Auto-Summary',  department: 'Risk & Compliance', stage: 'gate4', quadrant: 'Strategic Bet',    advisory_tier: 'Transform', roi_p50: 95,  verdict: 'CONDITIONAL GO' },
+  { id: 'uc-3', name: 'Vendor Doc Extraction', department: 'Procurement',      stage: 'gate3', quadrant: 'Incremental',      advisory_tier: 'Adopt',    roi_p50: 40,  verdict: 'NO-GO' },
+  { id: 'uc-4', name: 'Sales Email Assist',    department: 'Procurement',      stage: 'gate2', quadrant: null,               advisory_tier: null,       roi_p50: null, verdict: null },
+  { id: 'uc-5', name: 'Orphan Case',           department: null,               stage: 'gate1', quadrant: 'Quick Win',        advisory_tier: 'Adopt',    roi_p50: 12,  verdict: 'GO' },
+];
 
-  /* ---- Page title row ---- */
-  .pagehd { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom: 26px; }
-  .pagehd__title { font-size:30px; font-weight:500; letter-spacing:-0.02em; line-height:1.05; margin-bottom:6px; }
-  .pagehd__sub { color:var(--text-muted); font-size:14px; margin:0; }
-  .picker { display:flex; flex-direction:column; gap:6px; }
-  .picker__label { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); }
-  .picker select {
-    font-family:var(--font-sans); font-size:14px; color:var(--text); background:var(--surface);
-    border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 14px; min-width:220px; cursor:pointer;
-    appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
-  }
-  .picker select:hover { border-color:var(--g-blue-l); }
-
-  .loading { color:var(--text-muted); font-family:var(--font-mono); font-size:13px; padding:40px 0; }
-  .hidden { display:none !important; }
-
-  /* ---- Kanban board ---- */
-  .board {
-    display:grid;
-    grid-template-columns:repeat(7, minmax(220px, 1fr));
-    gap:14px;
-    align-items:start;
-    overflow-x:auto;
-    padding-bottom:8px;
-  }
-  .col {
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
-    display:flex; flex-direction:column; min-height:120px;
-  }
-  .col__head {
-    display:flex; align-items:center; justify-content:space-between; gap:8px;
-    padding:12px 14px; border-bottom:1px solid var(--border);
-    position:sticky; top:var(--header-h); background:var(--surface); border-radius:var(--radius-lg) var(--radius-lg) 0 0; z-index:1;
-  }
-  .col__title { font-family:var(--font-mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); display:flex; align-items:center; gap:8px; }
-  .col__dot { width:8px; height:8px; border-radius:50%; background:var(--g-gray); flex:0 0 auto; }
-  .col__dot.is-intake { background:var(--g-gray); }
-  .col__dot.is-bxt { background:var(--g-purple); }
-  .col__dot.is-feasibility { background:var(--g-teal); }
-  .col__dot.is-advisory { background:var(--g-blue); }
-  .col__dot.is-summary { background:var(--g-blue-l); }
-  .col__dot.is-panel { background:var(--g-yellow); }
-  .col__dot.is-approved { background:var(--g-green); }
-  .col__count { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); border:1px solid var(--border); border-radius:100px; padding:2px 8px; }
-  .col__body { padding:12px; display:flex; flex-direction:column; gap:10px; }
-  .col__empty { color:var(--text-dim); font-family:var(--font-mono); font-size:11px; padding:8px 2px; }
-
-  /* ---- Cards ---- */
-  .card {
-    display:block; background:var(--surface-2); border:1px solid var(--border);
-    border-radius:var(--radius); padding:13px 13px 12px; box-shadow:var(--shadow-1);
-    transition:border-color .15s, transform .1s, box-shadow .15s; color:var(--text);
-    border-left:3px solid var(--border);
-  }
-  .card:hover { border-color:var(--g-blue-l); transform:translateY(-1px); box-shadow:var(--shadow-2); }
-  .card.is-go { border-left-color:var(--g-green); }
-  .card.is-cond { border-left-color:var(--g-yellow); }
-  .card.is-no { border-left-color:var(--g-red); }
-  .card__top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:8px; }
-  .card__name { font-size:14px; font-weight:500; line-height:1.3; }
-  .card__dept { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-bottom:10px; }
-  .card__meta { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
-  .feas { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); }
-  .feas__bar { display:inline-block; width:44px; height:5px; border-radius:100px; background:var(--surface-3); overflow:hidden; }
-  .feas__fill { display:block; height:100%; background:linear-gradient(90deg,var(--g-blue),var(--g-blue-l)); }
-  .tier { font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); }
-  .dim { color:var(--text-dim); }
-
-  /* Verdict chip — color-coded GO green / CONDITIONAL yellow / NO-GO red */
-  .vchip { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:10.5px; font-weight:500; padding:3px 8px; border-radius:100px; border:1px solid; letter-spacing:.02em; white-space:nowrap; }
-  .vchip.is-go { color:#81c995; border-color:rgba(52,168,83,.45); background:rgba(52,168,83,.12); }
-  .vchip.is-cond { color:var(--g-yellow); border-color:rgba(251,188,4,.45); background:rgba(251,188,4,.12); }
-  .vchip.is-no { color:#f28b82; border-color:rgba(234,67,53,.45); background:rgba(234,67,53,.12); }
-  .vchip.is-none { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-
-  .empty { text-align:center; padding:60px 20px; color:var(--text-muted); }
-  .empty__icon { font-size:34px; margin-bottom:12px; }
-  .empty__title { font-size:16px; color:var(--text); margin-bottom:8px; }
-
-  /* Light theme parity with the rest of the app */
-  body.theme-light { --bg:#f6f8fc; --surface:#fff; --surface-2:#f1f3f9; --surface-3:#e6e9f2; --border:#d9dce4; --text:#1f2430; --text-muted:#4b5162; --text-dim:#8a90a0; }
-</style>
-</head>
-<body>
-
-<!-- ============================ HEADER ============================ -->
-<header class="gc-header">
-  <div class="gc-header__brand">
-    <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
-      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
-      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
-      <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
-      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
-    </svg>
-    <span class="gc-header__wordmark">Google <b>AI Catalyst</b></span>
-  </div>
-  <div class="gc-header__divider"></div>
-  <span class="gc-header__product">Enterprise Advantage</span>
-  <div class="gc-header__right">
-    <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
-    <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-    <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
-    </button>
-  </div>
-</header>
-
-<main>
-  <div class="wrap">
-    <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Home</a>&nbsp;&nbsp;/&nbsp;&nbsp;Pipeline Board</div>
-
-    <!-- Page title + workspace picker -->
-    <div class="pagehd">
-      <div>
-        <h1 class="pagehd__title">Pipeline Board</h1>
-        <p class="pagehd__sub">Every use case by evaluation stage — from intake to approved</p>
-      </div>
-      <div class="picker">
-        <span class="picker__label">Workspace</span>
-        <select id="wsPicker" aria-label="Select workspace"></select>
-      </div>
-    </div>
-
-    <!-- Loading / error banner -->
-    <div class="loading" id="loading">Loading pipeline…</div>
-
-    <!-- Board is injected once loaded -->
-    <div id="board" class="board hidden"></div>
-
-    <!-- Empty state -->
-    <div id="empty" class="empty hidden">
-      <div class="empty__icon">📋</div>
-      <div class="empty__title">No use cases yet — create one to populate the pipeline.</div>
-      <p><a href="intake.html">+ Create your first use case</a></p>
-    </div>
-  </div>
-</main>
-
-<script src="assets/api-client.js"></script>
-<script src="assets/auth-ui.js" defer></script>
-<script>
-(function () {
-  "use strict";
-
-  var THEME_KEY = 'gaic_theme';
-
-  // ---------- DOM refs ----------
-  var el = {
-    loading:  document.getElementById('loading'),
-    board:    document.getElementById('board'),
-    empty:    document.getElementById('empty'),
-    wsPicker: document.getElementById('wsPicker'),
-    wsChip:   document.getElementById('wsChip'),
-  };
-
-  // ---------- helpers ----------
-  function esc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
-    });
-  }
-  function num(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-
-  // Verdict normalization -> 'go' | 'cond' | 'no' | null (mirrors dashboard.html)
-  function verdictKey(v) {
-    if (!v) return null;
-    var s = String(v).toUpperCase();
-    if (s.indexOf('NO') === 0 || s.indexOf('NO-GO') !== -1 || s.indexOf('NO GO') !== -1) return 'no';
-    if (s.indexOf('COND') !== -1) return 'cond';
-    if (s.indexOf('GO') !== -1) return 'go';
-    return null;
-  }
-  function verdictLabel(v) { return v ? String(v) : 'Not evaluated'; }
-
-  // ============================================================
-  //  COLUMN / STAGE MODEL (exposed for tests)
-  // ============================================================
-  // Ordered pipeline columns. `key` matches the .is-<key> dot modifier.
-  var COLUMNS = [
-    { key: 'intake',      label: 'Intake' },
-    { key: 'bxt',         label: 'BXT' },
-    { key: 'feasibility', label: 'Feasibility' },
-    { key: 'advisory',    label: 'Advisory' },
-    { key: 'summary',     label: 'Summary' },
-    { key: 'panel',       label: 'Panel' },
-    { key: 'approved',    label: 'Approved' },
-  ];
-
-  // Normalize a raw `stage` string to one of the base column keys
-  // (Approved is derived from verdict, not a stored stage — see columnFor).
-  function stageKey(stage) {
-    if (!stage) return 'intake';
-    var s = String(stage).toLowerCase().trim();
-    if (s.indexOf('intake') !== -1 || s === 'new' || s === 'draft') return 'intake';
-    if (s.indexOf('bxt') !== -1) return 'bxt';
-    if (s.indexOf('feas') !== -1) return 'feasibility';
-    if (s.indexOf('advis') !== -1) return 'advisory';
-    if (s.indexOf('summary') !== -1 || s.indexOf('brief') !== -1) return 'summary';
-    if (s.indexOf('panel') !== -1 || s.indexOf('review') !== -1) return 'panel';
-    if (s.indexOf('approv') !== -1) return 'approved';
-    return 'intake';
-  }
-
-  // Resolve which board column a row belongs in.
-  // Rule from spec: a case at the `panel` stage moves to the Approved
-  // bucket ONLY when its verdict is GO. CONDITIONAL GO / NO-GO / unscored
-  // panel cases stay in the Panel column.
-  function columnFor(row) {
-    row = row || {};
-    var sk = stageKey(row.stage);
-    if (sk === 'panel' && verdictKey(row.verdict) === 'go') return 'approved';
-    return sk;
-  }
-
-  // Expose the model so the jsdom test can exercise bucketing without a DOM.
-  window.GAIC_KANBAN = {
-    COLUMNS: COLUMNS,
-    stageKey: stageKey,
-    columnFor: columnFor,
-    verdictKey: verdictKey,
-  };
-
-  // ============================================================
-  //  DATA LOADING — API first, with 401 -> /login redirect
-  // ============================================================
-  function apiFetch(path) {
-    return fetch('/api' + path, { headers: { 'Content-Type': 'application/json' } })
-      .then(function (r) {
-        if (r.status === 401) {
-          window.location.href = '/login.html';
-          throw new Error('unauthorized');
-        }
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      });
-  }
-
-  var STATE = { workspaces: [], selectedWs: null };
-
-  function loadWorkspaces() {
-    return apiFetch('/workspaces').catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      return [];
-    });
-  }
-
-  function loadPortfolio(wsId) {
-    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
-    return apiFetch('/portfolio' + q).catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
-        return window.GAIC_API.listPortfolio(wsId);
-      }
-      return [];
-    });
-  }
-
-  // Pick the Intel workspace (case-insensitive) else the first.
-  function findIntel(list) {
-    if (!Array.isArray(list) || !list.length) return null;
-    for (var i = 0; i < list.length; i++) {
-      if (list[i] && /intel/i.test(String(list[i].name || ''))) return list[i];
+function newDom(rows) {
+  return new JSDOM(html, {
+    runScripts: 'dangerously', pretendToBeVisual: true,
+    url: 'https://example.com/portfolio-map.html',
+    beforeParse(w) {
+      if (rows !== undefined) w.__PFMAP_TEST_ROWS = rows;
     }
-    return list[0];
-  }
-
-  // ============================================================
-  //  RENDER
-  // ============================================================
-  function cardHTML(r) {
-    var vk = verdictKey(r.verdict);
-    var vcls = vk === 'go' ? 'is-go' : vk === 'cond' ? 'is-cond' : vk === 'no' ? 'is-no' : 'is-none';
-
-    var feas = num(r.feasibility_composite);
-    var feasHTML = feas === null
-      ? '<span class="feas"><span class="dim">feas —</span></span>'
-      : '<span class="feas"><span class="feas__bar"><span class="feas__fill" style="width:' +
-          Math.max(0, Math.min(100, (feas / 5) * 100)).toFixed(0) + '%"></span></span>' +
-          (Math.round(feas * 10) / 10).toFixed(1) + '<span class="dim"> /5</span></span>';
-
-    var tier = r.advisory_tier ? '<span class="tier">' + esc(r.advisory_tier) + '</span>' : '<span class="tier dim">no tier</span>';
-
-    // Deep-link each card into its Gate 5 summary (real persisted data).
-    var href = r.id ? ('summary.html?id=' + encodeURIComponent(r.id)) : 'intake.html';
-
-    return '<a class="card ' + vcls + '" href="' + esc(href) + '">' +
-      '<div class="card__top">' +
-        '<span class="card__name">' + esc(r.name || 'Untitled use case') + '</span>' +
-        '<span class="vchip ' + vcls + '">' + esc(verdictLabel(r.verdict)) + '</span>' +
-      '</div>' +
-      '<div class="card__dept">' + (r.department ? esc(r.department) : '<span class="dim">Unassigned</span>') + '</div>' +
-      '<div class="card__meta">' + feasHTML + tier + '</div>' +
-    '</a>';
-  }
-
-  function render(rows) {
-    rows = Array.isArray(rows) ? rows : [];
-    el.loading.classList.add('hidden');
-
-    if (!rows.length) {
-      el.board.classList.add('hidden');
-      el.empty.classList.remove('hidden');
-      return;
-    }
-    el.empty.classList.add('hidden');
-    el.board.classList.remove('hidden');
-
-    // Bucket rows into columns.
-    var buckets = {};
-    COLUMNS.forEach(function (c) { buckets[c.key] = []; });
-    rows.forEach(function (r) { buckets[columnFor(r)].push(r); });
-
-    el.board.innerHTML = COLUMNS.map(function (c) {
-      var items = buckets[c.key];
-      var body = items.length
-        ? items.map(cardHTML).join('')
-        : '<div class="col__empty">— empty —</div>';
-      return '<section class="col" data-col="' + c.key + '">' +
-        '<div class="col__head">' +
-          '<span class="col__title"><span class="col__dot is-' + c.key + '"></span>' + esc(c.label) + '</span>' +
-          '<span class="col__count">' + items.length + '</span>' +
-        '</div>' +
-        '<div class="col__body">' + body + '</div>' +
-      '</section>';
-    }).join('');
-  }
-
-  // ============================================================
-  //  WORKSPACE PICKER
-  // ============================================================
-  function populatePicker() {
-    var opts = STATE.workspaces.map(function (w) {
-      var sel = (STATE.selectedWs && w.id === STATE.selectedWs.id) ? ' selected' : '';
-      return '<option value="' + esc(w.id) + '"' + sel + '>' + esc(w.name || 'Untitled workspace') + '</option>';
-    });
-    if (!STATE.workspaces.length) {
-      opts = ['<option value="">All workspaces</option>'];
-    }
-    el.wsPicker.innerHTML = opts.join('');
-    if (STATE.selectedWs) {
-      el.wsChip.textContent = String(STATE.selectedWs.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    }
-  }
-
-  function selectAndLoad(wsId) {
-    var ws = null;
-    for (var i = 0; i < STATE.workspaces.length; i++) {
-      if (STATE.workspaces[i].id === wsId) { ws = STATE.workspaces[i]; break; }
-    }
-    STATE.selectedWs = ws;
-    if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    el.board.classList.add('hidden');
-    el.empty.classList.add('hidden');
-    el.loading.classList.remove('hidden');
-    el.loading.textContent = 'Loading pipeline…';
-    loadPortfolio(wsId).then(render).catch(function (e) {
-      if (e && e.message === 'unauthorized') return;
-      el.loading.textContent = 'Could not load pipeline.';
-    });
-  }
-
-  el.wsPicker.addEventListener('change', function () {
-    selectAndLoad(this.value || null);
   });
+}
 
-  // ============================================================
-  //  THEME TOGGLE (light/dark) — mirrors the rest of the app
-  // ============================================================
-  (function initTheme() {
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    try {
-      if (localStorage.getItem(THEME_KEY) === 'light') document.body.classList.add('theme-light');
-    } catch (e) {}
-    btn.addEventListener('click', function () {
-      document.body.classList.toggle('theme-light');
-      try { localStorage.setItem(THEME_KEY, document.body.classList.contains('theme-light') ? 'light' : 'dark'); } catch (e) {}
-    });
-  })();
+console.log('\n=== Portfolio Map (portfolio-map.html) ===\n');
 
-  // ============================================================
-  //  BOOT
-  // ============================================================
-  loadWorkspaces().then(function (list) {
-    STATE.workspaces = Array.isArray(list) ? list : [];
-    var intel = findIntel(STATE.workspaces);
-    STATE.selectedWs = intel;
-    populatePicker();
-    var wsId = intel ? intel.id : null;
-    return loadPortfolio(wsId).then(render);
-  }).catch(function (e) {
-    if (e && e.message === 'unauthorized') return; // redirecting
-    loadPortfolio(null).then(render).catch(function () {
-      el.loading.textContent = 'Could not load pipeline.';
-    });
-  });
+const dom = newDom(ROWS);
+const api = dom.window.__pfmap;
+const d = dom.window.document;
 
-})();
-</script>
-</body>
-</html>
+console.log('== 1. Test API surface exposed ==');
+ok('window.__pfmap exists', !!api);
+['esc','num','fmtPct','verdictKey','verdictLabel','groupByDepartment','verdictCounts','cardHTML','deptSectionHTML','render']
+  .forEach(fn => ok('exposes ' + fn + '()', typeof api[fn] === 'function'));
+
+console.log('\n== 2. verdictKey normalization -> go/cond/no/null ==');
+ok('GO -> go', api.verdictKey('GO') === 'go');
+ok('CONDITIONAL GO -> cond', api.verdictKey('CONDITIONAL GO') === 'cond');
+ok('NO-GO -> no', api.verdictKey('NO-GO') === 'no');
+ok('null -> null', api.verdictKey(null) === null);
+
+console.log('\n== 3. groupByDepartment groups + falls back to Unassigned ==');
+const groups = api.groupByDepartment(ROWS);
+ok('3 department groups (2 named + Unassigned)', groups.length === 3);
+ok('first group is Risk & Compliance', groups[0].department === 'Risk & Compliance');
+ok('Risk & Compliance has 2 cases', groups[0].rows.length === 2);
+ok('null department bucketed as Unassigned', groups.some(g => g.department === 'Unassigned'));
+
+console.log('\n== 4. verdictCounts tally ==');
+const c = api.verdictCounts(ROWS);
+ok('2 GO', c.go === 2);
+ok('1 COND', c.cond === 1);
+ok('1 NO-GO', c.no === 1);
+ok('1 not-evaluated', c.none === 1);
+
+console.log('\n== 5. cardHTML: verdict chip class + deep-link + ROI ==');
+const goCard   = api.cardHTML(ROWS[0]);
+const condCard = api.cardHTML(ROWS[1]);
+const noCard   = api.cardHTML(ROWS[2]);
+const naCard   = api.cardHTML(ROWS[3]);
+ok('GO card has is-go class', /class="card is-go"/.test(goCard));
+ok('COND card has is-cond class', /class="card is-cond"/.test(condCard));
+ok('NO-GO card has is-no class', /class="card is-no"/.test(noCard));
+ok('not-evaluated card has is-none class', /class="card is-none"/.test(naCard));
+ok('card deep-links to summary.html?id=uc-1', goCard.indexOf('summary.html?id=uc-1') !== -1);
+ok('GO chip label is "GO"', /vchip is-go[^>]*>.*?<\/span>GO</.test(goCard.replace(/\n/g, '')) || goCard.indexOf('>GO<') !== -1);
+ok('COND chip label is "COND GO"', condCard.indexOf('COND GO') !== -1);
+ok('ROI P50 formatted with %', goCard.indexOf('+180%') !== -1);
+ok('missing ROI renders em-dash', naCard.indexOf('meta__v dim') !== -1);
+
+console.log('\n== 6. DOM render on boot (via __PFMAP_TEST_ROWS) ==');
+ok('loading hidden after render', d.getElementById('loading').classList.contains('hidden'));
+ok('content visible', !d.getElementById('content').classList.contains('hidden'));
+ok('renders 3 department sections', d.querySelectorAll('#content .dept').length === 3);
+ok('renders 5 cards total', d.querySelectorAll('#content .card').length === 5);
+ok('every card links to summary.html?id=', Array.from(d.querySelectorAll('#content .card')).every(a => /summary\.html\?id=/.test(a.getAttribute('href'))));
+ok('renders green (GO) chips', d.querySelectorAll('#content .vchip.is-go').length === 2);
+ok('renders yellow (COND) chip', d.querySelectorAll('#content .vchip.is-cond').length === 1);
+ok('renders red (NO-GO) chip', d.querySelectorAll('#content .vchip.is-no').length === 1);
+ok('department heading shows use-case count', /2 use cases/.test(d.querySelector('#content .dept .dept__count').textContent));
+
+console.log('\n== 7. Empty state when no rows ==');
+const emptyDom = newDom([]);
+const ed = emptyDom.window.document;
+ok('empty state shown for []', !ed.getElementById('empty').classList.contains('hidden'));
+ok('content hidden for []', ed.getElementById('content').classList.contains('hidden'));
+ok('empty state links to intake.html', /intake\.html/.test(ed.getElementById('empty').innerHTML));
+
+console.log('\n== 8. Shared theme + header fidelity ==');
+ok('links assets/theme.css', /href="assets\/theme\.css"/.test(html));
+ok('loads assets/api-client.js', /src="assets\/api-client\.js"/.test(html));
+ok('loads assets/auth-ui.js', /src="assets\/auth-ui\.js"/.test(html));
+ok('gc-header present', /class="gc-header"/.test(html));
+ok('workspace picker present', /id="wsPicker"/.test(html));
+ok('product tag "Enterprise Advantage"', /Enterprise Advantage/.test(html));
+ok('wordmark "Google AI Catalyst"', /Google <b>AI Catalyst<\/b>/.test(html));
+ok('reads /api/portfolio', /\/portfolio/.test(html));
+
+console.log('\n== 9. Zero Microsoft strings ==');
+['Copilot','Azure','M365','watsonx','Agentforce','Salesforce','Microsoft','Dataverse','Dynamics']
+  .forEach(m => ok('NO Microsoft string "' + m + '"',
+    !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).test(html)));
+
+console.log('\n---------------------------------------------');
+console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
+console.log('---------------------------------------------');
+process.exit(fail ? 1 : 0);

@@ -1,196 +1,226 @@
-/*
- * GAIC deep-link helper — additive, optional. Exposes window.GAIC_DEEPLINK.
+'use strict';
+
+/**
+ * Authentication module for Google AI Catalyst.
  *
- * Purpose: gate pages (summary.html, panel.html, ...) can be opened with a
- * ?id=<use_case_id> query param that deep-links to a specific persisted use
- * case. This module reads that id, fetches the case + its gates from the REST
- * API (via GAIC_API), and maps the flat DB rows BACK into the in-memory shapes
- * the gate pages' pure compute functions already expect
- * ({ intake, bxt, feas, advisory }).
+ * - Credentials are stored in Postgres (`users` table).
+ * - Passwords are hashed with Node's built-in scrypt (no native deps).
+ * - Sessions are signed, HMAC-protected cookies stored in Postgres
+ *   (`sessions` table) so they survive restarts and are revocable.
  *
- * It never throws to the page: on any error it resolves to null so the page
- * falls back to its existing localStorage / demo behaviour.
- *
- * ES5 / var style to match the rest of the codebase (no build step).
+ * No third-party auth packages are required — everything uses the Node
+ * standard library `crypto` module, which sidesteps the mounted-FS npm
+ * install issues in this environment.
  */
-(function () {
-  'use strict';
 
-  // Read the ?id= query param. Returns a non-empty string or null.
-  function getId() {
+const crypto = require('crypto');
+const { query } = require('./db');
+
+const SESSION_COOKIE = 'gaic_sid';
+const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
+// Secret used to sign session ids. Overridable via env for production.
+const SESSION_SECRET = process.env.SESSION_SECRET || 'gaic-dev-secret-change-me';
+
+/* -------------------------------------------------------------------------- */
+/* Password hashing (scrypt)                                                   */
+/* -------------------------------------------------------------------------- */
+
+/** Hash a plaintext password → "salt:derivedKey" (both hex). */
+function hashPassword(plain) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const dk = crypto.scryptSync(String(plain), salt, 64).toString('hex');
+  return `${salt}:${dk}`;
+}
+
+/** Constant-time verify a plaintext password against a stored "salt:dk". */
+function verifyPassword(plain, stored) {
+  if (!stored || typeof stored !== 'string' || !stored.includes(':')) return false;
+  const [salt, dk] = stored.split(':');
+  const dkBuf = Buffer.from(dk, 'hex');
+  const testBuf = crypto.scryptSync(String(plain), salt, 64);
+  if (dkBuf.length !== testBuf.length) return false;
+  return crypto.timingSafeEqual(dkBuf, testBuf);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Session id signing                                                          */
+/* -------------------------------------------------------------------------- */
+
+function signSid(sid) {
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(sid).digest('hex');
+  return `${sid}.${sig}`;
+}
+
+function unsignSid(signed) {
+  if (!signed || typeof signed !== 'string' || !signed.includes('.')) return null;
+  const idx = signed.lastIndexOf('.');
+  const sid = signed.slice(0, idx);
+  const sig = signed.slice(idx + 1);
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(sid).digest('hex');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return null;
+  return crypto.timingSafeEqual(a, b) ? sid : null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Cookie helpers                                                              */
+/* -------------------------------------------------------------------------- */
+
+function parseCookies(req) {
+  const header = req.headers.cookie || '';
+  const out = {};
+  header.split(';').forEach((pair) => {
+    const idx = pair.indexOf('=');
+    if (idx > -1) {
+      const k = pair.slice(0, idx).trim();
+      const v = pair.slice(idx + 1).trim();
+      out[k] = decodeURIComponent(v);
+    }
+  });
+  return out;
+}
+
+function setSessionCookie(res, signed, maxAgeMs) {
+  const parts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(signed)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${Math.floor(maxAgeMs / 1000)}`,
+  ];
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Schema (users + sessions)                                                   */
+/* -------------------------------------------------------------------------- */
+
+async function ensureAuthSchema() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      username     text UNIQUE NOT NULL,
+      password_hash text NOT NULL,
+      created_at   timestamptz NOT NULL DEFAULT now(),
+      last_login   timestamptz
+    );
+  `);
+  await query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      sid        text PRIMARY KEY,
+      user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      username   text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      expires_at timestamptz NOT NULL
+    );
+  `);
+}
+
+/** Insert the user if absent; update the password if it already exists. */
+async function seedUser(username, plainPassword) {
+  const hash = hashPassword(plainPassword);
+  await query(
+    `INSERT INTO users (username, password_hash)
+     VALUES ($1, $2)
+     ON CONFLICT (username)
+     DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+    [username, hash]
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Session store ops                                                           */
+/* -------------------------------------------------------------------------- */
+
+async function createSession(user) {
+  const sid = crypto.randomBytes(24).toString('hex');
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  await query(
+    `INSERT INTO sessions (sid, user_id, username, expires_at) VALUES ($1, $2, $3, $4)`,
+    [sid, user.id, user.username, expiresAt]
+  );
+  return sid;
+}
+
+async function getSession(sid) {
+  const r = await query(
+    `SELECT sid, user_id, username, expires_at FROM sessions WHERE sid = $1`,
+    [sid]
+  );
+  if (!r.rows.length) return null;
+  const s = r.rows[0];
+  if (new Date(s.expires_at).getTime() < Date.now()) {
+    await destroySession(sid);
+    return null;
+  }
+  return s;
+}
+
+async function destroySession(sid) {
+  await query(`DELETE FROM sessions WHERE sid = $1`, [sid]);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Auth flows                                                                  */
+/* -------------------------------------------------------------------------- */
+
+async function login(username, password) {
+  const r = await query(`SELECT id, username, password_hash FROM users WHERE username = $1`, [username]);
+  if (!r.rows.length) return null;
+  const user = r.rows[0];
+  if (!verifyPassword(password, user.password_hash)) return null;
+  await query(`UPDATE users SET last_login = now() WHERE id = $1`, [user.id]);
+  const sid = await createSession(user);
+  return { user: { id: user.id, username: user.username }, sid };
+}
+
+/**
+ * Middleware: reads the signed session cookie, validates it against the
+ * Postgres sessions table, and attaches req.user if valid.
+ */
+function sessionMiddleware() {
+  return async (req, res, next) => {
+    req.user = null;
     try {
-      var params = new URLSearchParams(window.location.search);
-      var id = params.get('id');
-      return id && id.trim() ? id.trim() : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Merge the four jsonb context blobs + top-level fields back into the flat
-  // intake object the gate compute functions read (name, dept, driver, value,
-  // sources[], pii, audit, autonomy, sensitivity, ...). Mirrors the grouping in
-  // server.js mapUseCaseContexts().
-  function mapIntake(row) {
-    if (!row) return null;
-    var intake = {};
-    // top-level identity fields
-    if (row.name != null) intake.name = row.name;
-    if (row.department != null) intake.dept = row.department;
-    if (row.executive_sponsor != null) intake.sponsor = row.executive_sponsor;
-    if (row.description != null) intake.desc = row.description;
-    // context blobs (each is a jsonb object or null)
-    [row.business_context, row.current_state, row.technical_context, row.risk_compliance]
-      .forEach(function (blob) {
-        if (blob && typeof blob === 'object') {
-          for (var k in blob) {
-            if (Object.prototype.hasOwnProperty.call(blob, k)) intake[k] = blob[k];
-          }
-        }
-      });
-    return Object.keys(intake).length ? intake : null;
-  }
-
-  // bxt_scores row -> { scores:{B:{score},X:{score},T:{score}}, verdict:{verdict} }
-  function mapBxt(b) {
-    if (!b) return null;
-    var detail = b.detail && typeof b.detail === 'object' ? b.detail : {};
-    var factors = detail.factors || {};
-    return {
-      scores: {
-        B: { score: Number(b.business_score) || 0, factors: factors.B },
-        X: { score: Number(b.experience_score) || 0, factors: factors.X },
-        T: { score: Number(b.technology_score) || 0, factors: factors.T }
-      },
-      verdict: { verdict: b.verdict || 'PASS', weakKey: detail.weakKey, weakName: detail.weakName, weakScore: detail.weakScore }
-    };
-  }
-
-  // feasibility_scores row -> { scores, composite, pillars, quadrant, risk, citizenDev:{pct} }
-  function mapFeasibility(f) {
-    if (!f) return null;
-    return {
-      scores: f.criteria && typeof f.criteria === 'object' ? f.criteria : {},
-      composite: Number(f.composite) || 0,
-      pillars: f.pillars && typeof f.pillars === 'object' ? f.pillars : undefined,
-      quadrant: f.quadrant || undefined,
-      risk: f.risk_tier || undefined,
-      citizenDev: { pct: (f.citizen_dev_pct == null ? undefined : Number(f.citizen_dev_pct)) }
-    };
-  }
-
-  // advisory_results row -> { tier, verdictName, platform, compliance:{label,ok}, riskTier }
-  function mapAdvisory(a) {
-    if (!a) return null;
-    var reasoning = a.reasoning && typeof a.reasoning === 'object' ? a.reasoning : {};
-    return {
-      tier: a.tier || undefined,
-      verdictName: a.verdict_name || undefined,
-      platform: a.recommended_platform || undefined,
-      gateLabel: a.gate_resolved || undefined,
-      compliance: reasoning.compliance || undefined,
-      riskTier: reasoning.riskTier || undefined,
-      dims: reasoning.dims || undefined,
-      journey: a.journey || undefined
-    };
-  }
-
-  // evaluation_summaries (Gate 5) row -> the shape panel.html's loadSummary()
-  // expects: { useCase, composite, readiness, roi:{p10,p50,p90,...}, frameworks[] }.
-  // composite is recomputed from framework scores (the API doesn't persist it).
-  function mapPanelSummary(s, intake) {
-    if (!s) return null;
-    // frameworks may be persisted as an ARRAY [{key,name,score}] (app save) OR as an
-    // OBJECT {gadf:88,google_caf:84,...} (seed data). Normalise both to an array.
-    var frameworks = [];
-    if (Array.isArray(s.frameworks)) {
-      frameworks = s.frameworks;
-    } else if (s.frameworks && typeof s.frameworks === 'object') {
-      var NAMES = { gadf: 'GADF v2', google_caf: 'Google Cloud Adoption', mckinsey_mit: 'McKinsey \u00d7 MIT Sloan', gartner: 'Gartner' };
-      frameworks = Object.keys(s.frameworks).map(function (k) {
-        return { key: k, name: NAMES[k] || k, score: Number(s.frameworks[k]) };
-      });
-    }
-    var composite = null;
-    if (frameworks.length) {
-      var sum = 0, n = 0;
-      frameworks.forEach(function (f) {
-        if (f && f.score != null && !isNaN(Number(f.score))) { sum += Number(f.score); n++; }
-      });
-      if (n) composite = Math.round(sum / n);
-    }
-    var roi = {
-      p10: (s.roi_p10 == null ? undefined : Number(s.roi_p10)),
-      p50: (s.roi_p50 == null ? undefined : Number(s.roi_p50)),
-      p90: (s.roi_p90 == null ? undefined : Number(s.roi_p90))
-    };
-    return {
-      useCase: (intake && intake.name) || undefined,
-      composite: composite == null ? undefined : composite,
-      readiness: s.readiness || 'CONDITIONAL',
-      roi: roi,
-      frameworks: frameworks,
-      governance: s.governance || []
-    };
-  }
-
-  // Convert a full /api/use-cases/:id response row into compute-input opts.
-  function mapUseCase(row) {
-    if (!row || typeof row !== 'object') return null;
-    // The offline fallback in GAIC_API.getUseCase returns a different (localStorage)
-    // shape: { _offline:true, intake, bxt, feasibility, advisory, summary }. In that
-    // case the nested objects are ALREADY in gate-page shape, so use them directly.
-    if (row._offline) {
-      // localStorage gaic_summary is already in panel shape, so pass it through.
-      return {
-        intake: row.intake || null,
-        bxt: row.bxt || null,
-        feas: row.feasibility || null,
-        advisory: row.advisory || null,
-        panelSummary: row.summary || null,
-        summary: row.summary || null
-      };
-    }
-    var intake = mapIntake(row);
-    return {
-      intake: intake,
-      bxt: mapBxt(row.bxt),
-      feas: mapFeasibility(row.feasibility),
-      advisory: mapAdvisory(row.advisory),
-      verdict: row.verdict || null,
-      // panel-ready Gate 5 summary (null if the case hasn't reached Gate 5 yet)
-      panelSummary: mapPanelSummary(row.summary, intake),
-      summary: row.summary || null,
-      raw: row
-    };
-  }
-
-  // Fetch + map. Resolves to compute-input opts, or null if no id / no API / error.
-  // Only keys with real data are returned; missing gates are null so callers can
-  // decide whether to fall back to demo defaults per-gate.
-  function load() {
-    var id = getId();
-    if (!id) return Promise.resolve(null);
-    if (!window.GAIC_API || typeof window.GAIC_API.getUseCase !== 'function') {
-      return Promise.resolve(null);
-    }
-    return window.GAIC_API.getUseCase(id)
-      .then(function (row) {
-        var opts = mapUseCase(row);
-        if (opts) opts.id = id;
-        return opts;
-      })
-      .catch(function () { return null; });
-  }
-
-  window.GAIC_DEEPLINK = {
-    getId: getId,
-    mapUseCase: mapUseCase,
-    mapIntake: mapIntake,
-    mapBxt: mapBxt,
-    mapFeasibility: mapFeasibility,
-    mapAdvisory: mapAdvisory,
-    mapPanelSummary: mapPanelSummary,
-    load: load
+      const cookies = parseCookies(req);
+      const signed = cookies[SESSION_COOKIE];
+      const sid = unsignSid(signed);
+      if (sid) {
+        const s = await getSession(sid);
+        if (s) req.user = { id: s.user_id, username: s.username, sid };
+      }
+    } catch (_) { /* unauthenticated */ }
+    next();
   };
-})();
+}
+
+/** Guard for JSON API routes → 401 if not logged in. */
+function requireAuthApi(req, res, next) {
+  if (req.user) return next();
+  return res.status(401).json({ error: 'authentication required' });
+}
+
+module.exports = {
+  SESSION_COOKIE,
+  SESSION_TTL_MS,
+  hashPassword,
+  verifyPassword,
+  signSid,
+  unsignSid,
+  parseCookies,
+  setSessionCookie,
+  clearSessionCookie,
+  ensureAuthSchema,
+  seedUser,
+  createSession,
+  getSession,
+  destroySession,
+  login,
+  sessionMiddleware,
+  requireAuthApi,
+};

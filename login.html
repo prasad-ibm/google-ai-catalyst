@@ -1,161 +1,122 @@
-/**
- * Deep-link helper (assets/deep-link.js) test suite.
- * Loads the module inside jsdom, mocks GAIC_API, and exercises:
- *   - getId() query-param parsing
- *   - the DB-row -> compute-shape mappers (intake/bxt/feas/advisory/summary)
- *   - load() end-to-end (API row -> opts) incl. the offline fallback shape
- *
- *   node deep-link.test.js      # exit 0 = all green
- */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — Google AI Catalyst</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC04; --g-green:#34A853;
+    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2230;
+    --border:#2a3140; --text:#e6edf3; --muted:#8b97a7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Roboto',system-ui,sans-serif;background:var(--bg);color:var(--text);
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background-image:radial-gradient(circle at 15% 20%,rgba(66,133,244,.10),transparent 40%),
+      radial-gradient(circle at 85% 80%,rgba(52,168,83,.08),transparent 40%);
+  }
+  .card{
+    width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
+    border-radius:16px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.45);
+  }
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .g-logo{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+  .g-logo .b{color:var(--g-blue)} .g-logo .r{color:var(--g-red)}
+  .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
+  .brand h1{font-size:16px;font-weight:500}
+  .brand h1 span{color:var(--muted);font-weight:400}
+  .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
+  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
+  .field{margin-bottom:18px}
+  input{
+    width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus{outline:none;border-color:var(--g-blue);box-shadow:0 0 0 3px rgba(66,133,244,.25)}
+  button{
+    width:100%;background:var(--g-blue);color:#fff;border:none;border-radius:8px;
+    padding:13px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s;
+    margin-top:4px;
+  }
+  button:hover{background:#3574e0}
+  button:disabled{opacity:.6;cursor:default}
+  .err{
+    display:none;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);
+    color:#ff9b90;font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:16px;
+  }
+  .err.show{display:block}
+  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);font-family:'Roboto Mono',monospace}
+  .bar{height:4px;border-radius:4px;margin-bottom:26px;display:flex;overflow:hidden}
+  .bar i{flex:1} .bar .b{background:var(--g-blue)} .bar .r{background:var(--g-red)}
+  .bar .y{background:var(--g-yellow)} .bar .g{background:var(--g-green)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">
+      <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
+      <h1>AI Catalyst <span>· Sign in</span></h1>
+    </div>
+    <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
 
-const JS_PATH = path.join(__dirname, 'assets', 'deep-link.js');
-const src = fs.readFileSync(JS_PATH, 'utf8');
+    <div class="err" id="err"></div>
 
-let pass = 0, fail = 0;
-function ok(msg, cond) {
-  if (cond) { pass++; console.log('  \u2713 ' + msg); }
-  else { fail++; console.log('  \u2717 ' + msg); }
-}
+    <form id="loginForm" autocomplete="on">
+      <div class="field">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required />
+      </div>
+      <button type="submit" id="submitBtn">Sign in</button>
+    </form>
 
-// A realistic /api/use-cases/:id response row (matches server.js assembly).
-const API_ROW = {
-  id: 'uc-42',
-  name: 'Fraud Signal Triage',
-  department: 'Risk & Compliance',
-  executive_sponsor: 'Dana Lee',
-  description: 'Triage suspected fraud alerts.',
-  business_context: { driver: 'Cost', value: '$1M–$5M', users: '200–1000' },
-  current_state: { maturity: 'Piloting' },
-  technical_context: { sources: ['CRM', 'Data Warehouse'] },
-  risk_compliance: { pii: true, audit: true, autonomy: 'Supervised', sensitivity: 'High' },
-  bxt: {
-    business_score: 80, experience_score: 72, technology_score: 78, verdict: 'PASS',
-    detail: { weakKey: 'X', weakName: 'Experience', weakScore: 72, factors: { B: {}, X: {}, T: {} } }
-  },
-  feasibility: {
-    composite: 3.8, quadrant: 'Quick Win', risk_tier: 'Low', citizen_dev_pct: 60,
-    criteria: { data_avail: 3, integ_effort: 3, strat_align: 4, safety: 4, compliance: 4 },
-    pillars: { strategic: 4.0, technical: 3.5, org: 3.7 }
-  },
-  advisory: {
-    tier: 'Extend', verdict_name: 'Scale Smart', recommended_platform: 'AppSheet / Agentspace',
-    gate_resolved: 'Gate 4', reasoning: { compliance: { label: 'COMPLIANT', ok: true }, riskTier: 'Low' }
-  },
-  summary: {
-    roi_p10: 40, roi_p50: 120, roi_p90: 260, readiness: 'CONDITIONAL',
-    frameworks: [{ key: 'gadf', name: 'GADF', score: 77 }, { key: 'caf', name: 'CAF', score: 71 }],
-    governance: [{ key: 'pii', status: 'pass' }]
-  },
-  verdict: { verdict: 'PROCEED', binding_condition: 'Add DLP' }
-};
+    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
+  </div>
 
-function newDom(url, api) {
-  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-    runScripts: 'dangerously', url: url || 'https://example.com/summary.html'
+<script>
+  const form = document.getElementById('loginForm');
+  const err = document.getElementById('err');
+  const btn = document.getElementById('submitBtn');
+
+  function showError(msg){ err.textContent = msg; err.classList.add('show'); }
+  function clearError(){ err.classList.remove('show'); }
+
+  // If already authenticated, skip straight to the app.
+  fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/index.html'; }).catch(()=>{});
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        location.href = '/index.html';
+      } else {
+        showError(data.error === 'invalid credentials' ? 'Incorrect username or password.' : (data.error || 'Sign in failed.'));
+        btn.disabled = false; btn.textContent = 'Sign in';
+      }
+    } catch (ex) {
+      showError('Network error — please try again.');
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
   });
-  if (api !== undefined) dom.window.GAIC_API = api;
-  const scriptEl = dom.window.document.createElement('script');
-  scriptEl.textContent = src;
-  dom.window.document.body.appendChild(scriptEl);
-  return dom;
-}
-
-(async function () {
-console.log('\n=== Deep-link helper (assets/deep-link.js) ===\n');
-
-console.log('== 1. Module surface ==');
-let dom = newDom('https://example.com/summary.html?id=uc-42');
-let DL = dom.window.GAIC_DEEPLINK;
-ok('window.GAIC_DEEPLINK exists', !!DL);
-['getId','mapUseCase','mapIntake','mapBxt','mapFeasibility','mapAdvisory','mapPanelSummary','load']
-  .forEach(fn => ok('exposes ' + fn + '()', typeof DL[fn] === 'function'));
-
-console.log('\n== 2. getId() query parsing ==');
-ok('reads ?id=uc-42', DL.getId() === 'uc-42');
-ok('trims whitespace', newDom('https://x/summary.html?id=%20uc-9%20').window.GAIC_DEEPLINK.getId() === 'uc-9');
-ok('no id -> null', newDom('https://x/summary.html').window.GAIC_DEEPLINK.getId() === null);
-ok('empty id -> null', newDom('https://x/summary.html?id=').window.GAIC_DEEPLINK.getId() === null);
-
-console.log('\n== 3. mapIntake() merges jsonb blobs + top-level fields ==');
-const intake = DL.mapIntake(API_ROW);
-ok('name flows through', intake.name === 'Fraud Signal Triage');
-ok('department -> dept', intake.dept === 'Risk & Compliance');
-ok('business_context merged (value)', intake.value === '$1M–$5M');
-ok('technical_context merged (sources[])', Array.isArray(intake.sources) && intake.sources.length === 2);
-ok('risk_compliance merged (pii)', intake.pii === true);
-ok('risk_compliance merged (autonomy)', intake.autonomy === 'Supervised');
-ok('null row -> null', DL.mapIntake(null) === null);
-
-console.log('\n== 4. mapBxt() -> compute shape ==');
-const bxt = DL.mapBxt(API_ROW.bxt);
-ok('B/X/T scores present', bxt.scores.B.score === 80 && bxt.scores.X.score === 72 && bxt.scores.T.score === 78);
-ok('verdict.verdict = PASS', bxt.verdict.verdict === 'PASS');
-ok('weakKey carried', bxt.verdict.weakKey === 'X');
-ok('null -> null', DL.mapBxt(null) === null);
-
-console.log('\n== 5. mapFeasibility() -> compute shape ==');
-const feas = DL.mapFeasibility(API_ROW.feasibility);
-ok('composite numeric', feas.composite === 3.8);
-ok('scores from criteria', feas.scores.safety === 4 && feas.scores.data_avail === 3);
-ok('pillars carried', feas.pillars.strategic === 4.0);
-ok('quadrant + risk mapped', feas.quadrant === 'Quick Win' && feas.risk === 'Low');
-ok('citizenDev.pct mapped', feas.citizenDev.pct === 60);
-
-console.log('\n== 6. mapAdvisory() -> compute shape ==');
-const adv = DL.mapAdvisory(API_ROW.advisory);
-ok('tier mapped', adv.tier === 'Extend');
-ok('verdict_name -> verdictName', adv.verdictName === 'Scale Smart');
-ok('recommended_platform -> platform', adv.platform === 'AppSheet / Agentspace');
-ok('compliance object from reasoning', adv.compliance && adv.compliance.ok === true && adv.compliance.label === 'COMPLIANT');
-
-console.log('\n== 7. mapPanelSummary() -> panel shape ==');
-const ps = DL.mapPanelSummary(API_ROW.summary, intake);
-ok('useCase from intake', ps.useCase === 'Fraud Signal Triage');
-ok('roi p10/p50/p90 numeric', ps.roi.p10 === 40 && ps.roi.p50 === 120 && ps.roi.p90 === 260);
-ok('readiness carried', ps.readiness === 'CONDITIONAL');
-ok('frameworks carried', ps.frameworks.length === 2);
-ok('composite recomputed from framework mean (77,71 -> 74)', ps.composite === Math.round((77 + 71) / 2));
-ok('null summary -> null', DL.mapPanelSummary(null, intake) === null);
-
-console.log('\n== 8. mapUseCase() rolls the full row into opts ==');
-const opts = DL.mapUseCase(API_ROW);
-ok('has intake/bxt/feas/advisory', !!(opts.intake && opts.bxt && opts.feas && opts.advisory));
-ok('has panelSummary', !!opts.panelSummary);
-ok('carries raw row', opts.raw === API_ROW);
-ok('null row -> null', DL.mapUseCase(null) === null);
-
-console.log('\n== 9. offline fallback shape passes through unchanged ==');
-const offline = DL.mapUseCase({
-  _offline: true,
-  intake: { name: 'X' }, bxt: { scores: {} }, feasibility: { composite: 2 },
-  advisory: { tier: 'Pilot' }, summary: { roi: { p50: 5 } }
-});
-ok('offline intake passthrough', offline.intake.name === 'X');
-ok('offline feasibility -> feas', offline.feas.composite === 2);
-ok('offline summary -> panelSummary', offline.panelSummary.roi.p50 === 5);
-
-console.log('\n== 10. load() end-to-end (mocked API) ==');
-let calledWith = null;
-const mockApi = { getUseCase: function (id) { calledWith = id; return Promise.resolve(API_ROW); } };
-const loadOpts = await newDom('https://x/summary.html?id=uc-42', mockApi).window.GAIC_DEEPLINK.load();
-ok('called getUseCase with the id', calledWith === 'uc-42');
-ok('load() resolves opts with intake', loadOpts && loadOpts.intake.name === 'Fraud Signal Triage');
-ok('load() stamps opts.id', loadOpts.id === 'uc-42');
-
-console.log('\n== 11. load() safety: no id / no API / API error -> null ==');
-const noId = await newDom('https://x/summary.html', mockApi).window.GAIC_DEEPLINK.load();
-ok('no ?id -> resolves null', noId === null);
-const noApi = await newDom('https://x/summary.html?id=uc-42', undefined).window.GAIC_DEEPLINK.load();
-ok('no GAIC_API -> resolves null', noApi === null);
-const errApi = { getUseCase: function () { return Promise.reject(new Error('boom')); } };
-const errRes = await newDom('https://x/summary.html?id=uc-42', errApi).window.GAIC_DEEPLINK.load();
-ok('API error -> resolves null (never throws)', errRes === null);
-
-console.log('\n---------------------------------------------');
-console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-console.log('---------------------------------------------');
-process.exit(fail ? 1 : 0);
-})();
+</script>
+</body>
+</html>
