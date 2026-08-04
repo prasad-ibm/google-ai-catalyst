@@ -789,21 +789,37 @@ app.get('/api/portfolio', async (req, res) => {
     // Dashboard / Kanban / Summary all read identical values:
     //  - ROI is null unless the case reached the Evaluation Summary/Panel gate
     //    (fixes #6: an Intake-only case can never emit stale ROI like +407%).
+    //  - quadrant is null for the same non-evaluated cases (fixes #M4: an
+    //    unevaluated case must not display a feasibility quadrant like
+    //    'Quick Win').
     //  - `verdict` is the single committed Executive Panel verdict, or null.
     const rows = r.rows.map((row) => {
-      const roiOk = roiEligible(row.stage);
+      // A case is genuinely EVALUATED only when it has reached the Evaluation
+      // Summary gate (or beyond) AND owns a committed evaluation_summaries row
+      // carrying a real P50. Gating on the stage flag alone is not enough: a
+      // stage can be bumped independently, and — as observed for 'FE Test UC'
+      // (M5) — a case can end up with an evaluation_summaries row whose figures
+      // were seeded/leaked from a sibling. Requiring roi_p50 != null here means
+      // ROI *and* quadrant are only surfaced together with real committed
+      // Monte-Carlo output; anything inconsistent is suppressed (emitted null),
+      // never deleted. The LEFT JOIN is keyed correctly (s.use_case_id = uc.id),
+      // so this guard is the defensive backstop against inherited figures.
+      const evaluated = roiEligible(row.stage) && row.roi_p50 != null;
       return {
         id: row.id,
         name: row.name,
         department: row.department,
         stage: row.stage,
         feasibility_composite: row.feasibility_composite,
-        quadrant: row.quadrant,
+        // Quadrant is a post-evaluation artifact: suppress it for un-evaluated
+        // cases so the portfolio map / table never place an intake-only case in
+        // a quadrant (M4).
+        quadrant: evaluated ? row.quadrant : null,
         advisory_tier: row.advisory_tier,
         recommended_platform: row.recommended_platform,
-        roi_p10: roiOk ? row.roi_p10 : null,
-        roi_p50: roiOk ? row.roi_p50 : null,
-        roi_p90: roiOk ? row.roi_p90 : null,
+        roi_p10: evaluated ? row.roi_p10 : null,
+        roi_p50: evaluated ? row.roi_p50 : null,
+        roi_p90: evaluated ? row.roi_p90 : null,
         // Canonical verdict = committed panel verdict (null if never committed).
         verdict: row.verdict == null ? null : row.verdict,
       };

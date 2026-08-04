@@ -738,9 +738,45 @@ p { margin:0 0 1rem; }
     if (current===TABS.length-1){
       save();
       try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){}
-      // --- API integration (best-effort, non-blocking) ---
+      // --- API integration ---
+      // H3 regression fix: the ACTIVE use-case id must reach bxt.html via the URL.
+      // bxt.html (and every downstream gate) resolves its case through
+      // GAIC_DEEPLINK.getUcId(): ?id= in the URL wins, else it falls back to the
+      // stale localStorage 'gaic_use_case_id' of a PRIOR case. So we must:
+      //   1. wait for createUseCase to resolve and capture the REAL uc.id,
+      //   2. persist it as gaic_use_case_id,
+      //   3. navigate to bxt.html?id=<newId> — never bare bxt.html.
+      // We also clear any prior gaic_use_case_id up front so that a FAILED /
+      // offline POST cannot silently carry the previous case's id forward; in
+      // that case we navigate to bare bxt.html, which scores from the flat
+      // localStorage intake we just saved (correct offline behaviour).
+      try { localStorage.removeItem('gaic_use_case_id'); } catch(e0){}
       var _navigated = false;
-      function _go(){ if (_navigated) return; _navigated = true; window.location.href = 'bxt.html'; }
+      var lastKnownId = null; // the real uc.id once (and if) the POST resolves
+      // Navigate to the BXT gate carrying the resolved id when we have one.
+      function _go(id){
+        if (_navigated) return; _navigated = true;
+        var _url = (id != null && id !== '')
+          ? 'bxt.html?id=' + encodeURIComponent(id)
+          : 'bxt.html';
+        // Test seam: jsdom silently ignores location.href assignment, so record
+        // the resolved target for assertions. Harmless in the browser.
+        try { window.__gaic && (window.__gaic.lastNav = _url); } catch(eL){}
+        window.location.href = _url;
+      }
+      // Non-blocking 'saved locally, syncing' hint shown only if we fall back to
+      // the offline / timeout path (real id never arrived).
+      function _showSyncing(){
+        try {
+          if (document.getElementById('syncNotice')) return;
+          var n = document.createElement('div');
+          n.id = 'syncNotice';
+          n.setAttribute('role','status');
+          n.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1f2933;color:#e6edf3;padding:10px 16px;border-radius:8px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);z-index:9999;';
+          n.textContent = 'Saved locally \u2014 syncing\u2026';
+          document.body.appendChild(n);
+        } catch(eN){}
+      }
       try {
         if (window.GAIC_API && typeof window.GAIC_API.createUseCase === 'function') {
           var _wsId = null;
@@ -754,13 +790,31 @@ p { margin:0 0 1rem; }
             technical_context: { sources: state.sources, dataavail: state.dataavail, integrations: state.integrations, realtime: state.realtime, technotes: state.technotes },
             risk_compliance: { sensitivity: state.sensitivity, autonomy: state.autonomy, pii: state.pii, audit: state.audit, adoption: state.adoption, change: state.change, delivery: state.delivery, addnotes: state.addnotes }
           }).then(function(uc){
-            try { if (uc && uc.id != null) localStorage.setItem('gaic_use_case_id', uc.id); } catch(e2){}
-            _go();
-          }).catch(function(){ _go(); });
-          // Safety: navigate even if the promise never settles
-          setTimeout(_go, 1500);
-        } else { _go(); }
-      } catch(e) { _go(); }
+            // API success returns the created row (has .id). Offline fallback
+            // returns { _offline:true, data } with NO .id — don't fabricate one.
+            if (uc && uc.id != null) {
+              lastKnownId = uc.id;
+              try { localStorage.setItem('gaic_use_case_id', uc.id); } catch(e2){}
+              _go(uc.id);
+            } else {
+              // Offline: keep no id, score from the flat localStorage intake.
+              _showSyncing();
+              _go(null);
+            }
+          }).catch(function(){
+            // createUseCase catches internally, but guard anyway.
+            _showSyncing();
+            _go(lastKnownId);
+          });
+          // Honest last-resort fallback: only fires if the POST never settles.
+          // Guarded by _navigated so the real resolution always wins the race.
+          setTimeout(function(){
+            if (_navigated) return;
+            _showSyncing();
+            _go(lastKnownId);
+          }, 8000);
+        } else { _go(null); }
+      } catch(e) { _go(null); }
       return;
     }
     goTo(current+1);

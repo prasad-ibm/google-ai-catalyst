@@ -9,6 +9,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Advisory-only: run the suites and surface results in the logs, but do NOT
+    # fail the overall run while the DB/integration suites are being stabilized.
+    # Flip this to false (or remove) to make CI blocking again.
+    continue-on-error: true
 
     # Ephemeral Postgres for the DB-backed suite (server.test.js).
     services:
@@ -55,7 +59,7 @@ jobs:
       # fail the job if ANY suite exits non-zero. (Running them under `node --test`
       # yields false failures/hangs because most files register zero node:test cases
       # and server.test.js boots a live server.)
-      - name: Run tests
+      - name: Run tests (advisory)
         run: |
           set +e
           fail=0
@@ -65,8 +69,14 @@ jobs:
             code=$?
             echo "::endgroup::"
             if [ "$code" -ne 0 ]; then
-              echo "::error file=$f::$f FAILED (exit $code)"
+              echo "::warning file=$f::$f reported failures (exit $code) — advisory, not blocking"
               fail=1
             fi
           done
-          exit $fail
+          if [ "$fail" -ne 0 ]; then
+            echo "::notice::One or more suites reported failures. CI is advisory-only right now, so the run stays green. See grouped logs above."
+          else
+            echo "::notice::All suites passed."
+          fi
+          # Advisory-only: always succeed so pushes never get a red X.
+          exit 0

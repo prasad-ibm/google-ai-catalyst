@@ -140,7 +140,9 @@ async function main() {
     /* ---- Case A: unevaluated (intake) with a STALE ROI row (bug #6) ---- */
     const a = nextId();
     db.use_cases.set(a, { id: a, name: 'FE Test UC', department: 'Eng', stage: 'intake', workspace_id: 'ws1' });
-    // Simulate pre-existing bad data: an evaluation_summaries row w/ ROI while at intake.
+    // Simulate pre-existing bad data: an evaluation_summaries row w/ ROI while at
+    // intake, PLUS a feasibility quadrant. Both must be suppressed.
+    db.use_cases.get(a).quadrant = 'Quick Win';
     db.evaluation_summaries.set(a, { use_case_id: a, roi_p10: 1.5, roi_p50: 4.07, roi_p90: 6.0 });
 
     let port = await get('/api/portfolio');
@@ -150,6 +152,7 @@ async function main() {
     ok('unevaluated case: roi_p10 null (read guard)', rowA.roi_p10 === null);
     ok('unevaluated case: roi_p50 null (fixes +407%)', rowA.roi_p50 === null);
     ok('unevaluated case: roi_p90 null (read guard)', rowA.roi_p90 === null);
+    ok('unevaluated case: quadrant null (M4 — no Quick Win on intake)', rowA.quadrant === null);
     ok('unevaluated case: verdict null', rowA.verdict === null);
     ok('unevaluated case: stage stays intake', rowA.stage === 'intake');
     ok('contract row has no leaked risk_tier field', !('risk_tier' in rowA));
@@ -166,11 +169,15 @@ async function main() {
     ok('summary save persisted roi_p50', saved.roi_p50 === 3.4);
     ok('summary save advanced stage to summary', db.use_cases.get(b).stage === 'summary');
 
+    // A genuinely evaluated case keeps its feasibility quadrant.
+    db.use_cases.get(b).quadrant = 'Strategic Bet';
+
     port = await get('/api/portfolio');
     const rowB = port.find((r) => r.id === b);
     ok('evaluated case: roi_p10 surfaced', rowB.roi_p10 === 1.2);
     ok('evaluated case: roi_p50 surfaced (committed ROI)', rowB.roi_p50 === 3.4);
     ok('evaluated case: roi_p90 surfaced', rowB.roi_p90 === 5.6);
+    ok('evaluated case: quadrant surfaced (has committed ROI)', rowB.quadrant === 'Strategic Bet');
     ok('evaluated case: canonical verdict = committed panel verdict', rowB.verdict === 'APPROVE');
     ok('evaluated case: stage = summary', rowB.stage === 'summary');
 
@@ -203,6 +210,20 @@ async function main() {
     ok('messy "  Intake  " stage: roi_p10/p90 nulled', rowD.roi_p10 === null && rowD.roi_p90 === null);
     ok('label variant "Evaluation Summary": roi surfaced (eligible)', rowE.roi_p50 === 2.0);
 
+    /* ---- M5: sibling Monte-Carlo leak — eligible stage but figures byte-
+            identical to a sibling, WITHOUT a genuine own evaluation ---- */
+    // Reproduce the reported leak: 'FE Test UC 2' has been advanced to an
+    // ROI-eligible stage but its evaluation_summaries P50 is null (no genuine
+    // own committed Monte-Carlo). Even though roiEligible(stage) is true, the
+    // guard must NOT surface ROI or quadrant, because there is no real P50.
+    const g = nextId();
+    db.use_cases.set(g, { id: g, name: 'FE Test UC 2', department: 'Eng', stage: 'panel', workspace_id: 'ws1', quadrant: 'Quick Win' });
+    // No evaluation_summaries row at all -> roi_p50 comes back null from the join.
+    port = await get('/api/portfolio');
+    const rowG = port.find((r) => r.id === g);
+    ok('M5: eligible stage but no own P50 -> roi_p50 null', rowG.roi_p50 === null);
+    ok('M5: eligible stage but no own P50 -> quadrant null (no inherited Quick Win)', rowG.quadrant === null);
+
     /* ---- M3: Avg P50 ROI aggregate EXCLUDES nulled (unevaluated) cases ---- */
     // Replicate dashboard.html renderKPIs exactly: average of non-null roi_p50.
     // The stale intake cases (A: FE Test UC, D: Messy Stage) must NOT be folded
@@ -211,7 +232,9 @@ async function main() {
       .map((r) => (r.roi_p50 === null || r.roi_p50 === undefined ? null : Number(r.roi_p50)))
       .filter((n) => n !== null && !Number.isNaN(n));
     const p50avg = p50vals.length ? p50vals.reduce((x, y) => x + y, 0) / p50vals.length : null;
-    // Only the two eligible cases contribute: B (3.4) and E (2.0) -> avg 2.7.
+    // Only the two genuinely-evaluated cases contribute: B (3.4) and E (2.0) ->
+    // avg 2.7. FE Test UC (A), Messy Stage (D), and FE Test UC 2 (G, M5 leak)
+    // are all excluded from the denominator.
     ok('avg P50 counts only evaluated cases (2: B + E)', p50vals.length === 2);
     ok('avg P50 excludes stale intake ROI (== 2.7, not inflated)', Math.abs(p50avg - 2.7) < 1e-9);
     // Sanity: had the guard leaked, FE Test UC's 4.07 + Messy 5.0 would drag the
