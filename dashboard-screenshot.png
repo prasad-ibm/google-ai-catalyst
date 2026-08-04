@@ -1,165 +1,113 @@
-/* DOM verification test for bxt.html — run with: node bxt.test.js */
-const fs = require('fs');
+/*
+ * DOM smoke test for assets/bulk-upload.js using jsdom.
+ * Verifies: mount, modal open, workspace picker populates, CSV parse preview,
+ * POST payload shape, and per-row result rendering.
+ *
+ * Run with: node bulk-upload-dom.test.js
+ */
+'use strict';
+
 const path = require('path');
+const fs = require('fs');
 const { JSDOM } = require('jsdom');
 
-const html = fs.readFileSync(path.join(__dirname, 'bxt.html'), 'utf8');
-const intakeHtml = fs.readFileSync(path.join(__dirname, 'intake.html'), 'utf8');
-
 let pass = 0, fail = 0;
-function ok(name, cond){ if(cond){ pass++; console.log('  \u2713 '+name); } else { fail++; console.log('  \u2717 '+name); } }
-function fireChange(w, el){ el.dispatchEvent(new w.Event('change', {bubbles:true})); }
-function fireInput(w, el){ el.dispatchEvent(new w.Event('input', {bubbles:true})); }
-function click(w, el){ el.dispatchEvent(new w.MouseEvent('click', {bubbles:true})); }
+function ok(name, cond) {
+  if (cond) { pass++; console.log('  PASS ' + name); }
+  else { fail++; console.log('  FAIL ' + name); }
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// A high-scoring intake object → PASS
-const HIGH = {
-  name: 'Automated invoice reconciliation',
-  sponsor: 'CFO', value: '>$5M', align: 'Core strategic priority', users: '>1000', driver: 'Revenue Growth',
-  adoption: 'High', change: true, autonomy: 'Advisory',
-  dataavail: 'Readily available & clean', integrations: ['Google Workspace','BigQuery','Vertex AI'],
-  maturity: 'Highly automated', sources: ['Structured DB'], realtime: false
-};
-// A failing intake object → one lens < 45 (Experience tanked)
-const FAILING = {
-  name: 'Autonomous risk bot',
-  sponsor: 'Director-level', value: '$100K–$500K', align: 'Experimental / exploratory', users: '<10',
-  adoption: 'Low', change: false, autonomy: 'Autonomous',
-  dataavail: 'Not yet available', integrations: ['On-prem system','Third-party SaaS'],
-  maturity: 'Fully manual', sources: ['Audio/Video','Images','Web'], realtime: true
-};
+async function main() {
+  const dom = new JSDOM(
+    '<!DOCTYPE html><body><button id="btn">Bulk</button></body>',
+    { url: 'http://localhost/', runScripts: 'outside-only' }
+  );
+  const { window } = dom;
+  global.window = window;
+  global.document = window.document;
+  global.FileReader = window.FileReader;
 
-function newDom(seedIntake){
-  return new JSDOM(html, {
-    runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/bxt.html',
-    beforeParse(w){ if (seedIntake !== undefined) w.localStorage.setItem('gaic_intake', JSON.stringify(seedIntake)); }
-  });
+  // Capture the POST payload.
+  let posted = null;
+  window.fetch = async (url, opts) => {
+    posted = { url, opts, body: JSON.parse(opts.body) };
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        inserted: 1,
+        failed: 1,
+        results: [
+          { row: 0, ok: true, id: 'abc12345-0000', name: 'Row One' },
+          { row: 1, ok: false, error: 'name is required' },
+        ],
+      }),
+    };
+  };
+  global.fetch = window.fetch;
+
+  // Mock workspaces API separately: bulk-upload uses fetch for both. Route by URL.
+  const realFetch = window.fetch;
+  window.fetch = async (url, opts) => {
+    if (String(url).indexOf('/api/workspaces') !== -1) {
+      return { ok: true, status: 200, json: async () => ([{ id: 'ws-1', name: 'Intel' }, { id: 'ws-2', name: 'Acme' }]) };
+    }
+    return realFetch(url, opts);
+  };
+  global.fetch = window.fetch;
+
+  // Load the module (its browser branch attaches window.GAIC_BULK).
+  const code = fs.readFileSync(path.join(__dirname, 'assets', 'bulk-upload.js'), 'utf8');
+  window.eval(code);
+
+  ok('window.GAIC_BULK defined', !!window.GAIC_BULK && typeof window.GAIC_BULK.mount === 'function');
+
+  window.GAIC_BULK.mount({ open: '#btn', workspaceId: 'ws-2', onInserted: () => { window.__inserted = true; } });
+
+  // Open via the trigger.
+  window.document.getElementById('btn').click();
+  await sleep(30);
+
+  const MODAL = 'gaicBulkModal';
+  ok('modal rendered in DOM', !!window.document.getElementById(MODAL));
+
+  const wsSelect = window.document.querySelector('#gbuWs');
+  ok('workspace picker populated', wsSelect && wsSelect.options.length === 2);
+  ok('workspace picker defaults to passed id', wsSelect && wsSelect.value === 'ws-2');
+
+  // Simulate choosing a CSV file.
+  const csv = 'name,description,category\nRow One,first,Productivity\n,missing name,Ops\n';
+  const file = new window.File([csv], 'ucs.csv', { type: 'text/csv' });
+  const input = window.document.querySelector('#gbuFile');
+  ok('file input present', !!input);
+  Object.defineProperty(input, 'files', { value: [file], configurable: true });
+  input.dispatchEvent(new window.Event('change'));
+  await sleep(60);
+
+  // Preview should reflect 2 parsed rows.
+  const previewText = window.document.getElementById(MODAL).textContent;
+  ok('parse preview shows 2 rows', /Parsed\s*2\s*rows/i.test(previewText));
+
+  // Submit.
+  const submitBtn = window.document.querySelector('#gbuSubmit');
+  ok('submit button present', !!submitBtn);
+  submitBtn.click();
+  await sleep(60);
+
+  ok('POST went to /api/use-cases/bulk', posted && /\/api\/use-cases\/bulk$/.test(posted.url));
+  ok('POST body has workspace_id', posted && posted.body.workspace_id === 'ws-2');
+  ok('POST body has 2 rows', posted && Array.isArray(posted.body.rows) && posted.body.rows.length === 2);
+  ok('POST row parsed correctly', posted && posted.body.rows[0].name === 'Row One' && posted.body.rows[0].category === 'Productivity');
+
+  const resultsHtml = window.document.getElementById(MODAL).innerHTML;
+  ok('results show inserted count', /1 inserted/.test(window.document.getElementById(MODAL).textContent));
+  ok('results show a failed row error', /name is required/.test(resultsHtml));
+  ok('results show inserted row name', /Row One/.test(resultsHtml));
+  ok('onInserted callback fired', window.__inserted === true);
+
+  console.log('\n' + pass + ' passed, ' + fail + ' failed');
+  process.exit(fail ? 1 : 0);
 }
 
-const dom = newDom(HIGH);
-const { window } = dom;
-const { document } = window;
-
-setTimeout(() => {
-  const api = window.__bxt;
-
-  console.log('\n== 1. Header / theme toggle present ==');
-  ok('theme toggle button exists', !!document.getElementById('themeToggle'));
-  ok('Google wordmark present', /Google/.test(document.querySelector('.gc-header__wordmark').textContent));
-  // theme toggle works
-  click(window, document.getElementById('themeToggle'));
-  ok('theme toggle sets data-theme=light', document.documentElement.getAttribute('data-theme') === 'light');
-  ok('theme persisted to gaic_theme', window.localStorage.getItem('gaic_theme') === 'light');
-
-  console.log('\n== 2. Six-gate stepper: Gate 1 done, Gate 2 active ==');
-  const gates = document.querySelectorAll('.gates .gate');
-  ok('exactly 6 gates', gates.length === 6);
-  ok('Gate 1 (Intake) is-done', gates[0].classList.contains('is-done'));
-  ok('Gate 1 has a checkmark svg', !!gates[0].querySelector('svg'));
-  ok('Gate 2 (BXT Gate) is-active', gates[1].classList.contains('is-active'));
-  ok('Gate 2 label is "BXT Gate"', /BXT Gate/.test(gates[1].textContent));
-  ok('Gates 3-6 upcoming (not active/done)',
-     [2,3,4,5].every(i => !gates[i].classList.contains('is-active') && !gates[i].classList.contains('is-done')));
-  const labels = Array.from(gates).map(g => g.querySelector('.gate__label').textContent.trim());
-  ok('gate labels in correct order',
-     JSON.stringify(labels) === JSON.stringify(['Intake','BXT Gate','Feasibility Scoring','Platform Advisory','Evaluation Summary','Executive Review Panel']));
-
-  console.log('\n== 3. Gate banner copy ==');
-  ok('banner title "BXT Gate"', /BXT Gate/.test(document.querySelector('.banner__title').textContent));
-  ok('banner mentions Business × Experience × Technology', /Business × Experience × Technology/.test(document.querySelector('.banner__desc').textContent));
-  ok('banner has a "Why:" bold', /Why:/.test(document.querySelector('.banner__desc').innerHTML));
-
-  console.log('\n== 4. Three BXT dimension cards present ==');
-  ok('dim-B (Business) card exists', !!document.getElementById('dim-B'));
-  ok('dim-X (Experience) card exists', !!document.getElementById('dim-X'));
-  ok('dim-T (Technology) card exists', !!document.getElementById('dim-T'));
-  ok('exactly 3 dimension cards', document.querySelectorAll('.dim').length === 3);
-  ok('Business card labelled Business', /Business/.test(document.getElementById('dim-B').textContent));
-  ok('Experience card labelled Experience', /Experience/.test(document.getElementById('dim-X').textContent));
-  ok('Technology card labelled Technology', /Technology/.test(document.getElementById('dim-T').textContent));
-  // each card renders 3 sub-factors
-  ok('Business has 3 sub-factors', document.querySelector('[data-sub="B"]').querySelectorAll('.sf').length === 3);
-  ok('Experience has 3 sub-factors', document.querySelector('[data-sub="X"]').querySelectorAll('.sf').length === 3);
-  ok('Technology has 3 sub-factors', document.querySelector('[data-sub="T"]').querySelectorAll('.sf').length === 3);
-
-  console.log('\n== 5. Scoring function returns 0-100 per dimension ==');
-  const sc = api.bxtScore(HIGH);
-  ['B','X','T'].forEach(k => {
-    ok(k+' score is a number 0-100', typeof sc[k].score === 'number' && sc[k].score >= 0 && sc[k].score <= 100);
-    ok(k+' has 3 factors each 0-100', sc[k].factors.length === 3 && sc[k].factors.every(f => f.v >= 0 && f.v <= 100));
-  });
-  // deterministic / pure — same input twice
-  const sc2 = api.bxtScore(HIGH);
-  ok('scoring is deterministic', JSON.stringify(sc) === JSON.stringify(sc2));
-  // missing fields → neutral midpoints, still 0-100
-  const scEmpty = api.bxtScore({});
-  ok('empty input still yields 0-100 scores', ['B','X','T'].every(k => scEmpty[k].score >= 0 && scEmpty[k].score <= 100));
-  // high input scores high on all lenses
-  ok('HIGH input: all lenses >= 60', ['B','X','T'].every(k => sc[k].score >= 60));
-
-  console.log('\n== 6. Verdict logic at thresholds ==');
-  // PASS: all >= 60
-  ok('PASS when all three >= 60', api.bxtVerdict({B:{score:80},X:{score:70},T:{score:65}}).verdict === 'PASS');
-  ok('PASS boundary: all exactly 60', api.bxtVerdict({B:{score:60},X:{score:60},T:{score:60}}).verdict === 'PASS');
-  // CONDITIONAL: all >= 45 but one < 60
-  ok('CONDITIONAL when all>=45 and one<60', api.bxtVerdict({B:{score:80},X:{score:50},T:{score:70}}).verdict === 'CONDITIONAL');
-  ok('CONDITIONAL boundary: min exactly 45', api.bxtVerdict({B:{score:70},X:{score:45},T:{score:70}}).verdict === 'CONDITIONAL');
-  // FAIL: any < 45
-  ok('FAIL when any < 45', api.bxtVerdict({B:{score:80},X:{score:44},T:{score:70}}).verdict === 'FAIL');
-  ok('FAIL boundary: 44 fails', api.bxtVerdict({B:{score:90},X:{score:90},T:{score:44}}).verdict === 'FAIL');
-  // weakest lens identification
-  const wv = api.bxtVerdict({B:{score:80},X:{score:42},T:{score:70}});
-  ok('weakest lens = Experience', wv.weakName === 'Experience' && wv.weakScore === 42);
-
-  console.log('\n== 7. Live DOM reflects PASS verdict for HIGH intake ==');
-  ok('verdict chip shows PASS', /PASS/.test(document.getElementById('verdictChip').textContent) && !/CONDITIONAL/.test(document.getElementById('verdictChip').textContent));
-  ok('weakest lens line rendered', /Weakest lens:/.test(document.getElementById('verdictWeak').textContent));
-  ok('recommendation line present', document.getElementById('verdictRec').textContent.length > 10);
-  ok('eval line shows use-case name', /Automated invoice reconciliation/.test(document.getElementById('wsEval').textContent));
-  ok('Continue button targets feasibility.html', document.getElementById('btnContinue').getAttribute('href') === 'feasibility.html');
-  ok('Continue NOT disabled on PASS', document.getElementById('btnContinue').getAttribute('aria-disabled') !== 'true');
-  ok('Back button targets intake.html', document.getElementById('btnBack').getAttribute('href') === 'intake.html');
-
-  console.log('\n== 8. FAIL intake disables Continue + shows override ==');
-  const domF = newDom(FAILING);
-  setTimeout(() => {
-    const dF = domF.window.document;
-    const apiF = domF.window.__bxt;
-    const scF = apiF.bxtScore(FAILING);
-    ok('FAILING intake: at least one lens < 45', ['B','X','T'].some(k => scF[k].score < 45));
-    ok('FAILING verdict = FAIL', apiF.bxtVerdict(scF).verdict === 'FAIL');
-    ok('FAIL: verdict chip shows FAIL', /FAIL/.test(dF.getElementById('verdictChip').textContent));
-    ok('FAIL: Continue disabled (aria)', dF.getElementById('btnContinue').getAttribute('aria-disabled') === 'true');
-    ok('FAIL: note visible', dF.getElementById('continueNote').style.display !== 'none');
-    ok('FAIL: "Proceed anyway" override visible', dF.getElementById('overrideLink').style.display !== 'none');
-    ok('FAIL: override still targets feasibility.html', dF.getElementById('overrideLink').getAttribute('href') === 'feasibility.html');
-
-    console.log('\n== 9. Graceful fallback with no localStorage ==');
-    const domD = newDom(undefined); // no seed
-    setTimeout(() => {
-      const dD = domD.window.document;
-      const apiD = domD.window.__bxt;
-      ok('loadIntake falls back to demo', apiD.loadIntake().fromDemo === true);
-      ok('demo eval line rendered', /Evaluating:/.test(dD.getElementById('wsEval').textContent));
-      ok('demo still produces valid 0-100 scores', ['B','X','T'].every(k => apiD.result.scores[k].score >= 0 && apiD.result.scores[k].score <= 100));
-
-      console.log('\n== 10. Reads gaic_intake key + no Microsoft strings ==');
-      ok('bxt.html references gaic_intake key', /gaic_intake/.test(html));
-      ok('contains Google framing (Vertex AI / Gemini / Agentspace / AppSheet)',
-         /(Vertex AI|Gemini|Agentspace|AppSheet)/.test(html));
-      const microsoft = ['Copilot','Power Platform','MAIDF','Azure','M365','Blob','CAF:'];
-      microsoft.forEach(m => ok('NO Microsoft string "'+m+'"',
-        !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
-
-      console.log('\n== 11. intake.html submit navigates to bxt.html + writes gaic_intake ==');
-      ok('intake submit sets window.location to bxt.html', /window\.location\.href\s*=\s*['"]bxt\.html['"]/.test(intakeHtml));
-      ok('intake no longer uses the old alert', !/Submitted to BXT Gate\. \(Prototype/.test(intakeHtml));
-      ok('intake persists to gaic_intake on submit', /localStorage\.setItem\(LS_KEY/.test(intakeHtml) && /LS_KEY\s*=\s*['"]gaic_intake['"]/.test(intakeHtml));
-
-      console.log('\n---------------------------------------------');
-      console.log('  RESULT: '+pass+' passed, '+fail+' failed');
-      console.log('---------------------------------------------');
-      process.exit(fail ? 1 : 0);
-    }, 60);
-  }, 60);
-}, 60);
+main().catch((e) => { console.error(e); process.exit(1); });

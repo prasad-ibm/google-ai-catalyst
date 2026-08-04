@@ -1,643 +1,165 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Impact Index — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
-<!-- Shared Google design system (external link kept for standalone deploys) -->
-<link rel="stylesheet" href="assets/theme.css">
-<style>
-/* ==========================================================================
-   Google AI Catalyst — Shared Design System (inlined from assets/theme.css)
-   ========================================================================== */
-:root {
-  --g-blue:#4285F4; --g-blue-d:#1a73e8; --g-blue-l:#8ab4f8;
-  --g-red:#EA4335; --g-red-d:#c5221f; --g-yellow:#FBBC04; --g-yellow-d:#f9ab00;
-  --g-green:#34A853; --g-green-d:#188038; --g-purple:#a142f4; --g-teal:#12b5cb; --g-gray:#9aa0a6;
-  --bg:#0d1117; --bg-hero:#0a0f1e; --surface:#161b22; --surface-2:#1c2230; --surface-3:#232a3a;
-  --border:#2a2f3a; --border-soft:rgba(232,234,237,0.08);
-  --text:#e8eaed; --text-muted:rgba(232,234,237,0.65); --text-dim:rgba(232,234,237,0.45);
-  --font-sans:"Google Sans","Product Sans",Roboto,Inter,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"Roboto Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
-  --radius:6px; --radius-sm:4px; --radius-lg:8px;
-  --shadow-1:0 1px 2px rgba(0,0,0,0.4),0 0 0 1px var(--border);
-  --shadow-2:0 2px 8px rgba(0,0,0,0.5),0 1px 0 rgba(255,255,255,0.02) inset;
-  --header-h:48px; --maxw:1280px;
+/* DOM verification test for bxt.html — run with: node bxt.test.js */
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
+
+const html = fs.readFileSync(path.join(__dirname, 'bxt.html'), 'utf8');
+const intakeHtml = fs.readFileSync(path.join(__dirname, 'intake.html'), 'utf8');
+
+let pass = 0, fail = 0;
+function ok(name, cond){ if(cond){ pass++; console.log('  \u2713 '+name); } else { fail++; console.log('  \u2717 '+name); } }
+function fireChange(w, el){ el.dispatchEvent(new w.Event('change', {bubbles:true})); }
+function fireInput(w, el){ el.dispatchEvent(new w.Event('input', {bubbles:true})); }
+function click(w, el){ el.dispatchEvent(new w.MouseEvent('click', {bubbles:true})); }
+
+// A high-scoring intake object → PASS
+const HIGH = {
+  name: 'Automated invoice reconciliation',
+  sponsor: 'CFO', value: '>$5M', align: 'Core strategic priority', users: '>1000', driver: 'Revenue Growth',
+  adoption: 'High', change: true, autonomy: 'Advisory',
+  dataavail: 'Readily available & clean', integrations: ['Google Workspace','BigQuery','Vertex AI'],
+  maturity: 'Highly automated', sources: ['Structured DB'], realtime: false
+};
+// A failing intake object → one lens < 45 (Experience tanked)
+const FAILING = {
+  name: 'Autonomous risk bot',
+  sponsor: 'Director-level', value: '$100K–$500K', align: 'Experimental / exploratory', users: '<10',
+  adoption: 'Low', change: false, autonomy: 'Autonomous',
+  dataavail: 'Not yet available', integrations: ['On-prem system','Third-party SaaS'],
+  maturity: 'Fully manual', sources: ['Audio/Video','Images','Web'], realtime: true
+};
+
+function newDom(seedIntake){
+  return new JSDOM(html, {
+    runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/bxt.html',
+    beforeParse(w){ if (seedIntake !== undefined) w.localStorage.setItem('gaic_intake', JSON.stringify(seedIntake)); }
+  });
 }
-* { box-sizing:border-box; }
-html { scroll-behavior:smooth; scroll-padding-top:calc(var(--header-h) + 16px); }
-body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font-sans); font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased; }
-h1,h2,h3,h4 { font-family:var(--font-sans); font-weight:500; letter-spacing:-0.01em; margin:0; }
-a { color:inherit; text-decoration:none; }
-p { margin:0 0 1rem; }
-.gc-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-dim); }
-.gc-btn { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-sans); font-size:14px; font-weight:500; padding:10px 20px; border-radius:var(--radius-sm); border:1px solid transparent; cursor:pointer; transition:background .15s,border-color .15s,color .15s,box-shadow .15s; background:transparent; color:var(--text); line-height:1; }
-.gc-btn--primary { background:var(--g-blue); color:#fff; }
-.gc-btn--primary:hover { background:var(--g-blue-d); box-shadow:0 2px 10px rgba(66,133,244,.4); }
-.gc-btn--accent { background:transparent; color:var(--g-yellow); border-color:var(--g-yellow); }
-.gc-btn--accent:hover { background:rgba(251,188,4,.12); }
-.gc-btn--ghost { border-color:var(--border); color:var(--text); }
-.gc-btn--ghost:hover { border-color:var(--g-blue-l); color:var(--g-blue-l); }
-.gc-btn--sm { padding:7px 14px; font-size:13px; }
-.gc-tag { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11.5px; font-weight:500; padding:5px 10px; border-radius:100px; border:1px solid; letter-spacing:0.02em; }
-.gc-tag--blue { color:var(--g-blue-l); border-color:rgba(66,133,244,.4); background:rgba(66,133,244,.10); }
-.gc-tag--green { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.10); }
-.gc-tag--gray { color:var(--g-gray); border-color:rgba(154,160,166,.35); background:rgba(154,160,166,.08); }
-.gc-tag--yellow { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.10); }
-.gc-tag--purple { color:#d7aefb; border-color:rgba(161,66,244,.4); background:rgba(161,66,244,.10); }
-.gc-tag--red { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.10); }
-.gc-header { position:fixed; top:0; left:0; right:0; height:var(--header-h); background:rgba(13,17,23,.92); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 16px; z-index:100; gap:4px; }
-.gc-header__brand { display:flex; align-items:center; gap:10px; }
-.gc-header__wordmark { font-family:var(--font-sans); font-weight:500; font-size:14px; white-space:nowrap; }
-.gc-header__divider { width:1px; height:22px; background:var(--border); margin:0 12px; }
-.gc-header__product { font-size:13px; color:var(--text-muted); white-space:nowrap; }
-.gc-header__right { display:flex; align-items:center; gap:8px; margin-left:auto; }
-.gc-select { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap; }
-.gc-select:hover { border-color:var(--g-blue-l); color:var(--text); }
-.gc-iconbtn { width:32px; height:32px; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); background:transparent; cursor:pointer; transition:border-color .15s,color .15s; }
-.gc-iconbtn:hover { border-color:var(--g-blue-l); color:var(--text); }
-.glogo { display:inline-block; vertical-align:middle; }
-</style>
-<style>
-  /* ---------------- Page-specific: AI Impact Index ---------------- */
-  main { padding-top: var(--header-h); }
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 22px 32px 64px; }
 
-  /* Breadcrumb */
-  .crumb { margin-bottom: 18px; }
-  .crumb a { color: var(--text-dim); }
-  .crumb a:hover { color: var(--g-blue-l); }
+const dom = newDom(HIGH);
+const { window } = dom;
+const { document } = window;
 
-  /* ---- Page title row ---- */
-  .pagehd { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; margin-bottom: 26px; }
-  .pagehd__title { font-size:30px; font-weight:500; letter-spacing:-0.02em; line-height:1.05; margin-bottom:6px; }
-  .pagehd__sub { color:var(--text-muted); font-size:14px; margin:0; }
-  .picker { display:flex; flex-direction:column; gap:6px; }
-  .picker__label { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-dim); }
-  .picker select {
-    font-family:var(--font-sans); font-size:14px; color:var(--text); background:var(--surface);
-    border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 14px; min-width:220px; cursor:pointer;
-    appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat:no-repeat; background-position:right 12px center; padding-right:34px;
-  }
-  .picker select:hover { border-color:var(--g-blue-l); }
+setTimeout(() => {
+  const api = window.__bxt;
 
-  /* ---- 2. KPI stat band ---- */
-  .kpis { display:grid; grid-template-columns:repeat(6, 1fr); gap:14px; margin-bottom: 34px; }
-  .kpi { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); padding:18px 18px 16px; }
-  .kpi__k { font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px; line-height:1.3; min-height:26px; }
-  .kpi__v { font-family:var(--font-mono); font-size:30px; font-weight:500; line-height:1; color:var(--text); }
-  .kpi__v.is-green { color:#81c995; }
-  .kpi__v.is-yellow { color:var(--g-yellow); }
-  .kpi__v.is-red { color:#f28b82; }
-  .kpi__v.is-blue { color:var(--g-blue-l); }
-  .kpi__note { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-top:6px; }
+  console.log('\n== 1. Header / theme toggle present ==');
+  ok('theme toggle button exists', !!document.getElementById('themeToggle'));
+  ok('Google wordmark present', /Google/.test(document.querySelector('.gc-header__wordmark').textContent));
+  // theme toggle works
+  click(window, document.getElementById('themeToggle'));
+  ok('theme toggle sets data-theme=light', document.documentElement.getAttribute('data-theme') === 'light');
+  ok('theme persisted to gaic_theme', window.localStorage.getItem('gaic_theme') === 'light');
 
-  /* ============ Section shell ============ */
-  .sec { margin-bottom: 36px; }
-  .sec__head { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
-  .sec__title { font-size:20px; }
-  .sec__intro { color:var(--text-muted); font-size:13px; max-width:820px; margin:0 0 16px; }
+  console.log('\n== 2. Six-gate stepper: Gate 1 done, Gate 2 active ==');
+  const gates = document.querySelectorAll('.gates .gate');
+  ok('exactly 6 gates', gates.length === 6);
+  ok('Gate 1 (Intake) is-done', gates[0].classList.contains('is-done'));
+  ok('Gate 1 has a checkmark svg', !!gates[0].querySelector('svg'));
+  ok('Gate 2 (BXT Gate) is-active', gates[1].classList.contains('is-active'));
+  ok('Gate 2 label is "BXT Gate"', /BXT Gate/.test(gates[1].textContent));
+  ok('Gates 3-6 upcoming (not active/done)',
+     [2,3,4,5].every(i => !gates[i].classList.contains('is-active') && !gates[i].classList.contains('is-done')));
+  const labels = Array.from(gates).map(g => g.querySelector('.gate__label').textContent.trim());
+  ok('gate labels in correct order',
+     JSON.stringify(labels) === JSON.stringify(['Intake','BXT Gate','Feasibility Scoring','Platform Advisory','Evaluation Summary','Executive Review Panel']));
 
-  /* ---- 3. Verdict mix stacked bar ---- */
-  .mix { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-2); padding:22px 24px; }
-  .mix__bar { display:flex; height:34px; border-radius:100px; overflow:hidden; background:var(--surface-3); }
-  .mix__seg { display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:12px; font-weight:500; color:#0d1117; min-width:0; transition:flex-basis .3s; white-space:nowrap; overflow:hidden; }
-  .mix__seg.is-go { background:var(--g-green); }
-  .mix__seg.is-cond { background:var(--g-yellow); }
-  .mix__seg.is-no { background:var(--g-red); color:#fff; }
-  .mix__legend { display:flex; gap:22px; margin-top:16px; flex-wrap:wrap; }
-  .chip { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); }
-  .chip__dot { width:11px; height:11px; border-radius:3px; }
-  .chip__dot.is-go { background:var(--g-green); }
-  .chip__dot.is-cond { background:var(--g-yellow); }
-  .chip__dot.is-no { background:var(--g-red); }
-  .chip b { color:var(--text); font-family:var(--font-mono); font-weight:500; }
+  console.log('\n== 3. Gate banner copy ==');
+  ok('banner title "BXT Gate"', /BXT Gate/.test(document.querySelector('.banner__title').textContent));
+  ok('banner mentions Business × Experience × Technology', /Business × Experience × Technology/.test(document.querySelector('.banner__desc').textContent));
+  ok('banner has a "Why:" bold', /Why:/.test(document.querySelector('.banner__desc').innerHTML));
 
-  /* ---- 4. ROI range visualization ---- */
-  .roilist { display:flex; flex-direction:column; gap:14px; }
-  .roirow { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow-2); padding:14px 18px; }
-  .roirow__top { display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:10px; }
-  .roirow__name { font-size:14px; font-weight:500; color:var(--text); }
-  .roirow__p50 { font-family:var(--font-mono); font-size:15px; font-weight:500; color:#b6f0c4; white-space:nowrap; }
-  .roirow__track { position:relative; height:12px; border-radius:100px; background:var(--surface-3); }
-  .roirow__fill { position:absolute; top:0; bottom:0; border-radius:100px; background:linear-gradient(90deg, rgba(251,188,4,.55), rgba(52,168,83,.85)); }
-  .roirow__p50tick { position:absolute; top:-3px; width:2px; height:18px; background:#fff; border-radius:2px; }
-  .roirow__scale { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10.5px; color:var(--text-dim); margin-top:7px; }
-  .roirow--na { opacity:.6; }
-  .roirow--na .roirow__p50 { color:var(--text-dim); }
+  console.log('\n== 4. Three BXT dimension cards present ==');
+  ok('dim-B (Business) card exists', !!document.getElementById('dim-B'));
+  ok('dim-X (Experience) card exists', !!document.getElementById('dim-X'));
+  ok('dim-T (Technology) card exists', !!document.getElementById('dim-T'));
+  ok('exactly 3 dimension cards', document.querySelectorAll('.dim').length === 3);
+  ok('Business card labelled Business', /Business/.test(document.getElementById('dim-B').textContent));
+  ok('Experience card labelled Experience', /Experience/.test(document.getElementById('dim-X').textContent));
+  ok('Technology card labelled Technology', /Technology/.test(document.getElementById('dim-T').textContent));
+  // each card renders 3 sub-factors
+  ok('Business has 3 sub-factors', document.querySelector('[data-sub="B"]').querySelectorAll('.sf').length === 3);
+  ok('Experience has 3 sub-factors', document.querySelector('[data-sub="X"]').querySelectorAll('.sf').length === 3);
+  ok('Technology has 3 sub-factors', document.querySelector('[data-sub="T"]').querySelectorAll('.sf').length === 3);
 
-  /* ---- 5. Portfolio table ---- */
-  .tablewrap { border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-2); }
-  table.pf { width:100%; border-collapse:collapse; font-size:13px; }
-  table.pf thead th {
-    text-align:left; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
-    color:var(--text-dim); background:var(--surface-2); padding:12px 14px; border-bottom:1px solid var(--border); white-space:nowrap;
-  }
-  table.pf tbody td { padding:13px 14px; border-bottom:1px solid var(--border-soft); color:var(--text-muted); vertical-align:middle; }
-  table.pf tbody tr:last-child td { border-bottom:none; }
-  table.pf tbody tr:hover { background:rgba(66,133,244,.05); }
-  table.pf tbody tr.pf-row { cursor:pointer; }
-  table.pf tbody td.uc a { color:var(--text); font-weight:500; }
-  table.pf tbody td.uc a:hover { color:var(--g-blue-l); }
-  .feas { display:inline-flex; align-items:center; gap:8px; font-family:var(--font-mono); }
-  .feas__bar { width:56px; height:6px; border-radius:100px; background:var(--surface-3); overflow:hidden; }
-  .feas__fill { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--g-blue),var(--g-teal)); }
-  .mono { font-family:var(--font-mono); }
-  .vpill { display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:11px; font-weight:500; padding:4px 10px; border-radius:100px; border:1px solid; letter-spacing:.02em; white-space:nowrap; }
-  .vpill.is-go { color:#81c995; border-color:rgba(52,168,83,.4); background:rgba(52,168,83,.12); }
-  .vpill.is-cond { color:var(--g-yellow); border-color:rgba(251,188,4,.4); background:rgba(251,188,4,.12); }
-  .vpill.is-no { color:#f28b82; border-color:rgba(234,67,53,.4); background:rgba(234,67,53,.12); }
-  .vpill.is-none { color:var(--text-dim); border-color:var(--border); background:transparent; }
-  .dim { color:var(--text-dim); }
-
-  /* ---- Empty state ---- */
-  .empty { text-align:center; padding:64px 24px; border:1px dashed var(--border); border-radius:var(--radius-lg); background:var(--surface); color:var(--text-muted); }
-  .empty__icon { font-size:34px; margin-bottom:12px; }
-  .empty__title { font-size:16px; font-weight:500; color:var(--text); margin-bottom:8px; }
-  .empty a { color:var(--g-blue-l); }
-
-  .loading { color:var(--text-dim); font-family:var(--font-mono); font-size:13px; padding:40px 0; text-align:center; }
-  .hidden { display:none !important; }
-
-  @media (max-width: 1080px) {
-    .kpis { grid-template-columns:repeat(3, 1fr); }
-  }
-  @media (max-width: 820px) {
-    .wrap { padding:18px 16px 48px; }
-    .kpis { grid-template-columns:repeat(2, 1fr); }
-    .tablewrap { overflow-x:auto; }
-    table.pf { min-width:900px; }
-  }
-</style>
-</head>
-<body>
-
-<!-- ============================ HEADER ============================ -->
-<header class="gc-header">
-  <div class="gc-header__brand">
-    <svg class="glogo" width="22" height="22" viewBox="0 0 48 48" aria-label="Google">
-      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
-      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
-      <path fill="#FBBC04" d="M11.69 28.18c-.44-1.32-.69-2.73-.69-4.18s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
-      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
-    </svg>
-    <span class="gc-header__wordmark">Google <b>AI Catalyst</b></span>
-  </div>
-  <div class="gc-header__divider"></div>
-  <span class="gc-header__product">Enterprise Advantage</span>
-  <div class="gc-header__right">
-    <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
-    <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
-    <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
-    </button>
-  </div>
-</header>
-
-<main>
-  <div class="wrap">
-    <!-- Breadcrumb -->
-    <div class="gc-eyebrow crumb"><a href="index.html">←&nbsp;&nbsp;Home</a>&nbsp;&nbsp;/&nbsp;&nbsp;AI Impact Index</div>
-
-    <!-- Page title + workspace picker -->
-    <div class="pagehd">
-      <div>
-        <h1 class="pagehd__title">AI Impact Index</h1>
-        <p class="pagehd__sub">Portfolio health across all evaluated AI use cases</p>
-      </div>
-      <div class="picker">
-        <span class="picker__label">Workspace</span>
-        <select id="wsPicker" aria-label="Select workspace"></select>
-      </div>
-    </div>
-
-    <!-- Loading / error banners -->
-    <div class="loading" id="loading">Loading portfolio…</div>
-
-    <!-- content is injected once loaded -->
-    <div id="content" class="hidden">
-
-      <!-- 2. KPI STAT BAND -->
-      <div class="kpis" id="kpis"></div>
-
-      <!-- 3. VERDICT MIX -->
-      <section class="sec" id="mixSec">
-        <div class="sec__head">
-          <h2 class="sec__title">Verdict mix</h2>
-          <span class="gc-tag gc-tag--blue">✦ PANEL</span>
-        </div>
-        <p class="sec__intro">Distribution of Executive Review Panel verdicts across the portfolio. GO cases are cleared to build; CONDITIONAL GO cases carry a binding condition; NO-GO cases are paused.</p>
-        <div class="mix">
-          <div class="mix__bar" id="mixBar"></div>
-          <div class="mix__legend" id="mixLegend"></div>
-        </div>
-      </section>
-
-      <!-- 4. ROI RANGE -->
-      <section class="sec" id="roiSec">
-        <div class="sec__head">
-          <h2 class="sec__title">ROI range (P10 – P50 – P90)</h2>
-          <span class="gc-tag gc-tag--green">✦ MONTE CARLO</span>
-        </div>
-        <p class="sec__intro">24-month ROI projection per use case. The white tick marks the P50 (expected) return; the bar spans the P10 (conservative) to P90 (optimistic) range, scaled to the portfolio's widest range.</p>
-        <div class="roilist" id="roilist"></div>
-      </section>
-
-      <!-- 5. PORTFOLIO TABLE -->
-      <section class="sec" id="tableSec">
-        <div class="sec__head">
-          <h2 class="sec__title">Portfolio detail</h2>
-          <span class="gc-tag gc-tag--gray" id="pfCount">—</span>
-        </div>
-        <div class="tablewrap">
-          <table class="pf">
-            <thead>
-              <tr>
-                <th>Use Case</th>
-                <th>Department</th>
-                <th>Stage</th>
-                <th>Feasibility</th>
-                <th>Quadrant</th>
-                <th>Advisory Tier</th>
-                <th>Recommended Platform</th>
-                <th>ROI P50</th>
-                <th>Verdict</th>
-              </tr>
-            </thead>
-            <tbody id="pfBody"></tbody>
-          </table>
-        </div>
-      </section>
-    </div>
-
-    <!-- 6. EMPTY STATE -->
-    <div id="empty" class="empty hidden">
-      <div class="empty__icon">📊</div>
-      <div class="empty__title">No use cases yet — create one to populate the Impact Index.</div>
-      <p><a href="intake.html">+ Create your first use case</a></p>
-    </div>
-  </div>
-</main>
-
-<script src="assets/api-client.js"></script>
-<script src="assets/auth-ui.js" defer></script>
-<script>
-(function () {
-  "use strict";
-
-  var THEME_KEY = 'gaic_theme';
-
-  // ---------- DOM refs ----------
-  var el = {
-    loading: document.getElementById('loading'),
-    content: document.getElementById('content'),
-    empty:   document.getElementById('empty'),
-    kpis:    document.getElementById('kpis'),
-    mixBar:  document.getElementById('mixBar'),
-    mixLegend: document.getElementById('mixLegend'),
-    roilist: document.getElementById('roilist'),
-    pfBody:  document.getElementById('pfBody'),
-    pfCount: document.getElementById('pfCount'),
-    wsPicker: document.getElementById('wsPicker'),
-    wsChip:  document.getElementById('wsChip'),
-  };
-
-  // ---------- helpers ----------
-  function esc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/[&<>"']/g, function (c) {
-      return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
-    });
-  }
-  function num(v) {
-    if (v === null || v === undefined || v === '') return null;
-    var n = Number(v);
-    return isFinite(n) ? n : null;
-  }
-  function fmtPct(n) {
-    if (n === null) return '—';
-    return (n >= 0 ? '+' : '') + Math.round(n) + '%';
-  }
-  // Verdict normalization -> 'go' | 'cond' | 'no' | null
-  function verdictKey(v) {
-    if (!v) return null;
-    var s = String(v).toUpperCase();
-    if (s.indexOf('NO') === 0 || s.indexOf('NO-GO') !== -1 || s.indexOf('NO GO') !== -1) return 'no';
-    if (s.indexOf('COND') !== -1) return 'cond';
-    if (s.indexOf('GO') !== -1) return 'go';
-    return null;
-  }
-  function verdictLabel(v) {
-    return v ? String(v) : 'Not evaluated';
-  }
-
-  // ============================================================
-  //  DATA LOADING — API first, with 401 -> /login redirect
-  // ============================================================
-  function apiFetch(path) {
-    return fetch('/api' + path, { headers: { 'Content-Type': 'application/json' } })
-      .then(function (r) {
-        if (r.status === 401) {
-          window.location.href = '/login.html';
-          throw new Error('unauthorized');
-        }
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.json();
-      });
-  }
-
-  var STATE = { workspaces: [], selectedWs: null };
-
-  function loadWorkspaces() {
-    return apiFetch('/workspaces').catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      // fallback: no workspace list available
-      return [];
-    });
-  }
-
-  function loadPortfolio(wsId) {
-    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
-    return apiFetch('/portfolio' + q).catch(function (e) {
-      if (e && e.message === 'unauthorized') throw e;
-      // graceful fallback to whatever the shared client can give us
-      if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
-        return window.GAIC_API.listPortfolio(wsId);
-      }
-      return [];
-    });
-  }
-
-  // Pick the Intel workspace (case-insensitive) else the first.
-  function findIntel(list) {
-    if (!Array.isArray(list) || !list.length) return null;
-    for (var i = 0; i < list.length; i++) {
-      if (list[i] && /intel/i.test(String(list[i].name || ''))) return list[i];
-    }
-    return list[0];
-  }
-
-  // ============================================================
-  //  RENDER
-  // ============================================================
-  function render(rows) {
-    rows = Array.isArray(rows) ? rows : [];
-    el.loading.classList.add('hidden');
-
-    if (!rows.length) {
-      el.content.classList.add('hidden');
-      el.empty.classList.remove('hidden');
-      return;
-    }
-    el.empty.classList.add('hidden');
-    el.content.classList.remove('hidden');
-
-    renderKPIs(rows);
-    renderMix(rows);
-    renderRoi(rows);
-    renderTable(rows);
-  }
-
-  function verdictCounts(rows) {
-    var c = { go: 0, cond: 0, no: 0, none: 0 };
-    rows.forEach(function (r) {
-      var k = verdictKey(r.verdict);
-      if (k === 'go') c.go++;
-      else if (k === 'cond') c.cond++;
-      else if (k === 'no') c.no++;
-      else c.none++;
-    });
-    return c;
-  }
-
-  function renderKPIs(rows) {
-    var c = verdictCounts(rows);
-
-    // Portfolio P50 ROI — sum of available roi_p50 values.
-    var p50vals = rows.map(function (r) { return num(r.roi_p50); }).filter(function (n) { return n !== null; });
-    var p50sum = p50vals.reduce(function (a, b) { return a + b; }, 0);
-    var p50label = p50vals.length ? fmtPct(p50sum) : '—';
-    var p50note = p50vals.length ? ('sum across ' + p50vals.length + ' case' + (p50vals.length === 1 ? '' : 's')) : 'no data';
-
-    // Avg feasibility composite (/5)
-    var fvals = rows.map(function (r) { return num(r.feasibility_composite); }).filter(function (n) { return n !== null; });
-    var favg = fvals.length ? (fvals.reduce(function (a, b) { return a + b; }, 0) / fvals.length) : null;
-    var favgLabel = favg === null ? '—' : (Math.round(favg * 10) / 10).toFixed(1);
-
-    var cards = [
-      { k: 'Total Use Cases', v: String(rows.length), cls: '', note: '' },
-      { k: 'GO', v: String(c.go), cls: 'is-green', note: 'cleared to build' },
-      { k: 'Conditional GO', v: String(c.cond), cls: 'is-yellow', note: 'with condition' },
-      { k: 'No-Go', v: String(c.no), cls: 'is-red', note: 'paused' },
-      { k: 'Portfolio P50 ROI', v: p50label, cls: 'is-blue', note: p50note },
-      { k: 'Avg Feasibility', v: favgLabel === '—' ? '—' : favgLabel + ' <span style="font-size:15px;color:var(--text-dim)">/5</span>', cls: '', note: 'composite score' },
-    ];
-
-    el.kpis.innerHTML = cards.map(function (kpi) {
-      return '<div class="kpi">' +
-        '<div class="kpi__k">' + esc(kpi.k) + '</div>' +
-        '<div class="kpi__v ' + kpi.cls + '">' + kpi.v + '</div>' +
-        (kpi.note ? '<div class="kpi__note">' + esc(kpi.note) + '</div>' : '') +
-        '</div>';
-    }).join('');
-  }
-
-  function renderMix(rows) {
-    var c = verdictCounts(rows);
-    var total = rows.length || 1;
-    var segs = [
-      { key: 'go',   cls: 'is-go',   label: 'GO',    n: c.go },
-      { key: 'cond', cls: 'is-cond', label: 'COND',  n: c.cond },
-      { key: 'no',   cls: 'is-no',   label: 'NO-GO', n: c.no },
-    ];
-    // Show a neutral segment for not-evaluated so the bar always fills.
-    el.mixBar.innerHTML = segs.map(function (s) {
-      if (!s.n) return '';
-      var pct = (s.n / total) * 100;
-      return '<div class="mix__seg ' + s.cls + '" style="flex-basis:' + pct.toFixed(2) + '%" title="' +
-        s.label + ': ' + s.n + '">' + (pct >= 8 ? s.n : '') + '</div>';
-    }).join('') + (c.none ? '<div class="mix__seg" style="flex-basis:' + ((c.none / total) * 100).toFixed(2) + '%;background:var(--surface-3);color:var(--text-dim)" title="Not evaluated: ' + c.none + '">' + (c.none / total * 100 >= 8 ? c.none : '') + '</div>' : '');
-
-    var legend = [
-      { cls: 'is-go',   label: 'GO',             n: c.go },
-      { cls: 'is-cond', label: 'CONDITIONAL GO', n: c.cond },
-      { cls: 'is-no',   label: 'NO-GO',          n: c.no },
-    ];
-    if (c.none) legend.push({ cls: '', label: 'Not evaluated', n: c.none });
-    el.mixLegend.innerHTML = legend.map(function (l) {
-      var dot = l.cls ? '<span class="chip__dot ' + l.cls + '"></span>' : '<span class="chip__dot" style="background:var(--surface-3)"></span>';
-      return '<span class="chip">' + dot + esc(l.label) + ' <b>' + l.n + '</b></span>';
-    }).join('');
-  }
-
-  function renderRoi(rows) {
-    // Global scale across all available P10/P90 for comparability.
-    var allLo = [], allHi = [];
-    rows.forEach(function (r) {
-      var lo = num(r.roi_p10), hi = num(r.roi_p90), p50 = num(r.roi_p50);
-      [lo, hi, p50].forEach(function (v) { if (v !== null) { allLo.push(v); allHi.push(v); } });
-    });
-    var gMin = allLo.length ? Math.min.apply(null, allLo) : 0;
-    var gMax = allHi.length ? Math.max.apply(null, allHi) : 100;
-    if (gMin === gMax) { gMax = gMin + 1; }
-    var span = gMax - gMin;
-    function pos(v) { return ((v - gMin) / span) * 100; }
-
-    el.roilist.innerHTML = rows.map(function (r) {
-      var lo = num(r.roi_p10), p50 = num(r.roi_p50), hi = num(r.roi_p90);
-      if (p50 === null && lo === null && hi === null) {
-        return '<div class="roirow roirow--na">' +
-          '<div class="roirow__top"><span class="roirow__name">' + esc(r.name) + '</span>' +
-          '<span class="roirow__p50">ROI n/a</span></div>' +
-          '<div class="roirow__track"></div>' +
-          '<div class="roirow__scale"><span>—</span><span>not evaluated</span><span>—</span></div>' +
-          '</div>';
-      }
-      var elo = lo === null ? (p50 !== null ? p50 : gMin) : lo;
-      var ehi = hi === null ? (p50 !== null ? p50 : gMax) : hi;
-      var left = pos(elo), right = pos(ehi);
-      var width = Math.max(1.5, right - left);
-      var tickLeft = p50 !== null ? pos(p50) : (left + width / 2);
-      return '<div class="roirow">' +
-        '<div class="roirow__top">' +
-          '<span class="roirow__name">' + esc(r.name) + '</span>' +
-          '<span class="roirow__p50">' + (p50 !== null ? fmtPct(p50) + ' P50' : '—') + '</span>' +
-        '</div>' +
-        '<div class="roirow__track">' +
-          '<div class="roirow__fill" style="left:' + left.toFixed(2) + '%;width:' + width.toFixed(2) + '%"></div>' +
-          '<div class="roirow__p50tick" style="left:' + tickLeft.toFixed(2) + '%"></div>' +
-        '</div>' +
-        '<div class="roirow__scale">' +
-          '<span>' + (lo !== null ? 'P10 ' + fmtPct(lo) : 'P10 —') + '</span>' +
-          '<span>' + (hi !== null ? 'P90 ' + fmtPct(hi) : 'P90 —') + '</span>' +
-        '</div>' +
-      '</div>';
-    }).join('');
-  }
-
-  function renderTable(rows) {
-    el.pfCount.textContent = rows.length + ' use case' + (rows.length === 1 ? '' : 's');
-    el.pfBody.innerHTML = rows.map(function (r) {
-      var vk = verdictKey(r.verdict);
-      var vcls = vk === 'go' ? 'is-go' : vk === 'cond' ? 'is-cond' : vk === 'no' ? 'is-no' : 'is-none';
-
-      var feas = num(r.feasibility_composite);
-      var feasCell = feas === null
-        ? '<span class="dim">—</span>'
-        : '<span class="feas"><span class="feas__bar"><span class="feas__fill" style="width:' + Math.max(0, Math.min(100, (feas / 5) * 100)).toFixed(0) + '%"></span></span>' + (Math.round(feas * 10) / 10).toFixed(1) + '<span class="dim"> /5</span></span>';
-
-      var p50 = num(r.roi_p50);
-      var roiCell = p50 === null ? '<span class="dim">—</span>' : '<span class="mono" style="color:#b6f0c4">' + fmtPct(p50) + '</span>';
-
-      function cell(v) { return v ? esc(v) : '<span class="dim">—</span>'; }
-
-      // Deep-link each row into the use case's Gate 5 summary, loading its
-      // real persisted data via summary.html?id=<use_case_id>.
-      var href = r.id ? ('summary.html?id=' + encodeURIComponent(r.id)) : 'intake.html';
-      return '<tr class="pf-row" data-href="' + esc(href) + '">' +
-        '<td class="uc"><a href="' + esc(href) + '">' + esc(r.name) + '</a></td>' +
-        '<td>' + cell(r.department) + '</td>' +
-        '<td class="mono">' + cell(r.stage) + '</td>' +
-        '<td>' + feasCell + '</td>' +
-        '<td>' + cell(r.quadrant) + '</td>' +
-        '<td>' + cell(r.advisory_tier) + '</td>' +
-        '<td>' + cell(r.recommended_platform) + '</td>' +
-        '<td>' + roiCell + '</td>' +
-        '<td><span class="vpill ' + vcls + '">' + esc(verdictLabel(r.verdict)) + '</span></td>' +
-      '</tr>';
-    }).join('');
-
-    // Whole-row deep-link: clicking anywhere on a row opens its Gate 5
-    // summary. The name cell keeps its own <a> for keyboard/new-tab use, so
-    // ignore clicks that originate on a link to avoid a double navigation.
-    el.pfBody.querySelectorAll('tr.pf-row').forEach(function (tr) {
-      tr.addEventListener('click', function (ev) {
-        if (ev.target.closest('a')) return;
-        var href = tr.getAttribute('data-href');
-        if (href) window.location.href = href;
-      });
-    });
-  }
-
-  // ============================================================
-  //  WORKSPACE PICKER
-  // ============================================================
-  function populatePicker() {
-    var opts = STATE.workspaces.map(function (w) {
-      var sel = (STATE.selectedWs && w.id === STATE.selectedWs.id) ? ' selected' : '';
-      return '<option value="' + esc(w.id) + '"' + sel + '>' + esc(w.name || 'Untitled workspace') + '</option>';
-    });
-    if (!STATE.workspaces.length) {
-      opts = ['<option value="">All workspaces</option>'];
-    }
-    el.wsPicker.innerHTML = opts.join('');
-    if (STATE.selectedWs) {
-      el.wsChip.textContent = String(STATE.selectedWs.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    }
-  }
-
-  function selectAndLoad(wsId) {
-    var ws = null;
-    for (var i = 0; i < STATE.workspaces.length; i++) {
-      if (STATE.workspaces[i].id === wsId) { ws = STATE.workspaces[i]; break; }
-    }
-    STATE.selectedWs = ws;
-    if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
-    el.content.classList.add('hidden');
-    el.empty.classList.add('hidden');
-    el.loading.classList.remove('hidden');
-    el.loading.textContent = 'Loading portfolio…';
-    loadPortfolio(wsId).then(render).catch(function (e) {
-      if (e && e.message === 'unauthorized') return;
-      el.loading.textContent = 'Could not load portfolio.';
-    });
-  }
-
-  el.wsPicker.addEventListener('change', function () {
-    selectAndLoad(this.value || null);
+  console.log('\n== 5. Scoring function returns 0-100 per dimension ==');
+  const sc = api.bxtScore(HIGH);
+  ['B','X','T'].forEach(k => {
+    ok(k+' score is a number 0-100', typeof sc[k].score === 'number' && sc[k].score >= 0 && sc[k].score <= 100);
+    ok(k+' has 3 factors each 0-100', sc[k].factors.length === 3 && sc[k].factors.every(f => f.v >= 0 && f.v <= 100));
   });
+  // deterministic / pure — same input twice
+  const sc2 = api.bxtScore(HIGH);
+  ok('scoring is deterministic', JSON.stringify(sc) === JSON.stringify(sc2));
+  // missing fields → neutral midpoints, still 0-100
+  const scEmpty = api.bxtScore({});
+  ok('empty input still yields 0-100 scores', ['B','X','T'].every(k => scEmpty[k].score >= 0 && scEmpty[k].score <= 100));
+  // high input scores high on all lenses
+  ok('HIGH input: all lenses >= 60', ['B','X','T'].every(k => sc[k].score >= 60));
 
-  // ============================================================
-  //  THEME TOGGLE (light/dark) — mirrors the rest of the app
-  // ============================================================
-  (function initTheme() {
-    var btn = document.getElementById('themeToggle');
-    if (!btn) return;
-    try {
-      if (localStorage.getItem(THEME_KEY) === 'light') document.body.classList.add('theme-light');
-    } catch (e) {}
-    btn.addEventListener('click', function () {
-      document.body.classList.toggle('theme-light');
-      try { localStorage.setItem(THEME_KEY, document.body.classList.contains('theme-light') ? 'light' : 'dark'); } catch (e) {}
-    });
-  })();
+  console.log('\n== 6. Verdict logic at thresholds ==');
+  // PASS: all >= 60
+  ok('PASS when all three >= 60', api.bxtVerdict({B:{score:80},X:{score:70},T:{score:65}}).verdict === 'PASS');
+  ok('PASS boundary: all exactly 60', api.bxtVerdict({B:{score:60},X:{score:60},T:{score:60}}).verdict === 'PASS');
+  // CONDITIONAL: all >= 45 but one < 60
+  ok('CONDITIONAL when all>=45 and one<60', api.bxtVerdict({B:{score:80},X:{score:50},T:{score:70}}).verdict === 'CONDITIONAL');
+  ok('CONDITIONAL boundary: min exactly 45', api.bxtVerdict({B:{score:70},X:{score:45},T:{score:70}}).verdict === 'CONDITIONAL');
+  // FAIL: any < 45
+  ok('FAIL when any < 45', api.bxtVerdict({B:{score:80},X:{score:44},T:{score:70}}).verdict === 'FAIL');
+  ok('FAIL boundary: 44 fails', api.bxtVerdict({B:{score:90},X:{score:90},T:{score:44}}).verdict === 'FAIL');
+  // weakest lens identification
+  const wv = api.bxtVerdict({B:{score:80},X:{score:42},T:{score:70}});
+  ok('weakest lens = Experience', wv.weakName === 'Experience' && wv.weakScore === 42);
 
-  // ============================================================
-  //  BOOT
-  // ============================================================
-  loadWorkspaces().then(function (list) {
-    STATE.workspaces = Array.isArray(list) ? list : [];
-    var intel = findIntel(STATE.workspaces);
-    STATE.selectedWs = intel;
-    populatePicker();
-    var wsId = intel ? intel.id : null;
-    return loadPortfolio(wsId).then(render);
-  }).catch(function (e) {
-    if (e && e.message === 'unauthorized') return; // redirecting
-    // Last-resort: try portfolio with no workspace filter.
-    loadPortfolio(null).then(render).catch(function () {
-      el.loading.textContent = 'Could not load portfolio.';
-    });
-  });
+  console.log('\n== 7. Live DOM reflects PASS verdict for HIGH intake ==');
+  ok('verdict chip shows PASS', /PASS/.test(document.getElementById('verdictChip').textContent) && !/CONDITIONAL/.test(document.getElementById('verdictChip').textContent));
+  ok('weakest lens line rendered', /Weakest lens:/.test(document.getElementById('verdictWeak').textContent));
+  ok('recommendation line present', document.getElementById('verdictRec').textContent.length > 10);
+  ok('eval line shows use-case name', /Automated invoice reconciliation/.test(document.getElementById('wsEval').textContent));
+  ok('Continue button targets feasibility.html', document.getElementById('btnContinue').getAttribute('href') === 'feasibility.html');
+  ok('Continue NOT disabled on PASS', document.getElementById('btnContinue').getAttribute('aria-disabled') !== 'true');
+  ok('Back button targets intake.html', document.getElementById('btnBack').getAttribute('href') === 'intake.html');
 
-})();
-</script>
-</body>
-</html>
+  console.log('\n== 8. FAIL intake disables Continue + shows override ==');
+  const domF = newDom(FAILING);
+  setTimeout(() => {
+    const dF = domF.window.document;
+    const apiF = domF.window.__bxt;
+    const scF = apiF.bxtScore(FAILING);
+    ok('FAILING intake: at least one lens < 45', ['B','X','T'].some(k => scF[k].score < 45));
+    ok('FAILING verdict = FAIL', apiF.bxtVerdict(scF).verdict === 'FAIL');
+    ok('FAIL: verdict chip shows FAIL', /FAIL/.test(dF.getElementById('verdictChip').textContent));
+    ok('FAIL: Continue disabled (aria)', dF.getElementById('btnContinue').getAttribute('aria-disabled') === 'true');
+    ok('FAIL: note visible', dF.getElementById('continueNote').style.display !== 'none');
+    ok('FAIL: "Proceed anyway" override visible', dF.getElementById('overrideLink').style.display !== 'none');
+    ok('FAIL: override still targets feasibility.html', dF.getElementById('overrideLink').getAttribute('href') === 'feasibility.html');
+
+    console.log('\n== 9. Graceful fallback with no localStorage ==');
+    const domD = newDom(undefined); // no seed
+    setTimeout(() => {
+      const dD = domD.window.document;
+      const apiD = domD.window.__bxt;
+      ok('loadIntake falls back to demo', apiD.loadIntake().fromDemo === true);
+      ok('demo eval line rendered', /Evaluating:/.test(dD.getElementById('wsEval').textContent));
+      ok('demo still produces valid 0-100 scores', ['B','X','T'].every(k => apiD.result.scores[k].score >= 0 && apiD.result.scores[k].score <= 100));
+
+      console.log('\n== 10. Reads gaic_intake key + no Microsoft strings ==');
+      ok('bxt.html references gaic_intake key', /gaic_intake/.test(html));
+      ok('contains Google framing (Vertex AI / Gemini / Agentspace / AppSheet)',
+         /(Vertex AI|Gemini|Agentspace|AppSheet)/.test(html));
+      const microsoft = ['Copilot','Power Platform','MAIDF','Azure','M365','Blob','CAF:'];
+      microsoft.forEach(m => ok('NO Microsoft string "'+m+'"',
+        !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
+
+      console.log('\n== 11. intake.html submit navigates to bxt.html + writes gaic_intake ==');
+      ok('intake submit sets window.location to bxt.html', /window\.location\.href\s*=\s*['"]bxt\.html['"]/.test(intakeHtml));
+      ok('intake no longer uses the old alert', !/Submitted to BXT Gate\. \(Prototype/.test(intakeHtml));
+      ok('intake persists to gaic_intake on submit', /localStorage\.setItem\(LS_KEY/.test(intakeHtml) && /LS_KEY\s*=\s*['"]gaic_intake['"]/.test(intakeHtml));
+
+      console.log('\n---------------------------------------------');
+      console.log('  RESULT: '+pass+' passed, '+fail+' failed');
+      console.log('---------------------------------------------');
+      process.exit(fail ? 1 : 0);
+    }, 60);
+  }, 60);
+}, 60);

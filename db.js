@@ -1,231 +1,343 @@
-/**
- * Compare Use Cases (compare.html) test suite.
- * Loads the page inside jsdom, mocks fetch() for /api/workspaces and
- * /api/portfolio, and exercises:
- *   - the pure compare model (window.GAIC_COMPARE): verdict class mapping,
- *     best/worst highlight computation, selection cap, URL id parsing
- *   - end-to-end render: N columns for N selected ids, verdict chips,
- *     up-to-4 cap on chips, URL ?ids= round-trip, best-value highlight
+'use strict';
+
+/*
+ * Tests for the bulk use-case upload endpoint and its CSV parser.
  *
- *   node --test compare.test.js   # exit 0 = all green
+ * Run with:  node --test bulk-upload.test.js
+ *
+ * Coverage:
+ *   (1) parseCsv() turns a CSV string with quoted commas/quotes/CRLF into the
+ *       correct row objects (pure unit test, no DB).
+ *   (4) >500 rows is rejected with 400 (guard test, exercised over HTTP but
+ *       fails before any DB write).
+ *   (2) rows-JSON insert path returns { inserted, results:[{id,name}] } against
+ *       the LIVE DB using a throwaway workspace.
+ *   (3) required-field validation (missing name / missing workspace_id) returns
+ *       a per-row error while good rows in the same batch still insert.
+ *
+ * The live-DB tests create ONE temp workspace, insert under it, assert, then
+ * cascade-delete it in an after() hook — plus a belt-and-braces delete by the
+ * unique name prefix — so only the 5 seeded Intel use cases remain.
  */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
 
-const HTML_PATH = path.join(__dirname, 'compare.html');
-const html = fs.readFileSync(HTML_PATH, 'utf8');
+require('dotenv').config();
+const { test, before, after } = require('node:test');
+const assert = require('node:assert');
+const http = require('node:http');
 
-let pass = 0, fail = 0;
-function ok(msg, cond) {
-  if (cond) { pass++; console.log('  \u2713 ' + msg); }
-  else { fail++; console.log('  \u2717 ' + msg); }
-}
+const { parseCsv } = require('./use-case-template');
 
-// Realistic /api/portfolio rows (matches server.js portfolio assembly).
-const PORTFOLIO = [
-  { id: 'uc-1', name: 'Fraud Signal Triage', department: 'Risk & Compliance',
-    stage: 'panel', feasibility_composite: 3.8, roi_p10: 12, roi_p50: 45, roi_p90: 90,
-    verdict: 'GO', quadrant: 'Quick Win', advisory_tier: 'Extend',
-    recommended_platform: 'Vertex AI', citizen_dev_pct: 30 },
-  { id: 'uc-2', name: 'Contract Summarizer', department: 'Legal',
-    stage: 'panel', feasibility_composite: 4.2, roi_p10: 20, roi_p50: 60, roi_p90: 120,
-    verdict: 'CONDITIONAL GO', quadrant: 'Big Bet', advisory_tier: 'Scale',
-    recommended_platform: 'Gemini', citizen_dev_pct: 55 },
-  { id: 'uc-3', name: 'Shelf Vision', department: 'Retail Ops',
-    stage: 'panel', feasibility_composite: 2.9, roi_p10: -5, roi_p50: 15, roi_p90: 40,
-    verdict: 'NO-GO', quadrant: 'Money Pit', advisory_tier: 'Pilot',
-    recommended_platform: 'AutoML', citizen_dev_pct: 10 },
-  { id: 'uc-4', name: 'Ticket Router', department: 'Support',
-    stage: 'feasibility', feasibility_composite: 3.1, roi_p10: 8, roi_p50: 30, roi_p90: 70,
-    verdict: null, quadrant: 'Incremental', advisory_tier: 'Pilot',
-    recommended_platform: 'Vertex AI', citizen_dev_pct: 25 },
-  { id: 'uc-5', name: 'Sales Copilot', department: 'Sales',
-    stage: 'bxt', feasibility_composite: 3.5, roi_p10: 10, roi_p50: 40, roi_p90: 80,
-    verdict: 'GO', quadrant: 'Quick Win', advisory_tier: 'Extend',
-    recommended_platform: 'Gemini', citizen_dev_pct: 40 },
-];
+// Unique marker so every row this suite inserts can be found & purged by name.
+const NAME_PREFIX = 'BULKTEST_' + process.pid + '_';
 
-const WORKSPACES = [
-  { id: 'ws-intel', name: 'Intel Corp' },
-  { id: 'ws-other', name: 'Other' },
-];
+/* -------------------------------------------------------------------------- */
+/* (1) Pure CSV parser unit test — no server, no DB.                          */
+/* -------------------------------------------------------------------------- */
 
-// Build a jsdom instance with fetch mocked to serve our fixtures.
-function newDom(opts) {
-  opts = opts || {};
-  const portfolio = opts.portfolio !== undefined ? opts.portfolio : PORTFOLIO;
-  const workspaces = opts.workspaces !== undefined ? opts.workspaces : WORKSPACES;
-  const url = opts.url || 'https://example.com/compare.html';
+test('parseCsv: quoted commas, escaped quotes, and CRLF newlines', () => {
+  // Header + two data rows. The description column contains commas and an
+  // embedded double-quote ("" -> "). Lines are separated by CRLF.
+  const csv = [
+    'name,department,description',
+    '"AskHR","HR","Deflects tickets, fast, and cheap"',
+    '"Contract Leakage","Procurement","Recovers 2""5% of ""contract"" value, silently"',
+  ].join('\r\n');
 
-  const dom = new JSDOM(html, {
-    runScripts: 'dangerously',
-    url: url,
-    beforeParse(window) {
-      window.fetch = function (u) {
-        u = String(u);
-        let body;
-        if (u.indexOf('/api/workspaces') !== -1) body = workspaces;
-        else if (u.indexOf('/api/portfolio') !== -1) body = portfolio;
-        else body = [];
-        return Promise.resolve({
-          ok: true, status: 200,
-          json: function () { return Promise.resolve(body); },
-        });
-      };
-    },
-  });
-  return dom;
-}
+  const rows = parseCsv(csv);
 
-function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+  assert.strictEqual(rows.length, 2, 'two data rows parsed');
 
-(async function () {
-console.log('\n=== Compare Use Cases (compare.html) ===\n');
+  assert.strictEqual(rows[0].name, 'AskHR');
+  assert.strictEqual(rows[0].department, 'HR');
+  assert.strictEqual(
+    rows[0].description,
+    'Deflects tickets, fast, and cheap',
+    'commas inside a quoted field are preserved',
+  );
 
-console.log('== 1. Model surface (window.GAIC_COMPARE) ==');
-let dom = newDom();
-let C = dom.window.GAIC_COMPARE;
-ok('window.GAIC_COMPARE exists', !!C);
-ok('MAX_SELECT is 4', C.MAX_SELECT === 4);
-ok('ROWS defines the 11 attributes', Array.isArray(C.ROWS) && C.ROWS.length === 11);
-['verdictKey', 'verdictClass', 'highlightsFor', 'resolveSelection', 'readIdsFromURL'].forEach(function (fn) {
-  ok('exposes ' + fn + '()', typeof C[fn] === 'function');
+  assert.strictEqual(rows[1].name, 'Contract Leakage');
+  assert.strictEqual(rows[1].department, 'Procurement');
+  assert.strictEqual(
+    rows[1].description,
+    'Recovers 2"5% of "contract" value, silently',
+    'escaped double-quotes ("") collapse to a single quote; commas preserved',
+  );
 });
 
-console.log('\n== 2. verdict chip class mapping ==');
-ok('GO -> is-go', C.verdictClass('GO') === 'is-go');
-ok('CONDITIONAL GO -> is-cond', C.verdictClass('CONDITIONAL GO') === 'is-cond');
-ok('NO-GO -> is-no', C.verdictClass('NO-GO') === 'is-no');
-ok('null -> is-none', C.verdictClass(null) === 'is-none');
-ok('verdictKey GO -> go', C.verdictKey('GO') === 'go');
-ok('verdictKey CONDITIONAL GO -> cond', C.verdictKey('CONDITIONAL GO') === 'cond');
-ok('verdictKey NO-GO -> no', C.verdictKey('NO-GO') === 'no');
+test('parseCsv: trailing newline does not create a phantom row; ragged rows fill blanks', () => {
+  const csv = 'name,department,description\r\nOnly Name,,\r\n';
+  const rows = parseCsv(csv);
+  assert.strictEqual(rows.length, 1, 'trailing CRLF is ignored');
+  assert.strictEqual(rows[0].name, 'Only Name');
+  assert.strictEqual(rows[0].department, '');
+  assert.strictEqual(rows[0].description, '');
+});
 
-console.log('\n== 3. best/worst highlight computation ==');
-const roiRow = C.ROWS.filter(function (r) { return r.key === 'roi_p50'; })[0];
-const casesA = [PORTFOLIO[0], PORTFOLIO[1], PORTFOLIO[2]]; // p50: 45, 60, 15
-let hlA = C.highlightsFor(roiRow, casesA);
-ok('roi_p50: index 1 (60) is best', hlA.best[1] === true);
-ok('roi_p50: index 2 (15) is worst', hlA.worst[2] === true);
-ok('roi_p50: index 0 (45) is neither', !hlA.best[0] && !hlA.worst[0]);
+test('parseCsv: empty / null input yields empty array', () => {
+  assert.deepStrictEqual(parseCsv(''), []);
+  assert.deepStrictEqual(parseCsv(null), []);
+  assert.deepStrictEqual(parseCsv(undefined), []);
+});
 
-const feasRow = C.ROWS.filter(function (r) { return r.key === 'feasibility_composite'; })[0];
-let hlF = C.highlightsFor(feasRow, casesA); // feas: 3.8, 4.2, 2.9
-ok('feasibility: index 1 (4.2) is best', hlF.best[1] === true);
-ok('feasibility: index 2 (2.9) is worst', hlF.worst[2] === true);
+/* -------------------------------------------------------------------------- */
+/* HTTP harness for the live-DB tests.                                        */
+/* -------------------------------------------------------------------------- */
 
-ok('non-numeric row (verdict) -> no highlights',
-  Object.keys(C.highlightsFor(C.ROWS.filter(function (r){return r.key==='verdict';})[0], casesA).best).length === 0);
-ok('single case -> no highlights',
-  Object.keys(C.highlightsFor(roiRow, [PORTFOLIO[0]]).best).length === 0);
-ok('all-equal values -> no highlights',
-  Object.keys(C.highlightsFor(roiRow, [
-    { roi_p50: 50 }, { roi_p50: 50 }, { roi_p50: 50 },
-  ]).best).length === 0);
+let app;
+let server;
+let port;
+let SESSION_COOKIE = null;
+let tempWorkspaceId = null;
 
-console.log('\n== 4. resolveSelection cap + unknown drop ==');
-const byId = {};
-PORTFOLIO.forEach(function (r) { byId[r.id] = r; });
-ok('resolves ids in order', C.resolveSelection(['uc-2', 'uc-1'], byId).map(function(r){return r.id;}).join(',') === 'uc-2,uc-1');
-ok('drops unknown ids', C.resolveSelection(['uc-1', 'nope', 'uc-3'], byId).length === 2);
-ok('caps at 4 (5 ids -> 4 rows)',
-  C.resolveSelection(['uc-1','uc-2','uc-3','uc-4','uc-5'], byId).length === 4);
+function call(method, apiPath, body, headers) {
+  return new Promise((resolve, reject) => {
+    const isString = typeof body === 'string';
+    const data =
+      body === undefined ? null : Buffer.from(isString ? body : JSON.stringify(body));
+    const opts = {
+      host: '127.0.0.1',
+      port,
+      method,
+      path: apiPath,
+      headers: Object.assign(
+        { 'Content-Type': isString ? 'text/csv' : 'application/json' },
+        headers || {},
+      ),
+    };
+    if (SESSION_COOKIE) opts.headers['Cookie'] = SESSION_COOKIE;
+    if (data) opts.headers['Content-Length'] = data.length;
+    const req = http.request(opts, (res) => {
+      const setCookie = res.headers['set-cookie'];
+      if (setCookie && setCookie.length) {
+        SESSION_COOKIE = setCookie.map((c) => c.split(';')[0]).join('; ');
+      }
+      let buf = '';
+      res.on('data', (c) => { buf += c; });
+      res.on('end', () => {
+        let json = null;
+        try { json = buf ? JSON.parse(buf) : null; } catch (_) { json = buf; }
+        resolve({ status: res.statusCode, body: json });
+      });
+    });
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
+  });
+}
 
-console.log('\n== 5. End-to-end render: N columns for N selected ids ==');
-dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3' });
-await tick(); await tick();
-let doc = dom.window.document;
-ok('loading hidden after render', doc.getElementById('loading').classList.contains('hidden'));
-ok('content visible', !doc.getElementById('content').classList.contains('hidden'));
-let headThs = doc.querySelectorAll('#cmpTable thead th');
-ok('3 selected -> 4 header cells (1 attr + 3 cases)', headThs.length === 4);
-let caseThs = doc.querySelectorAll('#cmpTable thead th[data-id]');
-ok('3 use-case columns rendered', caseThs.length === 3);
-ok('column 1 header = Fraud Signal Triage', /Fraud Signal Triage/.test(caseThs[0].textContent));
-ok('all 11 attribute rows rendered', doc.querySelectorAll('#cmpTable tbody tr').length === 11);
+before(async () => {
+  app = require('./server');
+  server = app.listen(0);
+  await new Promise((r) => server.once('listening', r));
+  port = server.address().port;
 
-console.log('\n== 6. verdict chip in column header + deep-link ==');
-ok('col 1 (GO) has is-go chip', caseThs[0].querySelector('.vpill.is-go') !== null);
-ok('col 2 (CONDITIONAL) has is-cond chip', caseThs[1].querySelector('.vpill.is-cond') !== null);
-ok('col 3 (NO-GO) has is-no chip', caseThs[2].querySelector('.vpill.is-no') !== null);
-ok('col header links to summary.html?id=uc-1',
-  caseThs[0].querySelector('a.cmphd__name').getAttribute('href') === 'summary.html?id=uc-1');
+  // Ensure the seed user exists (server bootstrap only runs when server.js is
+  // the main module; here we import it, so seed explicitly). Idempotent.
+  const auth = require('./auth');
+  const seedUser = process.env.SEED_USERNAME || 'sandboxuser';
+  const seedPass = process.env.SEED_PASSWORD || 'IntelUser1!';
+  await auth.seedUser(seedUser, seedPass);
 
-console.log('\n== 7. best-value highlight applied in DOM ==');
-// Find the ROI P50 row (labels are uppercased via CSS but textContent keeps source case).
-let rows = Array.prototype.slice.call(doc.querySelectorAll('#cmpTable tbody tr'));
-let p50row = rows.filter(function (tr) { return /ROI P50/i.test(tr.querySelector('.attr').textContent); })[0];
-ok('ROI P50 row exists', !!p50row);
-let p50cells = p50row.querySelectorAll('td.val');
-// cases order uc-1(45), uc-2(60), uc-3(15) -> best is index1, worst is index2
-ok('best cell (uc-2, 60%) has is-best', p50cells[1].classList.contains('is-best'));
-ok('worst cell (uc-3, 15%) has is-worst', p50cells[2].classList.contains('is-worst'));
-ok('middle cell (uc-1) has neither',
-  !p50cells[0].classList.contains('is-best') && !p50cells[0].classList.contains('is-worst'));
+  // Authenticate — the /api guard requires a session cookie.
+  const login = await call('POST', '/api/auth/login', {
+    username: seedUser,
+    password: seedPass,
+  });
+  assert.strictEqual(login.status, 200, 'login succeeded');
+  assert.ok(SESSION_COOKIE, 'session cookie captured');
 
-console.log('\n== 8. up-to-4 cap on selection chips ==');
-dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3,uc-4' });
-await tick(); await tick();
-doc = dom.window.document;
-let checked = doc.querySelectorAll('#selChips input[type=checkbox]:checked');
-ok('4 chips checked', checked.length === 4);
-let disabled = doc.querySelectorAll('#selChips input[type=checkbox]:disabled');
-ok('remaining chip(s) disabled at cap', disabled.length === (PORTFOLIO.length - 4));
-ok('hint shows the cap message', /Maximum of 4/.test(doc.getElementById('selHint').textContent));
-ok('4 case columns rendered', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 4);
+  // Create a throwaway workspace to insert use cases against.
+  const { query } = require('./db');
+  const ws = await query(
+    "INSERT INTO workspaces (name) VALUES ($1) RETURNING id",
+    [NAME_PREFIX + 'workspace'],
+  );
+  tempWorkspaceId = ws.rows[0].id;
+  assert.ok(tempWorkspaceId, 'temp workspace created');
+});
 
-console.log('\n== 9. empty state when nothing selected ==');
-dom = newDom({ url: 'https://example.com/compare.html' });
-await tick(); await tick();
-doc = dom.window.document;
-ok('emptyCompare visible with no ids', !doc.getElementById('emptyCompare').classList.contains('hidden'));
-ok('empty message text present', /Select up to 4 use cases to compare\./.test(doc.getElementById('emptyCompare').textContent));
-ok('comparison table section hidden', doc.getElementById('cmpSec').classList.contains('hidden'));
+after(async () => {
+  const { pool, query } = require('./db');
+  try {
+    // Purge by workspace (cascades to use_cases) AND by name prefix as a
+    // belt-and-braces guard so the DB is left with only the 5 Intel use cases.
+    if (tempWorkspaceId) {
+      await query('DELETE FROM workspaces WHERE id = $1', [tempWorkspaceId]);
+    }
+    await query('DELETE FROM use_cases WHERE name LIKE $1', [NAME_PREFIX + '%']);
+    await query('DELETE FROM workspaces WHERE name LIKE $1', [NAME_PREFIX + '%']);
 
-console.log('\n== 10. URL ?ids= round-trip (restore + write on toggle) ==');
-dom = newDom({ url: 'https://example.com/compare.html?ids=uc-3,uc-5' });
-await tick(); await tick();
-doc = dom.window.document;
-let cols = doc.querySelectorAll('#cmpTable thead th[data-id]');
-ok('restored 2 columns from URL', cols.length === 2);
-ok('restored order uc-3 then uc-5',
-  cols[0].getAttribute('data-id') === 'uc-3' && cols[1].getAttribute('data-id') === 'uc-5');
-// toggle a new selection -> URL updates via replaceState
-let cbUc1 = doc.querySelector('#selChips input[value="uc-1"]');
-cbUc1.checked = true;
-cbUc1.dispatchEvent(new dom.window.Event('change'));
-await tick();
-ok('URL now includes uc-1 after toggle', /ids=[^&]*uc-1/.test(dom.window.location.search));
-ok('now 3 columns after adding uc-1', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 3);
-// deselect uc-3 -> URL drops it
-let cbUc3 = doc.querySelector('#selChips input[value="uc-3"]');
-cbUc3.checked = false;
-cbUc3.dispatchEvent(new dom.window.Event('change'));
-await tick();
-ok('URL drops uc-3 after deselect', !/ids=[^&]*uc-3/.test(dom.window.location.search));
-ok('readIdsFromURL parses comma list', C.readIdsFromURL().length >= 0); // sanity (fn callable)
+    // Assert cleanliness.
+    const leftover = await query(
+      'SELECT count(*)::int AS n FROM use_cases WHERE name LIKE $1',
+      [NAME_PREFIX + '%'],
+    );
+    assert.strictEqual(leftover.rows[0].n, 0, 'no test use_cases left behind');
+  } finally {
+    await new Promise((r) => server.close(r));
+    try { await pool.end(); } catch (_) { /* noop */ }
+  }
+});
 
-console.log('\n== 11. empty portfolio -> global empty state ==');
-dom = newDom({ portfolio: [] });
-await tick(); await tick();
-doc = dom.window.document;
-ok('global empty visible', !doc.getElementById('empty').classList.contains('hidden'));
-ok('content hidden when no portfolio', doc.getElementById('content').classList.contains('hidden'));
+/* -------------------------------------------------------------------------- */
+/* (4) Guard: >500 rows rejected. Fails before any DB write.                  */
+/* -------------------------------------------------------------------------- */
 
-console.log('\n== 12. workspace picker populated + Intel preselected ==');
-dom = newDom();
-await tick(); await tick();
-let picker = dom.window.document.getElementById('wsPicker');
-ok('picker has 2 options', picker.querySelectorAll('option').length === 2);
-ok('Intel workspace preselected', picker.value === 'ws-intel');
+test('bulk: >500 rows rejected with 400', async () => {
+  const rows = [];
+  for (let i = 0; i < 501; i++) rows.push({ name: NAME_PREFIX + 'overflow_' + i });
+  const res = await call('POST', '/api/use-cases/bulk', {
+    workspace_id: tempWorkspaceId,
+    rows,
+  });
+  assert.strictEqual(res.status, 400, 'status 400');
+  assert.match(res.body.error, /too many rows/i);
+});
 
-console.log('\n== 13. self-contained: includes api-client + auth-ui ==');
-ok('references assets/api-client.js', /assets\/api-client\.js/.test(html));
-ok('references assets/auth-ui.js defer', /assets\/auth-ui\.js"\s+defer/.test(html));
+test('bulk: empty rows rejected with 400', async () => {
+  const res = await call('POST', '/api/use-cases/bulk', {
+    workspace_id: tempWorkspaceId,
+    rows: [],
+  });
+  assert.strictEqual(res.status, 400);
+  assert.match(res.body.error, /empty/i);
+});
 
-console.log('\n---------------------------------------------');
-console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-console.log('---------------------------------------------');
-process.exit(fail ? 1 : 0);
-})();
+test('bulk: missing session cookie is rejected by the /api guard (401)', async () => {
+  const saved = SESSION_COOKIE;
+  SESSION_COOKIE = null;
+  try {
+    const res = await call('POST', '/api/use-cases/bulk', {
+      workspace_id: tempWorkspaceId,
+      rows: [{ name: NAME_PREFIX + 'noauth' }],
+    });
+    assert.strictEqual(res.status, 401, 'unauthenticated bulk call rejected');
+  } finally {
+    SESSION_COOKIE = saved;
+  }
+});
+
+/* -------------------------------------------------------------------------- */
+/* (2) rows-JSON insert path returns inserted count + ids against live DB.    */
+/* -------------------------------------------------------------------------- */
+
+test('bulk: rows-JSON insert returns inserted count and ids', async () => {
+  const rows = [
+    {
+      name: NAME_PREFIX + 'AskHR',
+      department: 'HR',
+      executive_sponsor: 'CHRO',
+      contact_email: 'askhr@intel.test',
+      description: 'Deflects tickets, fast, and cheap',
+      // flat intake keys -> grouped into jsonb by mapUseCaseContexts
+      driver: 'Employee experience',
+      value: '60-70% deflection',
+      maturity: 'Manual helpdesk',
+      sources: 'HCM',
+      integrations: 'Agentspace',
+      sensitivity: 'Medium',
+      pii: 'true',
+    },
+    {
+      // workspace_id omitted -> falls back to batch workspace_id
+      name: NAME_PREFIX + 'Contract Leakage',
+      department: 'Procurement',
+      description: 'Recovers 2-5% of contract value, silently',
+    },
+  ];
+
+  const res = await call('POST', '/api/use-cases/bulk', {
+    workspace_id: tempWorkspaceId,
+    rows,
+  });
+
+  assert.strictEqual(res.status, 200, 'status 200');
+  assert.strictEqual(res.body.inserted, 2, 'both rows inserted');
+  assert.strictEqual(res.body.failed, 0, 'no failures');
+  assert.strictEqual(res.body.results.length, 2);
+
+  assert.strictEqual(res.body.results[0].ok, true);
+  assert.strictEqual(res.body.results[0].row, 0);
+  assert.ok(res.body.results[0].id, 'row 0 has an id');
+  assert.strictEqual(res.body.results[0].name, NAME_PREFIX + 'AskHR');
+  assert.ok(res.body.results[1].id, 'row 1 has an id');
+
+  // Confirm the jsonb grouping matches the single-create mapping and the
+  // fallback workspace_id was applied.
+  const { query } = require('./db');
+  const check = await query(
+    'SELECT workspace_id, business_context, technical_context, risk_compliance FROM use_cases WHERE id = $1',
+    [res.body.results[0].id],
+  );
+  assert.strictEqual(check.rows[0].workspace_id, tempWorkspaceId);
+  assert.strictEqual(check.rows[0].business_context.driver, 'Employee experience');
+  assert.strictEqual(check.rows[0].technical_context.sources, 'HCM');
+  assert.strictEqual(check.rows[0].risk_compliance.pii, 'true');
+
+  const check2 = await query(
+    'SELECT workspace_id FROM use_cases WHERE id = $1',
+    [res.body.results[1].id],
+  );
+  assert.strictEqual(
+    check2.rows[0].workspace_id,
+    tempWorkspaceId,
+    'batch workspace_id fallback applied to row missing workspace_id',
+  );
+});
+
+test('bulk: text/csv body is parsed server-side and inserted', async () => {
+  // workspace_id supplied via query string for the text/csv path.
+  const csv = [
+    'name,department,description',
+    `"${NAME_PREFIX}CSVRow","Finance","Automate matching, fast, of ""invoices"" to POs"`,
+  ].join('\r\n');
+
+  const res = await call(
+    'POST',
+    '/api/use-cases/bulk?workspace_id=' + encodeURIComponent(tempWorkspaceId),
+    csv,
+  );
+
+  assert.strictEqual(res.status, 200, 'status 200');
+  assert.strictEqual(res.body.inserted, 1);
+  assert.strictEqual(res.body.results[0].name, NAME_PREFIX + 'CSVRow');
+
+  const { query } = require('./db');
+  const row = await query('SELECT description FROM use_cases WHERE id = $1', [
+    res.body.results[0].id,
+  ]);
+  assert.strictEqual(
+    row.rows[0].description,
+    'Automate matching, fast, of "invoices" to POs',
+    'quoted commas + escaped quotes survived the CSV round-trip',
+  );
+});
+
+/* -------------------------------------------------------------------------- */
+/* (3) Per-row validation: bad rows fail individually; good rows still insert.*/
+/* -------------------------------------------------------------------------- */
+
+test('bulk: per-row validation errors do not abort the batch', async () => {
+  const rows = [
+    { name: NAME_PREFIX + 'Good1', department: 'Ops' },          // ok
+    { department: 'NoName' },                                     // missing name
+    { name: NAME_PREFIX + 'Good2' },                             // ok
+    { name: NAME_PREFIX + 'BadWs', workspace_id: '00000000-0000-0000-0000-000000000000' }, // bad ws
+  ];
+
+  const res = await call('POST', '/api/use-cases/bulk', {
+    workspace_id: tempWorkspaceId,
+    rows,
+  });
+
+  assert.strictEqual(res.status, 200);
+  assert.strictEqual(res.body.inserted, 2, 'two good rows inserted');
+  assert.strictEqual(res.body.failed, 2, 'two bad rows failed');
+
+  assert.strictEqual(res.body.results[0].ok, true);
+  assert.strictEqual(res.body.results[1].ok, false);
+  assert.match(res.body.results[1].error, /name is required/i);
+  assert.strictEqual(res.body.results[2].ok, true);
+  assert.strictEqual(res.body.results[3].ok, false);
+  assert.match(res.body.results[3].error, /workspace_id does not reference/i);
+});

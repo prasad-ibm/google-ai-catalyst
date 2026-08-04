@@ -1,42 +1,17 @@
-'use strict';
-
-/**
- * Idempotent migration runner.
- * Loads schema.sql, applies it against the live DATABASE_URL, then lists the
- * base tables in the public schema (one per line). Exit 0 on success.
- */
-
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
-const { pool, query } = require('../db');
-
-async function main() {
-  const schemaPath = path.join(__dirname, '..', 'schema.sql');
-  const sql = fs.readFileSync(schemaPath, 'utf8');
-
-  await query(sql);
-
-  const res = await query(
-    `SELECT table_name
-       FROM information_schema.tables
-      WHERE table_schema = 'public'
-        AND table_type = 'BASE TABLE'
-      ORDER BY table_name`
-  );
-
-  for (const row of res.rows) {
-    console.log(row.table_name);
-  }
-}
-
-main()
-  .then(async () => {
-    await pool.end();
-    process.exit(0);
-  })
-  .catch(async (err) => {
-    console.error('Migration failed:', err.message);
-    try { await pool.end(); } catch (_) { /* noop */ }
+const { Client } = require('pg');
+const url = process.env.DATABASE_URL || require('fs').readFileSync(__dirname+'/../.env','utf8').match(/DATABASE_URL=(.+)/)[1].trim();
+(async () => {
+  const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
+  try {
+    await c.connect();
+    const v = await c.query('SELECT version(), current_database(), current_user, now()');
+    console.log('CONNECTED OK');
+    console.log(v.rows[0].version.split(',')[0]);
+    console.log('db =', v.rows[0].current_database, '| user =', v.rows[0].current_user);
+    const t = await c.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1");
+    console.log('existing public tables:', t.rows.map(r=>r.tablename).join(', ') || '(none)');
+  } catch (e) {
+    console.error('CONNECT FAILED:', e.message);
     process.exit(1);
-  });
+  } finally { await c.end(); }
+})();
