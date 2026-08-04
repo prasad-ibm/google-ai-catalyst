@@ -1,122 +1,186 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sign in — Google AI Catalyst</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<style>
-  :root{
-    --g-blue:#4285F4; --g-red:#EA4335; --g-yellow:#FBBC04; --g-green:#34A853;
-    --bg:#0d1117; --surface:#161b22; --surface-2:#1c2230;
-    --border:#2a3140; --text:#e6edf3; --muted:#8b97a7;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{
-    font-family:'Roboto',system-ui,sans-serif;background:var(--bg);color:var(--text);
-    min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background-image:radial-gradient(circle at 15% 20%,rgba(66,133,244,.10),transparent 40%),
-      radial-gradient(circle at 85% 80%,rgba(52,168,83,.08),transparent 40%);
-  }
-  .card{
-    width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);
-    border-radius:16px;padding:40px 36px;box-shadow:0 20px 60px rgba(0,0,0,.45);
-  }
-  .brand{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .g-logo{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
-  .g-logo .b{color:var(--g-blue)} .g-logo .r{color:var(--g-red)}
-  .g-logo .y{color:var(--g-yellow)} .g-logo .g{color:var(--g-green)}
-  .brand h1{font-size:16px;font-weight:500}
-  .brand h1 span{color:var(--muted);font-weight:400}
-  .lead{color:var(--muted);font-size:13px;margin:14px 0 26px;line-height:1.5}
-  label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 6px}
-  .field{margin-bottom:18px}
-  input{
-    width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
-    border-radius:8px;padding:12px 14px;font-size:14px;font-family:inherit;transition:border-color .15s,box-shadow .15s;
-  }
-  input:focus{outline:none;border-color:var(--g-blue);box-shadow:0 0 0 3px rgba(66,133,244,.25)}
-  button{
-    width:100%;background:var(--g-blue);color:#fff;border:none;border-radius:8px;
-    padding:13px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;transition:background .15s;
-    margin-top:4px;
-  }
-  button:hover{background:#3574e0}
-  button:disabled{opacity:.6;cursor:default}
-  .err{
-    display:none;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);
-    color:#ff9b90;font-size:13px;border-radius:8px;padding:10px 12px;margin-bottom:16px;
-  }
-  .err.show{display:block}
-  .foot{margin-top:22px;text-align:center;font-size:11px;color:var(--muted);font-family:'Roboto Mono',monospace}
-  .bar{height:4px;border-radius:4px;margin-bottom:26px;display:flex;overflow:hidden}
-  .bar i{flex:1} .bar .b{background:var(--g-blue)} .bar .r{background:var(--g-red)}
-  .bar .y{background:var(--g-yellow)} .bar .g{background:var(--g-green)}
-</style>
-</head>
-<body>
-  <div class="card">
-    <div class="brand">
-      <span class="g-logo"><span class="b">G</span><span class="r">o</span><span class="y">o</span><span class="b">g</span><span class="g">l</span><span class="r">e</span></span>
-      <h1>AI Catalyst <span>· Sign in</span></h1>
-    </div>
-    <div class="bar"><i class="b"></i><i class="r"></i><i class="y"></i><i class="g"></i></div>
-    <p class="lead">Enterprise AI use-case evaluation platform. Sign in to access your workspace and pipeline.</p>
+/**
+ * Pipeline Board (kanban.html) test suite.
+ * Loads the page inside jsdom, mocks fetch() for /api/workspaces and
+ * /api/portfolio, and exercises:
+ *   - the stage -> column bucketing model (window.GAIC_KANBAN)
+ *   - the "panel + verdict=GO -> Approved" special rule
+ *   - end-to-end render: 7 columns, cards, verdict chips, summary deep-links
+ *
+ *   node kanban.test.js      # exit 0 = all green
+ */
+const fs = require('fs');
+const path = require('path');
+const { JSDOM } = require('jsdom');
 
-    <div class="err" id="err"></div>
+const HTML_PATH = path.join(__dirname, 'kanban.html');
+const html = fs.readFileSync(HTML_PATH, 'utf8');
 
-    <form id="loginForm" autocomplete="on">
-      <div class="field">
-        <label for="username">Username</label>
-        <input id="username" name="username" type="text" autocomplete="username" required autofocus />
-      </div>
-      <div class="field">
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required />
-      </div>
-      <button type="submit" id="submitBtn">Sign in</button>
-    </form>
+let pass = 0, fail = 0;
+function ok(msg, cond) {
+  if (cond) { pass++; console.log('  \u2713 ' + msg); }
+  else { fail++; console.log('  \u2717 ' + msg); }
+}
 
-    <div class="foot">GOOGLE CLOUD · ENTERPRISE ADVANTAGE</div>
-  </div>
+// Realistic /api/portfolio rows (matches server.js portfolio assembly).
+const PORTFOLIO = [
+  { id: 'uc-1', name: 'Fraud Signal Triage', department: 'Risk & Compliance',
+    stage: 'panel', feasibility_composite: 3.8, advisory_tier: 'Extend', verdict: 'GO' },
+  { id: 'uc-2', name: 'Contract Summarizer', department: 'Legal',
+    stage: 'panel', feasibility_composite: 4.2, advisory_tier: 'Scale', verdict: 'CONDITIONAL GO' },
+  { id: 'uc-3', name: 'Shelf Vision', department: 'Retail Ops',
+    stage: 'panel', feasibility_composite: 2.9, advisory_tier: 'Pilot', verdict: 'NO-GO' },
+  { id: 'uc-4', name: 'Ticket Router', department: 'Support',
+    stage: 'feasibility', feasibility_composite: 3.1, advisory_tier: 'Pilot', verdict: null },
+  { id: 'uc-5', name: 'New Idea', department: 'Marketing',
+    stage: 'intake', feasibility_composite: null, advisory_tier: null, verdict: null },
+  { id: 'uc-6', name: 'Sales Copilot', department: 'Sales',
+    stage: 'bxt', feasibility_composite: 3.5, advisory_tier: 'Extend', verdict: null },
+];
 
-<script>
-  const form = document.getElementById('loginForm');
-  const err = document.getElementById('err');
-  const btn = document.getElementById('submitBtn');
+const WORKSPACES = [
+  { id: 'ws-intel', name: 'Intel Corp' },
+  { id: 'ws-other', name: 'Other' },
+];
 
-  function showError(msg){ err.textContent = msg; err.classList.add('show'); }
-  function clearError(){ err.classList.remove('show'); }
+// Build a jsdom instance with fetch mocked to serve our fixtures.
+function newDom(opts) {
+  opts = opts || {};
+  const portfolio = opts.portfolio !== undefined ? opts.portfolio : PORTFOLIO;
+  const workspaces = opts.workspaces !== undefined ? opts.workspaces : WORKSPACES;
 
-  // If already authenticated, skip straight to the app.
-  fetch('/api/auth/me').then(r => { if (r.ok) location.href = '/index.html'; }).catch(()=>{});
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearError();
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    const username = document.getElementById('username').value.trim();
-    const password = document.getElementById('password').value;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && data.ok) {
-        location.href = '/index.html';
-      } else {
-        showError(data.error === 'invalid credentials' ? 'Incorrect username or password.' : (data.error || 'Sign in failed.'));
-        btn.disabled = false; btn.textContent = 'Sign in';
-      }
-    } catch (ex) {
-      showError('Network error — please try again.');
-      btn.disabled = false; btn.textContent = 'Sign in';
-    }
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: 'https://example.com/kanban.html',
+    beforeParse(window) {
+      window.fetch = function (url) {
+        const u = String(url);
+        let body;
+        if (u.indexOf('/api/workspaces') !== -1) body = workspaces;
+        else if (u.indexOf('/api/portfolio') !== -1) body = portfolio;
+        else body = [];
+        return Promise.resolve({
+          ok: true, status: 200,
+          json: function () { return Promise.resolve(body); },
+        });
+      };
+      // localStorage is provided by jsdom; nothing else needed.
+    },
   });
-</script>
-</body>
-</html>
+  return dom;
+}
+
+// Wait for the async boot chain (loadWorkspaces -> loadPortfolio -> render).
+function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+(async function () {
+console.log('\n=== Pipeline Board (kanban.html) ===\n');
+
+console.log('== 1. Model surface (window.GAIC_KANBAN) ==');
+let dom = newDom();
+let K = dom.window.GAIC_KANBAN;
+ok('window.GAIC_KANBAN exists', !!K);
+ok('exposes COLUMNS (7 columns)', Array.isArray(K.COLUMNS) && K.COLUMNS.length === 7);
+ok('columns in pipeline order',
+  K.COLUMNS.map(function (c) { return c.key; }).join(',') ===
+  'intake,bxt,feasibility,advisory,summary,panel,approved');
+['stageKey', 'columnFor', 'verdictKey'].forEach(function (fn) {
+  ok('exposes ' + fn + '()', typeof K[fn] === 'function');
+});
+
+console.log('\n== 2. stageKey() normalization ==');
+ok('intake -> intake', K.stageKey('intake') === 'intake');
+ok('BXT (case) -> bxt', K.stageKey('BXT') === 'bxt');
+ok('feas prefix -> feasibility', K.stageKey('feas') === 'feasibility');
+ok('advisory -> advisory', K.stageKey('advisory') === 'advisory');
+ok('summary -> summary', K.stageKey('summary') === 'summary');
+ok('panel -> panel', K.stageKey('panel') === 'panel');
+ok('approved -> approved', K.stageKey('approved') === 'approved');
+ok('null/unknown -> intake fallback', K.stageKey(null) === 'intake' && K.stageKey('???') === 'intake');
+
+console.log('\n== 3. columnFor() — panel+GO becomes Approved ==');
+ok('panel + GO -> approved',
+  K.columnFor({ stage: 'panel', verdict: 'GO' }) === 'approved');
+ok('panel + CONDITIONAL GO -> panel (stays)',
+  K.columnFor({ stage: 'panel', verdict: 'CONDITIONAL GO' }) === 'panel');
+ok('panel + NO-GO -> panel (stays)',
+  K.columnFor({ stage: 'panel', verdict: 'NO-GO' }) === 'panel');
+ok('panel + no verdict -> panel (stays)',
+  K.columnFor({ stage: 'panel', verdict: null }) === 'panel');
+ok('feasibility + GO -> feasibility (only panel promotes)',
+  K.columnFor({ stage: 'feasibility', verdict: 'GO' }) === 'feasibility');
+ok('intake -> intake', K.columnFor({ stage: 'intake' }) === 'intake');
+
+console.log('\n== 4. verdictKey() classification ==');
+ok('GO -> go', K.verdictKey('GO') === 'go');
+ok('CONDITIONAL GO -> cond', K.verdictKey('CONDITIONAL GO') === 'cond');
+ok('NO-GO -> no', K.verdictKey('NO-GO') === 'no');
+ok('empty -> null', K.verdictKey('') === null && K.verdictKey(null) === null);
+
+console.log('\n== 5. End-to-end render (mocked /api) ==');
+dom = newDom();
+await tick(); await tick();
+const doc = dom.window.document;
+const board = doc.getElementById('board');
+ok('loading hidden after render', doc.getElementById('loading').classList.contains('hidden'));
+ok('board visible', !board.classList.contains('hidden'));
+
+const cols = board.querySelectorAll('.col');
+ok('renders 7 columns', cols.length === 7);
+
+function countFor(key) {
+  const c = board.querySelector('.col[data-col="' + key + '"]');
+  return c ? c.querySelectorAll('.card').length : -1;
+}
+ok('Approved column has 1 card (the GO panel case)', countFor('approved') === 1);
+ok('Panel column has 2 cards (CONDITIONAL + NO-GO)', countFor('panel') === 2);
+ok('Feasibility column has 1 card', countFor('feasibility') === 1);
+ok('BXT column has 1 card', countFor('bxt') === 1);
+ok('Intake column has 1 card', countFor('intake') === 1);
+ok('Summary + Advisory columns empty', countFor('summary') === 0 && countFor('advisory') === 0);
+
+const cardCount = board.querySelectorAll('.card').length;
+ok('all 6 rows rendered as cards', cardCount === 6);
+
+console.log('\n== 6. Card content: deep-link + verdict chip + dept + feasibility ==');
+const goCard = board.querySelector('.col[data-col="approved"] .card');
+ok('GO card deep-links to summary.html?id=<id>',
+  goCard.getAttribute('href') === 'summary.html?id=uc-1');
+ok('GO card has go-colored verdict chip',
+  goCard.querySelector('.vchip.is-go') !== null);
+ok('GO card left-border is-go class', goCard.classList.contains('is-go'));
+ok('GO card shows department', /Risk & Compliance/.test(goCard.textContent));
+ok('GO card shows feasibility /5', /3\.8\s*\/5/.test(goCard.textContent));
+ok('GO card shows advisory tier', /Extend/.test(goCard.textContent));
+
+const condCard = Array.prototype.find.call(
+  board.querySelectorAll('.col[data-col="panel"] .card'),
+  function (c) { return /Contract Summarizer/.test(c.textContent); });
+ok('CONDITIONAL card has cond-colored chip', condCard.querySelector('.vchip.is-cond') !== null);
+const noCard = Array.prototype.find.call(
+  board.querySelectorAll('.col[data-col="panel"] .card'),
+  function (c) { return /Shelf Vision/.test(c.textContent); });
+ok('NO-GO card has no-colored chip', noCard.querySelector('.vchip.is-no') !== null);
+
+console.log('\n== 7. Column counts shown in headers ==');
+const approvedHead = board.querySelector('.col[data-col="approved"] .col__count');
+ok('Approved header count = 1', approvedHead.textContent.trim() === '1');
+
+console.log('\n== 8. Empty portfolio -> empty state ==');
+const emptyDom = newDom({ portfolio: [] });
+await tick(); await tick();
+const edoc = emptyDom.window.document;
+ok('empty state visible', !edoc.getElementById('empty').classList.contains('hidden'));
+ok('board hidden when empty', edoc.getElementById('board').classList.contains('hidden'));
+
+console.log('\n== 9. Workspace picker populated + Intel preselected ==');
+dom = newDom();
+await tick(); await tick();
+const picker = dom.window.document.getElementById('wsPicker');
+ok('picker has 2 options', picker.querySelectorAll('option').length === 2);
+ok('Intel workspace preselected', picker.value === 'ws-intel');
+
+console.log('\n---------------------------------------------');
+console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
+console.log('---------------------------------------------');
+process.exit(fail ? 1 : 0);
+})();

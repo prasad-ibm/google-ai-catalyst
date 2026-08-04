@@ -1,161 +1,128 @@
 /**
- * Deep-link helper (assets/deep-link.js) test suite.
- * Loads the module inside jsdom, mocks GAIC_API, and exercises:
- *   - getId() query-param parsing
- *   - the DB-row -> compute-shape mappers (intake/bxt/feas/advisory/summary)
- *   - load() end-to-end (API row -> opts) incl. the offline fallback shape
+ * Deep-link integration test: proves summary.html and panel.html, when opened
+ * with ?id=<use_case_id>, fetch that case via GAIC_API and render its REAL
+ * persisted data (not the demo/localStorage default).
  *
- *   node deep-link.test.js      # exit 0 = all green
+ * jsdom does not fetch external <script src>, so we inline the real
+ * assets/deep-link.js and a MOCK GAIC_API ahead of each page's inline IIFE by
+ * rewriting the two <script src> tags. The page's own compute/render code is
+ * exercised unmodified.
+ *
+ *   node deep-link-integration.test.js
  */
 const fs = require('fs');
 const path = require('path');
-const { JSDOM } = require('jsdom');
+function requireJsdom() {
+  const candidates = ['/tmp/node_modules/jsdom',
+    path.join(process.env.HOME || '', 'node_modules/jsdom'), 'jsdom'];
+  for (const c of candidates) {
+    try { const m = require(c); if (m && m.JSDOM) return m; } catch (e) { /* next */ }
+  }
+  throw new Error('jsdom not found');
+}
+const { JSDOM } = requireJsdom();
 
-const JS_PATH = path.join(__dirname, 'assets', 'deep-link.js');
-const src = fs.readFileSync(JS_PATH, 'utf8');
+const DEEPLINK_JS = fs.readFileSync(path.join(__dirname, 'assets', 'deep-link.js'), 'utf8');
 
 let pass = 0, fail = 0;
+process.on('uncaughtException', e => { console.error('UNCAUGHT:', e && e.stack || e); process.exit(2); });
+const GUARD = setTimeout(() => { console.error('GUARD TIMEOUT pass=' + pass + ' fail=' + fail); process.exit(3); }, 20000);
 function ok(msg, cond) {
   if (cond) { pass++; console.log('  \u2713 ' + msg); }
   else { fail++; console.log('  \u2717 ' + msg); }
 }
 
-// A realistic /api/use-cases/:id response row (matches server.js assembly).
+// A distinctive use case whose name/values won't collide with any demo defaults.
 const API_ROW = {
-  id: 'uc-42',
-  name: 'Fraud Signal Triage',
-  department: 'Risk & Compliance',
-  executive_sponsor: 'Dana Lee',
-  description: 'Triage suspected fraud alerts.',
-  business_context: { driver: 'Cost', value: '$1M–$5M', users: '200–1000' },
+  id: 'uc-deep-77',
+  name: 'Deeplinked Claims Auditor',
+  department: 'Finance Operations',
+  executive_sponsor: 'R. Okafor',
+  description: 'Audits claims for anomalies.',
+  business_context: { driver: 'Risk reduction', value: '$1M–$5M', users: '200–1000' },
   current_state: { maturity: 'Piloting' },
-  technical_context: { sources: ['CRM', 'Data Warehouse'] },
+  technical_context: { sources: ['Data Warehouse', 'CRM'] },
   risk_compliance: { pii: true, audit: true, autonomy: 'Supervised', sensitivity: 'High' },
   bxt: {
-    business_score: 80, experience_score: 72, technology_score: 78, verdict: 'PASS',
-    detail: { weakKey: 'X', weakName: 'Experience', weakScore: 72, factors: { B: {}, X: {}, T: {} } }
+    business_score: 82, experience_score: 70, technology_score: 76, verdict: 'PASS',
+    detail: { weakKey: 'X', weakName: 'Experience', weakScore: 70, factors: { B: {}, X: {}, T: {} } }
   },
   feasibility: {
-    composite: 3.8, quadrant: 'Quick Win', risk_tier: 'Low', citizen_dev_pct: 60,
-    criteria: { data_avail: 3, integ_effort: 3, strat_align: 4, safety: 4, compliance: 4 },
-    pillars: { strategic: 4.0, technical: 3.5, org: 3.7 }
+    composite: 3.9, quadrant: 'Quick Win', risk_tier: 'Low', citizen_dev_pct: 55,
+    criteria: { data_avail: 4, integ_effort: 3, strat_align: 4, safety: 4, compliance: 4,
+                biz_value: 4, strat_align2: 4 },
+    pillars: { strategic: 4.1, technical: 3.6, org: 3.8 }
   },
   advisory: {
     tier: 'Extend', verdict_name: 'Scale Smart', recommended_platform: 'AppSheet / Agentspace',
     gate_resolved: 'Gate 4', reasoning: { compliance: { label: 'COMPLIANT', ok: true }, riskTier: 'Low' }
   },
   summary: {
-    roi_p10: 40, roi_p50: 120, roi_p90: 260, readiness: 'CONDITIONAL',
-    frameworks: [{ key: 'gadf', name: 'GADF', score: 77 }, { key: 'caf', name: 'CAF', score: 71 }],
+    roi_p10: 55, roi_p50: 140, roi_p90: 300, readiness: 'CONDITIONAL',
+    frameworks: [{ key: 'gadf', name: 'GADF', score: 76 }, { key: 'caf', name: 'CAF', score: 70 },
+                 { key: 'strategic', name: 'Strategic', score: 80 }, { key: 'gartner', name: 'Gartner', score: 66 }],
     governance: [{ key: 'pii', status: 'pass' }]
-  },
-  verdict: { verdict: 'PROCEED', binding_condition: 'Add DLP' }
+  }
 };
 
-function newDom(url, api) {
-  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
-    runScripts: 'dangerously', url: url || 'https://example.com/summary.html'
+// Inline mock API + the real deep-link module in place of the two <script src> tags.
+function inlineScripts(html) {
+  const mock =
+    'window.GAIC_API = { getUseCase: function(id){ window.__lastFetchId = id; ' +
+    'return Promise.resolve(' + JSON.stringify(API_ROW) + '); }, ' +
+    'saveGate: function(){ return Promise.resolve({}); } };';
+  return html
+    .replace('<script src="assets/api-client.js"></script>', '<script>' + mock + '<\/script>')
+    .replace('<script src="assets/deep-link.js"></script>', '<script>' + DEEPLINK_JS + '<\/script>');
+}
+
+function loadPage(file, url) {
+  const raw = fs.readFileSync(path.join(__dirname, file), 'utf8');
+  const html = inlineScripts(raw);
+  return new JSDOM(html, {
+    runScripts: 'dangerously', pretendToBeVisual: true, url: url
   });
-  if (api !== undefined) dom.window.GAIC_API = api;
-  const scriptEl = dom.window.document.createElement('script');
-  scriptEl.textContent = src;
-  dom.window.document.body.appendChild(scriptEl);
-  return dom;
 }
 
 (async function () {
-console.log('\n=== Deep-link helper (assets/deep-link.js) ===\n');
+  console.log('\n=== Deep-link integration (summary.html + panel.html ?id=) ===\n');
 
-console.log('== 1. Module surface ==');
-let dom = newDom('https://example.com/summary.html?id=uc-42');
-let DL = dom.window.GAIC_DEEPLINK;
-ok('window.GAIC_DEEPLINK exists', !!DL);
-['getId','mapUseCase','mapIntake','mapBxt','mapFeasibility','mapAdvisory','mapPanelSummary','load']
-  .forEach(fn => ok('exposes ' + fn + '()', typeof DL[fn] === 'function'));
+  console.log('== summary.html?id=uc-deep-77 ==');
+  const sDom = loadPage('summary.html', 'https://example.com/summary.html?id=uc-deep-77');
+  // init() renders demo synchronously, then re-renders after the fetch promise.
+  await new Promise(r => setTimeout(r, 60));
+  const sDoc = sDom.window.document;
+  ok('fetched with the deep-link id', sDom.window.__lastFetchId === 'uc-deep-77');
+  ok('deep-link opts exposed on __sum', !!(sDom.window.__sum && sDom.window.__sum.deepLink));
+  // #roiName holds the ROI headline; the use case name lives in #wsEval (asserted below).
+  ok('ROI headline rendered from fetched data',
+     /ROI over 24 months/.test(sDoc.getElementById('roiName').textContent));
+  ok('workspace eval line names the fetched case',
+     /Deeplinked Claims Auditor/.test(sDoc.getElementById('wsEval').textContent));
+  ok('model.useCase is the fetched case', sDom.window.__sum.model.useCase === 'Deeplinked Claims Auditor');
+  ok('gaic_use_case_id stored for downstream saves',
+     sDom.window.localStorage.getItem('gaic_use_case_id') === 'uc-deep-77');
+  ok('GADF framework score derives from fetched BXT (82,70,76 -> 76)',
+     sDom.window.__sum.model.frameworks[0].score === Math.round((82 + 70 + 76) / 3));
 
-console.log('\n== 2. getId() query parsing ==');
-ok('reads ?id=uc-42', DL.getId() === 'uc-42');
-ok('trims whitespace', newDom('https://x/summary.html?id=%20uc-9%20').window.GAIC_DEEPLINK.getId() === 'uc-9');
-ok('no id -> null', newDom('https://x/summary.html').window.GAIC_DEEPLINK.getId() === null);
-ok('empty id -> null', newDom('https://x/summary.html?id=').window.GAIC_DEEPLINK.getId() === null);
+  console.log('\n== panel.html?id=uc-deep-77 ==');
+  const pDom = loadPage('panel.html', 'https://example.com/panel.html?id=uc-deep-77');
+  await new Promise(r => setTimeout(r, 80));
+  const pDoc = pDom.window.document;
+  ok('fetched with the deep-link id', pDom.window.__lastFetchId === 'uc-deep-77');
+  ok('panel names the fetched use case somewhere in the brief',
+     /Deeplinked Claims Auditor/.test(pDoc.body.textContent));
+  ok('gaic_use_case_id stored', pDom.window.localStorage.getItem('gaic_use_case_id') === 'uc-deep-77');
 
-console.log('\n== 3. mapIntake() merges jsonb blobs + top-level fields ==');
-const intake = DL.mapIntake(API_ROW);
-ok('name flows through', intake.name === 'Fraud Signal Triage');
-ok('department -> dept', intake.dept === 'Risk & Compliance');
-ok('business_context merged (value)', intake.value === '$1M–$5M');
-ok('technical_context merged (sources[])', Array.isArray(intake.sources) && intake.sources.length === 2);
-ok('risk_compliance merged (pii)', intake.pii === true);
-ok('risk_compliance merged (autonomy)', intake.autonomy === 'Supervised');
-ok('null row -> null', DL.mapIntake(null) === null);
+  console.log('\n== fallback: no ?id renders demo (regression guard) ==');
+  const fDom = loadPage('summary.html', 'https://example.com/summary.html');
+  await new Promise(r => setTimeout(r, 60));
+  ok('no fetch performed without ?id', fDom.window.__lastFetchId === undefined);
+  ok('demo use case still renders', !!fDom.window.__sum.model.useCase);
 
-console.log('\n== 4. mapBxt() -> compute shape ==');
-const bxt = DL.mapBxt(API_ROW.bxt);
-ok('B/X/T scores present', bxt.scores.B.score === 80 && bxt.scores.X.score === 72 && bxt.scores.T.score === 78);
-ok('verdict.verdict = PASS', bxt.verdict.verdict === 'PASS');
-ok('weakKey carried', bxt.verdict.weakKey === 'X');
-ok('null -> null', DL.mapBxt(null) === null);
-
-console.log('\n== 5. mapFeasibility() -> compute shape ==');
-const feas = DL.mapFeasibility(API_ROW.feasibility);
-ok('composite numeric', feas.composite === 3.8);
-ok('scores from criteria', feas.scores.safety === 4 && feas.scores.data_avail === 3);
-ok('pillars carried', feas.pillars.strategic === 4.0);
-ok('quadrant + risk mapped', feas.quadrant === 'Quick Win' && feas.risk === 'Low');
-ok('citizenDev.pct mapped', feas.citizenDev.pct === 60);
-
-console.log('\n== 6. mapAdvisory() -> compute shape ==');
-const adv = DL.mapAdvisory(API_ROW.advisory);
-ok('tier mapped', adv.tier === 'Extend');
-ok('verdict_name -> verdictName', adv.verdictName === 'Scale Smart');
-ok('recommended_platform -> platform', adv.platform === 'AppSheet / Agentspace');
-ok('compliance object from reasoning', adv.compliance && adv.compliance.ok === true && adv.compliance.label === 'COMPLIANT');
-
-console.log('\n== 7. mapPanelSummary() -> panel shape ==');
-const ps = DL.mapPanelSummary(API_ROW.summary, intake);
-ok('useCase from intake', ps.useCase === 'Fraud Signal Triage');
-ok('roi p10/p50/p90 numeric', ps.roi.p10 === 40 && ps.roi.p50 === 120 && ps.roi.p90 === 260);
-ok('readiness carried', ps.readiness === 'CONDITIONAL');
-ok('frameworks carried', ps.frameworks.length === 2);
-ok('composite recomputed from framework mean (77,71 -> 74)', ps.composite === Math.round((77 + 71) / 2));
-ok('null summary -> null', DL.mapPanelSummary(null, intake) === null);
-
-console.log('\n== 8. mapUseCase() rolls the full row into opts ==');
-const opts = DL.mapUseCase(API_ROW);
-ok('has intake/bxt/feas/advisory', !!(opts.intake && opts.bxt && opts.feas && opts.advisory));
-ok('has panelSummary', !!opts.panelSummary);
-ok('carries raw row', opts.raw === API_ROW);
-ok('null row -> null', DL.mapUseCase(null) === null);
-
-console.log('\n== 9. offline fallback shape passes through unchanged ==');
-const offline = DL.mapUseCase({
-  _offline: true,
-  intake: { name: 'X' }, bxt: { scores: {} }, feasibility: { composite: 2 },
-  advisory: { tier: 'Pilot' }, summary: { roi: { p50: 5 } }
-});
-ok('offline intake passthrough', offline.intake.name === 'X');
-ok('offline feasibility -> feas', offline.feas.composite === 2);
-ok('offline summary -> panelSummary', offline.panelSummary.roi.p50 === 5);
-
-console.log('\n== 10. load() end-to-end (mocked API) ==');
-let calledWith = null;
-const mockApi = { getUseCase: function (id) { calledWith = id; return Promise.resolve(API_ROW); } };
-const loadOpts = await newDom('https://x/summary.html?id=uc-42', mockApi).window.GAIC_DEEPLINK.load();
-ok('called getUseCase with the id', calledWith === 'uc-42');
-ok('load() resolves opts with intake', loadOpts && loadOpts.intake.name === 'Fraud Signal Triage');
-ok('load() stamps opts.id', loadOpts.id === 'uc-42');
-
-console.log('\n== 11. load() safety: no id / no API / API error -> null ==');
-const noId = await newDom('https://x/summary.html', mockApi).window.GAIC_DEEPLINK.load();
-ok('no ?id -> resolves null', noId === null);
-const noApi = await newDom('https://x/summary.html?id=uc-42', undefined).window.GAIC_DEEPLINK.load();
-ok('no GAIC_API -> resolves null', noApi === null);
-const errApi = { getUseCase: function () { return Promise.reject(new Error('boom')); } };
-const errRes = await newDom('https://x/summary.html?id=uc-42', errApi).window.GAIC_DEEPLINK.load();
-ok('API error -> resolves null (never throws)', errRes === null);
-
-console.log('\n---------------------------------------------');
-console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
-console.log('---------------------------------------------');
-process.exit(fail ? 1 : 0);
+  console.log('\n---------------------------------------------');
+  console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');
+  console.log('---------------------------------------------');
+  clearTimeout(GUARD);
+  process.exit(fail ? 1 : 0);
 })();

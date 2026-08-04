@@ -1,216 +1,196 @@
-/* ==========================================================================
-   Google AI Catalyst — Shared Design System (theme.css)
-   Dark, dense enterprise dashboard aesthetic, Google visual language.
-   Reusable across the landing page and subsequent app pages.
-   ========================================================================== */
+/*
+ * GAIC deep-link helper — additive, optional. Exposes window.GAIC_DEEPLINK.
+ *
+ * Purpose: gate pages (summary.html, panel.html, ...) can be opened with a
+ * ?id=<use_case_id> query param that deep-links to a specific persisted use
+ * case. This module reads that id, fetches the case + its gates from the REST
+ * API (via GAIC_API), and maps the flat DB rows BACK into the in-memory shapes
+ * the gate pages' pure compute functions already expect
+ * ({ intake, bxt, feas, advisory }).
+ *
+ * It never throws to the page: on any error it resolves to null so the page
+ * falls back to its existing localStorage / demo behaviour.
+ *
+ * ES5 / var style to match the rest of the codebase (no build step).
+ */
+(function () {
+  'use strict';
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;500&display=swap');
+  // Read the ?id= query param. Returns a non-empty string or null.
+  function getId() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get('id');
+      return id && id.trim() ? id.trim() : null;
+    } catch (e) {
+      return null;
+    }
+  }
 
-/* --------------------------------------------------------------------------
-   1. Design tokens
-   -------------------------------------------------------------------------- */
-:root {
-  /* Google brand palette */
-  --g-blue:   #4285F4;
-  --g-blue-d: #1a73e8;
-  --g-blue-l: #8ab4f8;
-  --g-red:    #EA4335;
-  --g-red-d:  #c5221f;
-  --g-yellow: #FBBC04;
-  --g-yellow-d:#f9ab00;
-  --g-green:  #34A853;
-  --g-green-d:#188038;
-  --g-purple: #a142f4;
-  --g-teal:   #12b5cb;
-  --g-gray:   #9aa0a6;
+  // Merge the four jsonb context blobs + top-level fields back into the flat
+  // intake object the gate compute functions read (name, dept, driver, value,
+  // sources[], pii, audit, autonomy, sensitivity, ...). Mirrors the grouping in
+  // server.js mapUseCaseContexts().
+  function mapIntake(row) {
+    if (!row) return null;
+    var intake = {};
+    // top-level identity fields
+    if (row.name != null) intake.name = row.name;
+    if (row.department != null) intake.dept = row.department;
+    if (row.executive_sponsor != null) intake.sponsor = row.executive_sponsor;
+    if (row.description != null) intake.desc = row.description;
+    // context blobs (each is a jsonb object or null)
+    [row.business_context, row.current_state, row.technical_context, row.risk_compliance]
+      .forEach(function (blob) {
+        if (blob && typeof blob === 'object') {
+          for (var k in blob) {
+            if (Object.prototype.hasOwnProperty.call(blob, k)) intake[k] = blob[k];
+          }
+        }
+      });
+    return Object.keys(intake).length ? intake : null;
+  }
 
-  /* Dark surfaces */
-  --bg:        #0d1117;
-  --bg-hero:   #0a0f1e;
-  --surface:   #161b22;
-  --surface-2: #1c2230;
-  --surface-3: #232a3a;
-  --border:    #2a2f3a;
-  --border-soft: rgba(232,234,237,0.08);
+  // bxt_scores row -> { scores:{B:{score},X:{score},T:{score}}, verdict:{verdict} }
+  function mapBxt(b) {
+    if (!b) return null;
+    var detail = b.detail && typeof b.detail === 'object' ? b.detail : {};
+    var factors = detail.factors || {};
+    return {
+      scores: {
+        B: { score: Number(b.business_score) || 0, factors: factors.B },
+        X: { score: Number(b.experience_score) || 0, factors: factors.X },
+        T: { score: Number(b.technology_score) || 0, factors: factors.T }
+      },
+      verdict: { verdict: b.verdict || 'PASS', weakKey: detail.weakKey, weakName: detail.weakName, weakScore: detail.weakScore }
+    };
+  }
 
-  /* Text */
-  --text:       #e8eaed;
-  --text-muted: rgba(232,234,237,0.65);
-  --text-dim:   rgba(232,234,237,0.45);
+  // feasibility_scores row -> { scores, composite, pillars, quadrant, risk, citizenDev:{pct} }
+  function mapFeasibility(f) {
+    if (!f) return null;
+    return {
+      scores: f.criteria && typeof f.criteria === 'object' ? f.criteria : {},
+      composite: Number(f.composite) || 0,
+      pillars: f.pillars && typeof f.pillars === 'object' ? f.pillars : undefined,
+      quadrant: f.quadrant || undefined,
+      risk: f.risk_tier || undefined,
+      citizenDev: { pct: (f.citizen_dev_pct == null ? undefined : Number(f.citizen_dev_pct)) }
+    };
+  }
 
-  /* Typography */
-  --font-sans: "Google Sans", "Product Sans", Roboto, Inter, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "Roboto Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  // advisory_results row -> { tier, verdictName, platform, compliance:{label,ok}, riskTier }
+  function mapAdvisory(a) {
+    if (!a) return null;
+    var reasoning = a.reasoning && typeof a.reasoning === 'object' ? a.reasoning : {};
+    return {
+      tier: a.tier || undefined,
+      verdictName: a.verdict_name || undefined,
+      platform: a.recommended_platform || undefined,
+      gateLabel: a.gate_resolved || undefined,
+      compliance: reasoning.compliance || undefined,
+      riskTier: reasoning.riskTier || undefined,
+      dims: reasoning.dims || undefined,
+      journey: a.journey || undefined
+    };
+  }
 
-  /* Radius / elevation */
-  --radius:    6px;
-  --radius-sm: 4px;
-  --radius-lg: 8px;
-  --shadow-1:  0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px var(--border);
-  --shadow-2:  0 2px 8px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.02) inset;
+  // evaluation_summaries (Gate 5) row -> the shape panel.html's loadSummary()
+  // expects: { useCase, composite, readiness, roi:{p10,p50,p90,...}, frameworks[] }.
+  // composite is recomputed from framework scores (the API doesn't persist it).
+  function mapPanelSummary(s, intake) {
+    if (!s) return null;
+    // frameworks may be persisted as an ARRAY [{key,name,score}] (app save) OR as an
+    // OBJECT {gadf:88,google_caf:84,...} (seed data). Normalise both to an array.
+    var frameworks = [];
+    if (Array.isArray(s.frameworks)) {
+      frameworks = s.frameworks;
+    } else if (s.frameworks && typeof s.frameworks === 'object') {
+      var NAMES = { gadf: 'GADF v2', google_caf: 'Google Cloud Adoption', mckinsey_mit: 'McKinsey \u00d7 MIT Sloan', gartner: 'Gartner' };
+      frameworks = Object.keys(s.frameworks).map(function (k) {
+        return { key: k, name: NAMES[k] || k, score: Number(s.frameworks[k]) };
+      });
+    }
+    var composite = null;
+    if (frameworks.length) {
+      var sum = 0, n = 0;
+      frameworks.forEach(function (f) {
+        if (f && f.score != null && !isNaN(Number(f.score))) { sum += Number(f.score); n++; }
+      });
+      if (n) composite = Math.round(sum / n);
+    }
+    var roi = {
+      p10: (s.roi_p10 == null ? undefined : Number(s.roi_p10)),
+      p50: (s.roi_p50 == null ? undefined : Number(s.roi_p50)),
+      p90: (s.roi_p90 == null ? undefined : Number(s.roi_p90))
+    };
+    return {
+      useCase: (intake && intake.name) || undefined,
+      composite: composite == null ? undefined : composite,
+      readiness: s.readiness || 'CONDITIONAL',
+      roi: roi,
+      frameworks: frameworks,
+      governance: s.governance || []
+    };
+  }
 
-  /* Layout */
-  --header-h:  48px;
-  --maxw:      1280px;
-}
+  // Convert a full /api/use-cases/:id response row into compute-input opts.
+  function mapUseCase(row) {
+    if (!row || typeof row !== 'object') return null;
+    // The offline fallback in GAIC_API.getUseCase returns a different (localStorage)
+    // shape: { _offline:true, intake, bxt, feasibility, advisory, summary }. In that
+    // case the nested objects are ALREADY in gate-page shape, so use them directly.
+    if (row._offline) {
+      // localStorage gaic_summary is already in panel shape, so pass it through.
+      return {
+        intake: row.intake || null,
+        bxt: row.bxt || null,
+        feas: row.feasibility || null,
+        advisory: row.advisory || null,
+        panelSummary: row.summary || null,
+        summary: row.summary || null
+      };
+    }
+    var intake = mapIntake(row);
+    return {
+      intake: intake,
+      bxt: mapBxt(row.bxt),
+      feas: mapFeasibility(row.feasibility),
+      advisory: mapAdvisory(row.advisory),
+      verdict: row.verdict || null,
+      // panel-ready Gate 5 summary (null if the case hasn't reached Gate 5 yet)
+      panelSummary: mapPanelSummary(row.summary, intake),
+      summary: row.summary || null,
+      raw: row
+    };
+  }
 
-/* --------------------------------------------------------------------------
-   2. Base / reset
-   -------------------------------------------------------------------------- */
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 16px); }
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-h1, h2, h3, h4 { font-family: var(--font-sans); font-weight: 500; letter-spacing: -0.01em; margin: 0; }
-a { color: inherit; text-decoration: none; }
-p { margin: 0 0 1rem; }
+  // Fetch + map. Resolves to compute-input opts, or null if no id / no API / error.
+  // Only keys with real data are returned; missing gates are null so callers can
+  // decide whether to fall back to demo defaults per-gate.
+  function load() {
+    var id = getId();
+    if (!id) return Promise.resolve(null);
+    if (!window.GAIC_API || typeof window.GAIC_API.getUseCase !== 'function') {
+      return Promise.resolve(null);
+    }
+    return window.GAIC_API.getUseCase(id)
+      .then(function (row) {
+        var opts = mapUseCase(row);
+        if (opts) opts.id = id;
+        return opts;
+      })
+      .catch(function () { return null; });
+  }
 
-/* --------------------------------------------------------------------------
-   3. Layout helpers
-   -------------------------------------------------------------------------- */
-.gc-section { padding: 72px 32px; border-top: 1px solid var(--border-soft); }
-.gc-container { max-width: var(--maxw); margin: 0 auto; }
-.gc-section__head { max-width: 780px; margin-bottom: 40px; }
-.gc-section h2 { font-size: 34px; line-height: 1.15; margin-bottom: 14px; }
-.gc-section__intro { color: var(--text-muted); font-size: 17px; max-width: 720px; }
-
-/* --------------------------------------------------------------------------
-   4. Eyebrow / mono labels
-   -------------------------------------------------------------------------- */
-.gc-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-/* --------------------------------------------------------------------------
-   5. Buttons
-   -------------------------------------------------------------------------- */
-.gc-btn {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--font-sans); font-size: 14px; font-weight: 500;
-  padding: 10px 20px; border-radius: var(--radius-sm);
-  border: 1px solid transparent; cursor: pointer;
-  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
-  background: transparent; color: var(--text); line-height: 1;
-}
-.gc-btn--primary { background: var(--g-blue); color: #fff; }
-.gc-btn--primary:hover { background: var(--g-blue-d); box-shadow: 0 2px 10px rgba(66,133,244,.4); }
-.gc-btn--accent { background: transparent; color: var(--g-yellow); border-color: var(--g-yellow); }
-.gc-btn--accent:hover { background: rgba(251,188,4,.12); }
-.gc-btn--ghost { border-color: var(--border); color: var(--text); }
-.gc-btn--ghost:hover { border-color: var(--g-blue-l); color: var(--g-blue-l); }
-.gc-btn--sm { padding: 7px 14px; font-size: 13px; }
-
-/* --------------------------------------------------------------------------
-   6. Tags
-   -------------------------------------------------------------------------- */
-.gc-tag {
-  display: inline-flex; align-items: center;
-  font-family: var(--font-mono); font-size: 11.5px; font-weight: 500;
-  padding: 5px 10px; border-radius: 100px;
-  border: 1px solid; letter-spacing: 0.02em;
-}
-.gc-tag--blue   { color: var(--g-blue-l); border-color: rgba(66,133,244,.4);  background: rgba(66,133,244,.10); }
-.gc-tag--green  { color: #81c995;         border-color: rgba(52,168,83,.4);   background: rgba(52,168,83,.10); }
-.gc-tag--purple { color: #d7aefb;         border-color: rgba(161,66,244,.4);  background: rgba(161,66,244,.10); }
-.gc-tag--gray   { color: var(--g-gray);   border-color: rgba(154,160,166,.35);background: rgba(154,160,166,.08); }
-.gc-tag--teal   { color: #78d9ec;         border-color: rgba(18,181,203,.4);  background: rgba(18,181,203,.10); }
-.gc-tag--yellow { color: var(--g-yellow); border-color: rgba(251,188,4,.4);   background: rgba(251,188,4,.10); }
-.gc-tag--red    { color: #f28b82;         border-color: rgba(234,67,53,.4);   background: rgba(234,67,53,.10); }
-
-/* --------------------------------------------------------------------------
-   7. Cards
-   -------------------------------------------------------------------------- */
-.gc-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 22px;
-  box-shadow: var(--shadow-2);
-  transition: border-color .15s, transform .15s;
-}
-.gc-card:hover { border-color: var(--surface-3); transform: translateY(-2px); }
-.gc-card h3 { font-size: 17px; margin-bottom: 8px; }
-.gc-card p  { color: var(--text-muted); font-size: 14px; margin: 0; }
-.gc-card__accent { height: 3px; width: 40px; border-radius: 2px; margin-bottom: 14px; background: var(--g-blue); }
-
-/* --------------------------------------------------------------------------
-   8. Stat cards
-   -------------------------------------------------------------------------- */
-.gc-stat {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow-2);
-}
-.gc-stat__num { font-size: 30px; font-weight: 500; line-height: 1; margin-bottom: 8px; }
-.gc-stat__label { color: var(--text-muted); font-size: 13px; }
-.gc-stat__src { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; display: block; margin-top: 6px; }
-
-/* --------------------------------------------------------------------------
-   9. Header
-   -------------------------------------------------------------------------- */
-.gc-header {
-  position: fixed; top: 0; left: 0; right: 0; height: var(--header-h);
-  background: rgba(13,17,23,.92); backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 16px; z-index: 100;
-  gap: 4px;
-}
-.gc-header__brand { display: flex; align-items: center; gap: 10px; }
-.gc-header__wordmark { font-family: var(--font-sans); font-weight: 500; font-size: 14px; white-space: nowrap; }
-.gc-header__divider { width: 1px; height: 22px; background: var(--border); margin: 0 12px; }
-.gc-header__product { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
-.gc-nav { display: flex; align-items: center; gap: 2px; margin-left: 20px; }
-.gc-nav a {
-  font-size: 13px; padding: 6px 12px; border-radius: var(--radius-sm);
-  color: var(--text-muted); transition: color .15s, background .15s; white-space: nowrap;
-}
-.gc-nav a:hover { color: var(--text); background: var(--surface-2); }
-.gc-nav a.is-active { color: var(--g-blue-l); }
-.gc-header__right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-.gc-select {
-  font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap;
-}
-.gc-select:hover { border-color: var(--g-blue-l); color: var(--text); }
-.gc-iconbtn {
-  width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted);
-  background: transparent; cursor: pointer; transition: border-color .15s, color .15s;
-}
-.gc-iconbtn:hover { border-color: var(--g-blue-l); color: var(--text); }
-
-/* --------------------------------------------------------------------------
-   10. Utility
-   -------------------------------------------------------------------------- */
-.gc-grid { display: grid; gap: 18px; }
-.gc-grid--2 { grid-template-columns: repeat(2, 1fr); }
-.gc-grid--3 { grid-template-columns: repeat(3, 1fr); }
-.gc-grid--4 { grid-template-columns: repeat(4, 1fr); }
-.gc-badge-new {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: .1em;
-  color: #fff; background: var(--g-red); padding: 3px 8px; border-radius: 100px; text-transform: uppercase;
-}
-
-/* --------------------------------------------------------------------------
-   11. Responsive
-   -------------------------------------------------------------------------- */
-@media (max-width: 980px) {
-  .gc-grid--3, .gc-grid--4 { grid-template-columns: repeat(2, 1fr); }
-  .gc-nav, .gc-header__divider, .gc-header__product { display: none; }
-}
-@media (max-width: 620px) {
-  .gc-grid--2, .gc-grid--3, .gc-grid--4 { grid-template-columns: 1fr; }
-  .gc-section { padding: 48px 20px; }
-  .gc-section h2 { font-size: 26px; }
-}
+  window.GAIC_DEEPLINK = {
+    getId: getId,
+    mapUseCase: mapUseCase,
+    mapIntake: mapIntake,
+    mapBxt: mapBxt,
+    mapFeasibility: mapFeasibility,
+    mapAdvisory: mapAdvisory,
+    mapPanelSummary: mapPanelSummary,
+    load: load
+  };
+})();

@@ -1,17 +1,115 @@
-const { Client } = require('pg');
-const url = process.env.DATABASE_URL || require('fs').readFileSync(__dirname+'/../.env','utf8').match(/DATABASE_URL=(.+)/)[1].trim();
-(async () => {
-  const c = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
-  try {
-    await c.connect();
-    const v = await c.query('SELECT version(), current_database(), current_user, now()');
-    console.log('CONNECTED OK');
-    console.log(v.rows[0].version.split(',')[0]);
-    console.log('db =', v.rows[0].current_database, '| user =', v.rows[0].current_user);
-    const t = await c.query("SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1");
-    console.log('existing public tables:', t.rows.map(r=>r.tablename).join(', ') || '(none)');
-  } catch (e) {
-    console.error('CONNECT FAILED:', e.message);
-    process.exit(1);
-  } finally { await c.end(); }
-})();
+-- Google AI Catalyst — relational schema
+-- Idempotent: safe to run repeatedly.
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1. Enterprise workspace profile (from setup.html)
+CREATE TABLE IF NOT EXISTS workspaces (
+  id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name                    text,
+  industry                text,
+  company_size            text,
+  annual_revenue          text,
+  region                  text,
+  data_residency          text,
+  cloud_provider          text DEFAULT 'Google Cloud',
+  workspace_edition       text,
+  gemini_seats            int,
+  monthly_gcp_consumption text,
+  appsheet_plan           text,
+  vertex_approved         bool,
+  gartner_level           text,
+  ai_engineers            int,
+  mlops_maturity          text,
+  citizen_dev_program     bool,
+  compliance_frameworks   text[],
+  eu_ai_act_tier          text,
+  ai_priorities           text,
+  ai_budget               text,
+  delivery_model          text,
+  ai_goal                 text,
+  raw                     jsonb,
+  created_at              timestamptz DEFAULT now(),
+  updated_at              timestamptz DEFAULT now()
+);
+
+-- 2. Use cases (from intake.html)
+CREATE TABLE IF NOT EXISTS use_cases (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id       uuid REFERENCES workspaces(id) ON DELETE CASCADE,
+  name               text,
+  department         text,
+  executive_sponsor  text,
+  submitted_by       text,
+  contact_email      text,
+  description        text,
+  business_context   jsonb,
+  current_state      jsonb,
+  technical_context  jsonb,
+  risk_compliance    jsonb,
+  stage              text DEFAULT 'intake',
+  created_at         timestamptz DEFAULT now(),
+  updated_at         timestamptz DEFAULT now()
+);
+
+-- 3. BXT gate scores
+CREATE TABLE IF NOT EXISTS bxt_scores (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  use_case_id      uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
+  business_score   numeric,
+  experience_score numeric,
+  technology_score numeric,
+  verdict          text,
+  detail           jsonb,
+  created_at       timestamptz DEFAULT now()
+);
+
+-- 4. Feasibility gate scores
+CREATE TABLE IF NOT EXISTS feasibility_scores (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  use_case_id     uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
+  composite       numeric,
+  quadrant        text,
+  risk_tier       text,
+  citizen_dev_pct numeric,
+  criteria        jsonb,
+  pillars         jsonb,
+  created_at      timestamptz DEFAULT now()
+);
+
+-- 5. Advisory results
+CREATE TABLE IF NOT EXISTS advisory_results (
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  use_case_id          uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
+  tier                 text,
+  verdict_name         text,
+  recommended_platform text,
+  gate_resolved        text,
+  reasoning            jsonb,
+  journey              jsonb,
+  created_at           timestamptz DEFAULT now()
+);
+
+-- 6. Evaluation summaries
+CREATE TABLE IF NOT EXISTS evaluation_summaries (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  use_case_id uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
+  roi_p10     numeric,
+  roi_p50     numeric,
+  roi_p90     numeric,
+  frameworks  jsonb,
+  governance  jsonb,
+  readiness   text,
+  created_at  timestamptz DEFAULT now()
+);
+
+-- 7. Panel verdicts
+CREATE TABLE IF NOT EXISTS panel_verdicts (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  use_case_id       uuid UNIQUE REFERENCES use_cases(id) ON DELETE CASCADE,
+  verdict           text,
+  binding_condition text,
+  stances           jsonb,
+  deliberation      jsonb,
+  created_at        timestamptz DEFAULT now()
+);
