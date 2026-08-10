@@ -171,7 +171,7 @@
         '</div>' +
         '<p class="gbu-sub">Upload a CSV to create many use cases at once. ' +
           'Need the format? <a href="' + TEMPLATE_URL + '" class="gbu-link" download>Download the template CSV</a> ' +
-          '(pre-filled with the 5 Intel example use cases).</p>' +
+          '(pre-filled with example use cases).</p>' +
 
         '<div class="gbu-field">' +
           '<label class="gbu-label" for="gbuWs">Target workspace</label>' +
@@ -218,6 +218,7 @@
       '.gbu-msg.is-err{color:#f28b82;background:rgba(234,67,53,.12);border:1px solid rgba(234,67,53,.4);}' +
       '.gbu-msg.is-ok{color:#81c995;background:rgba(52,168,83,.12);border:1px solid rgba(52,168,83,.4);}' +
       '.gbu-msg.is-info{color:var(--text-muted,#9aa0a6);background:var(--surface-2,#1c2230);border:1px solid var(--border,#2a2f3a);}' +
+      '.gbu-msg.is-warn{color:#fdd663;background:rgba(251,188,4,.12);border:1px solid rgba(251,188,4,.45);}' +
       '.gbu-msg.hidden,.gbu-results.hidden{display:none;}' +
       '.gbu-results{margin-bottom:16px;max-height:280px;overflow:auto;border:1px solid var(--border,#2a2f3a);border-radius:var(--radius-sm,4px);}' +
       '.gbu-rtable{width:100%;border-collapse:collapse;font-size:12.5px;}' +
@@ -310,12 +311,35 @@
         return;
       }
       state.parsedRows = rows;
-      show('Parsed ' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + ' — ready to upload.', 'info');
+      // DEF-04: pre-validate required 'name' client-side (warn-and-allow) so the
+      // user sees blank-name rows BEFORE uploading, not only via server FAILs.
+      var missing = countMissingName(rows);
+      if (missing > 0) {
+        show('Parsed ' + rows.length + ' row' + (rows.length === 1 ? '' : 's') +
+             ' — \u26a0 ' + missing + ' row' + (missing === 1 ? '' : 's') +
+             ' missing a required "name" and will FAIL on upload. Fix the file or upload to skip them.',
+             'warn');
+      } else {
+        show('Parsed ' + rows.length + ' row' + (rows.length === 1 ? '' : 's') + ' — ready to upload.', 'info');
+      }
       refreshSubmitEnabled();
     }).catch(function (e) {
       show('Could not read file: ' + (e && e.message ? e.message : e), 'err');
       refreshSubmitEnabled();
     });
+  }
+
+  // DEF-04: count rows whose required 'name' is blank/absent. 'name' is the only
+  // strictly-required per-row field server-side (workspace_id comes from the UI).
+  function countMissingName(rows) {
+    if (!Array.isArray(rows)) return 0;
+    var n = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i] || {};
+      var v = r.name != null ? String(r.name).trim() : '';
+      if (!v) n++;
+    }
+    return n;
   }
 
   function renderResults(data) {
@@ -440,5 +464,5 @@
     }
   }
 
-  return { mount: mount, open: open, close: close, parseCsv: parseCsv };
+  return { mount: mount, open: open, close: close, parseCsv: parseCsv, countMissingName: countMissingName };
 });

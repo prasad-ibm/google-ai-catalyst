@@ -34,6 +34,8 @@ function fillAndSubmit(w){
   const click = el => el.dispatchEvent(new w.MouseEvent('click', {bubbles:true}));
   const nm = d.getElementById('f_name'); nm.value = 'Invoice Reconciliation Bot'; fire(nm, 'input');
   const ds = d.getElementById('f_desc'); ds.value = 'Automate 3-way match of invoices to POs and receipts.'; fire(ds, 'input');
+  // DEF-08: Department is now required — select one so submit is allowed.
+  const dp = d.getElementById('f_dept'); if (dp) { dp.value = 'Finance'; fire(dp, 'change'); }
   w.__gaic.goTo(w.__gaic.TABS.length - 1);
   click(d.getElementById('btnNext'));
 }
@@ -167,11 +169,88 @@ function testBxtHandoff(){
   });
 }
 
+// ---------------------------------------------------------------------------
+// Test 5 (H3 workspace_id) — no cached gaic_workspace_id. Submit must call
+// listWorkspaces(), pick the Intel workspace, cache its id, and carry THAT
+// workspace_id in the createUseCase POST body — so the server no longer 400s
+// with 'workspace_id is required' and the case actually persists + mints ?id=.
+// ---------------------------------------------------------------------------
+function testWorkspaceResolution(){
+  return new Promise(resolve => {
+    console.log('\n== 5. no gaic_workspace_id -> resolves Intel workspace for the POST ==');
+    const WORKSPACES = [
+      { id:'WS_ACME', name:'Acme Corp' },
+      { id:'WS_INTEL', name:'Intel' },
+      { id:'WS_OTHER', name:'Globex' }
+    ];
+    let postedBody = null;
+    const dom = new JSDOM(html, {
+      runScripts:'dangerously', pretendToBeVisual:true,
+      url:'https://example.com/intake.html', virtualConsole: quietConsole(),
+      beforeParse(w){
+        // Fresh user: NO gaic_workspace_id set (never ran setup).
+        w.GAIC_API = {
+          listWorkspaces: () => Promise.resolve(WORKSPACES),
+          createUseCase: (body) => {
+            postedBody = body;
+            return Promise.resolve({ id:'NEW_WS_CASE', name:body.name });
+          }
+        };
+      }
+    });
+    setTimeout(() => {
+      const w = dom.window;
+      fillAndSubmit(w);
+      // Allow: _resolveWorkspaceId promise -> createUseCase promise -> _go.
+      setTimeout(() => {
+        ok('POST body carried the Intel workspace_id', postedBody && postedBody.workspace_id === 'WS_INTEL');
+        ok('gaic_workspace_id cached as the Intel id', w.localStorage.getItem('gaic_workspace_id') === 'WS_INTEL');
+        ok('navigated to bxt.html?id=NEW_WS_CASE', w.__gaic.lastNav === 'bxt.html?id=NEW_WS_CASE');
+        resolve();
+      }, 60);
+    }, 60);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Test 6 (H3 workspace_id) — a cached gaic_workspace_id must be used verbatim
+// WITHOUT calling listWorkspaces (no redundant network round-trip).
+// ---------------------------------------------------------------------------
+function testWorkspaceCached(){
+  return new Promise(resolve => {
+    console.log('\n== 6. cached gaic_workspace_id is used without listing ==');
+    let listCalled = false;
+    let postedBody = null;
+    const dom = new JSDOM(html, {
+      runScripts:'dangerously', pretendToBeVisual:true,
+      url:'https://example.com/intake.html', virtualConsole: quietConsole(),
+      beforeParse(w){
+        w.localStorage.setItem('gaic_workspace_id', 'WS_CACHED');
+        w.GAIC_API = {
+          listWorkspaces: () => { listCalled = true; return Promise.resolve([]); },
+          createUseCase: (body) => { postedBody = body; return Promise.resolve({ id:'C2', name:body.name }); }
+        };
+      }
+    });
+    setTimeout(() => {
+      const w = dom.window;
+      fillAndSubmit(w);
+      setTimeout(() => {
+        ok('POST body carried the cached workspace_id', postedBody && postedBody.workspace_id === 'WS_CACHED');
+        ok('listWorkspaces was NOT called when cache present', listCalled === false);
+        resolve();
+      }, 60);
+    }, 60);
+  });
+}
+
 (async () => {
   await testSuccess();
   await testSlow();
   await testOffline();
   await testBxtHandoff();
+  await testWorkspaceResolution();
+  await testWorkspaceCached();
   console.log('\n---------------------------------------------');
   console.log('  RESULT: '+pass+' passed, '+fail+' failed');
   console.log('---------------------------------------------');

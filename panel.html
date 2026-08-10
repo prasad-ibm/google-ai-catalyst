@@ -251,9 +251,9 @@ p { margin:0 0 1rem; }
   <div class="gc-header__right">
     <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+    <a class="gc-iconbtn" href="setup.html" title="Onboard New Organisation" aria-label="Onboard New Organisation" data-gearlink="1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    </a>
     <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
     </button>
@@ -287,6 +287,9 @@ p { margin:0 0 1rem; }
         </span>
       </div>
     </div>
+
+    <!-- Demo-data banner (shown only when no real intake/?id= is present) -->
+    <div id="demoBanner" style="display:none;margin:0 0 12px;padding:10px 14px;border:1px solid #f9ab00;background:rgba(249,171,0,.12);border-radius:8px;color:#fdd663;font-size:13px;">⚠️ Demo data — this is a sample use case. <a href="intake.html" style="color:#8ab4f8;font-weight:600;">Start a real use case from Intake →</a></div>
 
     <!-- Workspace context chip -->
     <div class="wschip">🏢 <b>Intel</b> — <span id="wsEval">Evaluating: —</span></div>
@@ -417,11 +420,19 @@ p { margin:0 0 1rem; }
     var feas     = (DEEP.feas)     || loadJSON(FEAS_KEY, {}).data     || {};
     var advisory = (DEEP.advisory) || loadJSON(ADVISORY_KEY, {}).data || {};
     var roi = (summary && summary.roi) || {};
-    // summary persists value/cost as roi.value/roi.cost (app) or roi.annualValue/roi.cost (demo)
-    var annualValue = (roi.annualValue != null ? Number(roi.annualValue)
-                       : roi.value != null ? Number(roi.value)
-                       : annualValueOf(intake, feas));
-    var implCost = (roi.cost != null ? Number(roi.cost) : implCostOf(advisory));
+    // M6: use the Summary's OWN persisted basis when it exists — roi.annualValue/
+    // roi.value and roi.cost ARE the exact numbers the Summary hero rendered, so
+    // reading them guarantees the panel dialogue matches the Summary. Only when
+    // NO persisted basis exists (e.g. a fresh intake-stage case that never ran
+    // the Summary) do we recompute fresh from the case's own inputs — using the
+    // same annualValueOf/implCostOf the Summary uses, never a stale demo default.
+    var persistedVal = (roi.annualValue != null ? Number(roi.annualValue)
+                        : roi.value != null ? Number(roi.value) : null);
+    var persistedCost = (roi.cost != null ? Number(roi.cost) : null);
+    var annualValue = (persistedVal != null && persistedVal > 0)
+                       ? persistedVal : annualValueOf(intake, feas);
+    var implCost = (persistedCost != null && persistedCost > 0)
+                    ? persistedCost : implCostOf(advisory);
     return {
       annualValue: Math.round(annualValue),
       implCost: Math.round(implCost),
@@ -455,7 +466,7 @@ p { margin:0 0 1rem; }
     roi: { p10: 62, p50: 141, p90: 233, annualValue: 4200000, cost: 1750000, payback: 11 },
     frameworks: [
       { key:'gadf',      name:'GADF v2 (Google AI Decision Framework)', score:77, band:'Strong' },
-      { key:'caf',       name:'Google Cloud Adoption Framework',        score:72, band:'Ready' },
+      { key:'caf',       name:'Google Cloud Adoption Framework',        score:72, band:'Scale' },
       { key:'strategic', name:'Strategic Value (McKinsey × MIT Sloan)', score:81, band:'High' },
       { key:'gartner',   name:'Gartner AI Maturity + ROI',             score:69, band:'Emerging' }
     ],
@@ -555,12 +566,41 @@ p { margin:0 0 1rem; }
     { persona:'CI', label:'CIO',                value:'Hold',    klass:'stance--against' }
   ];
 
+  // GO (unconditional) — readiness=READY, no open risks, no binding condition.
+  // DEF-02 (round 11): a GO verdict must NOT borrow the CONDITIONAL narrative,
+  // which rendered 'Unanimous approval' over Conditional stances + a binding
+  // condition (a direct contradiction the QA panel flagged). A true GO is a
+  // clean unanimous Support with NO condition precedent.
+  var BINDING_GO = '';   // no binding condition on an unconditional GO
+
+  var DELIBERATION_GO = [
+    { p:'BS', say:'This initiative delivers a projected <b>{{REDUCTION}} reduction</b> in operational processing costs — <b>{{SAVINGS}} in annual value</b> against a {{INVEST}} investment — with board mandate, allocated budget, and three pilot departments ready to onboard. I’m committing to a measurable ROI dashboard at the 90-day mark.' },
+    { p:'RA', say:'Risk review is clean: data residency is already contracted to <b>Assured Workloads</b> Tier-1 compliant regions, satisfying <b>GDPR Article 46</b> adequacy. There is no open compliance gate and no outstanding condition. My position is <b>full support</b>.' },
+    { p:'CI', say:'Architecture is production-ready: the API gateway modernisation is complete and integration complexity is well within tolerance. The platform can support production load today — no runway required. I’m confirming <b>unconditional</b> technical readiness.' },
+    { p:'BS', say:'With compliance contracted and the platform production-grade, there is nothing gating go-live. The <b>{{SAVINGS}} outcome</b> is achievable on the committed timeline with no sequencing risk.' },
+    { p:'RA', say:'Confirmed — no condition precedent is required. Data residency is executed, not merely discussed. Final position: <b>support</b>.' },
+    { p:'CI', say:'Confirmed — no change freeze or infrastructure runway needed. The platform is ready now. Final position: <b>support</b>.' },
+    { p:'CC', say:'All three perspectives are unanimous: the business case is strong, compliance is contractually satisfied with no open gate, and technology is production-ready. This committee issues an unconditional <b>GO</b>. Progress review is scheduled at the <b>90-day ROI dashboard</b> checkpoint.' }
+  ];
+
+  // Unanimous Support — GO.
+  var STANCES_GO = [
+    { persona:'BS', label:'Business Sponsor',   value:'Support', klass:'stance--support' },
+    { persona:'RA', label:'Risk & Assurance',   value:'Support', klass:'stance--support' },
+    { persona:'CI', label:'CIO',                value:'Support', klass:'stance--support' }
+  ];
+
   // Resolve the coherent narrative triple for a given verdict key.
+  // DEF-02: each verdict gets its OWN coherent narrative so the banner label,
+  // stance chips and binding condition can never contradict each other.
   function narrativeFor(key){
     if (key === 'nogo'){
       return { deliberation: DELIBERATION_NOGO, stances: STANCES_NOGO, binding: BINDING_NOGO };
     }
-    // 'go' and 'cond' both use the CONDITIONAL GO approval narrative.
+    if (key === 'go'){
+      return { deliberation: DELIBERATION_GO, stances: STANCES_GO, binding: BINDING_GO };
+    }
+    // 'cond' -> CONDITIONAL GO approval narrative (support + conditionals + binding).
     return { deliberation: DELIBERATION_COND, stances: STANCES_COND, binding: BINDING_COND };
   }
 
@@ -672,8 +712,16 @@ p { margin:0 0 1rem; }
     band.className = 'verdict ' + v.klass;
     document.getElementById('verdictLabel').textContent = v.label;
     document.getElementById('verdictBadge').textContent = v.badge;
-    document.getElementById('verdictCond').innerHTML =
-      '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
+    // DEF-02: the condition line must match the verdict. GO has no binding
+    // condition; NO-GO is a deferral; only CONDITIONAL GO shows a binding gate.
+    var condEl = document.getElementById('verdictCond');
+    if (v.key === 'go' || !BINDING_CONDITION){
+      condEl.innerHTML = '<b>No binding conditions</b> — unconditional committee approval.';
+    } else if (v.key === 'nogo'){
+      condEl.innerHTML = '<b>Deferred pending remediation:</b> ' + esc(BINDING_CONDITION);
+    } else {
+      condEl.innerHTML = '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
+    }
 
     var host = document.getElementById('verdictStances');
     host.innerHTML = '';
@@ -696,6 +744,91 @@ p { margin:0 0 1rem; }
   }
 
   // ============================================================
+  //  M11: LIVE ROI FALLBACK — mirror summary.html's monteCarloROI EXACTLY
+  //  (same helpers, same seed incl. use-case id, same economics inputs) so
+  //  that when the persisted gate scores / gaic_summary.roi are absent (a
+  //  freshly-created case that has not been formally gate-advanced yet) the
+  //  Brief still shows a real P10/P50/P90 band that MATCHES what the Summary
+  //  hero would compute — never all '—' under a CONDITIONAL GO verdict.
+  //  Because the seed + math are identical to summary.html, the two agree
+  //  by construction (this is the opposite of the old divergent synthetic
+  //  band that caused M6; here we reuse the canonical computation).
+  // ============================================================
+  function _hashSeed(str){
+    var h = 2166136261 >>> 0;
+    for (var i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function _mulberry32(a){
+    return function(){
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function _gauss(rng){
+    var u = 0, v = 0;
+    while (u === 0) u = rng();
+    while (v === 0) v = rng();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  // Returns { p10, p50, p90, usd:{p10,p50,p90}, value, cost } or null if no economics.
+  // M6 (permanent, round 10): the Brief's live band MUST use the SAME benefit/cost
+  // BASIS the Summary hero rendered — otherwise a newly-created case whose Summary
+  // persisted its roi from feas.biz_value=4 ($4.2M) diverges from a Brief that
+  // recomputes fresh against a loaded feas defaulting to biz_value=3 ($3.6M): the
+  // exact 1.2/1.4 = 0.857 (~14%) gap this regression reported.
+  //
+  // Resolution: when the Summary persisted a value/cost basis (summary.roi.value /
+  // .cost — the numbers its hero actually used and seeded its Monte Carlo with),
+  // adopt them verbatim. Only when NO persisted basis exists (a case that never
+  // ran the Summary at all) do we recompute fresh via annualValueOf/implCostOf.
+  // Because both basis AND seed inputs [ucId,name,composite,tier,value,cost,trials]
+  // then match summary.html exactly, briefP50 === summaryP50 BY CONSTRUCTION.
+  // `basis` = summary.roi (may carry .value/.annualValue and .cost); optional.
+  function liveROI(intake, feas, advisory, basis){
+    basis = basis || {};
+    var pBasisVal = (basis.value != null ? Number(basis.value)
+                     : basis.annualValue != null ? Number(basis.annualValue) : null);
+    var pBasisCost = (basis.cost != null ? Number(basis.cost) : null);
+    var value = (pBasisVal != null && pBasisVal > 0) ? pBasisVal : annualValueOf(intake, feas);
+    var cost  = (pBasisCost != null && pBasisCost > 0) ? pBasisCost : implCostOf(advisory);
+    if (!(value > 0) || !(cost > 0)) return null;
+    var trials = 10000;
+    var comp = (feas && Number(feas.composite)) || 3.0;
+    var sigmaBenefit = clamp(0.42 - 0.05 * (comp - 3), 0.14, 0.55);
+    var sigmaCost    = clamp(0.30 - 0.03 * (comp - 3), 0.10, 0.45);
+    var ucId = null; try { ucId = localStorage.getItem('gaic_use_case_id'); } catch(e){}
+    var seedStr = [ucId, intake && intake.name, feas && feas.composite, advisory && advisory.tier, value, cost, trials].join('|');
+    var rng = _mulberry32(_hashSeed(seedStr));
+    var s = new Array(trials);
+    for (var i=0;i<trials;i++){
+      var benefitMult = Math.max(0.05, 1 + sigmaBenefit * _gauss(rng));
+      var cum = value * benefitMult * (0.85 + 1.0);
+      var costMult = Math.max(0.6, 1 + sigmaCost * _gauss(rng));
+      var totCost = cost * costMult;
+      s[i] = (cum - totCost) / totCost * 100;
+    }
+    s.sort(function(a,b){ return a - b; });
+    function pc(p){ var idx = clamp(Math.floor(p/100*(trials-1)),0,trials-1); return s[idx]; }
+    var p10 = pc(10), p50 = pc(50), p90 = pc(90);
+    function usdAt(r){ return r/100 * cost; }
+    return { p10: Math.round(p10), p50: Math.round(p50), p90: Math.round(p90),
+             value: Math.round(value), cost: Math.round(cost),
+             usd: { p10: Math.round(usdAt(p10)), p50: Math.round(usdAt(p50)), p90: Math.round(usdAt(p90)) } };
+  }
+  // Live composite fallback (0..100) when summary.composite is absent: derive
+  // from feasibility composite (1..5) so the Brief header is never '—/100'.
+  // Final fallback uses the neutral 3.0 composite that liveROI also assumes for
+  // a not-yet-scored case, so the header always shows a real number (never '—').
+  function liveComposite(feas){
+    var c = feas && Number(feas.composite);
+    if (!(c > 0)) c = 3.0;                       // neutral default for unscored cases
+    return Math.round(clamp(c,1,5) / 5 * 100);
+  }
+
+  // ============================================================
   //  EXECUTIVE BRIEF — 3 sections, populated from persisted data
   // ============================================================
   function buildBrief(){
@@ -705,7 +838,20 @@ p { margin:0 0 1rem; }
     var v = currentVerdict();
     var roi = (summary && summary.roi) || {};
     var useCase = (summary && summary.useCase) || (intake && intake.name) || 'Untitled use case';
-    var composite = (summary && summary.composite != null) ? summary.composite : '—';
+    // M11: if the persisted sim triple is absent (case not yet gate-advanced),
+    // compute the canonical live band so the Brief is never blank under a
+    // real verdict. liveROI mirrors summary.html exactly => values agree.
+    var liveFeas = (DEEP && DEEP.feas) || loadJSON(FEAS_KEY, {}).data || null;
+    var liveAdv  = (DEEP && DEEP.advisory) || loadJSON(ADVISORY_KEY, {}).data || null;
+    if (roi.p50 == null){
+      // Pass the persisted summary basis (roi.value/.annualValue/.cost) so the
+      // live band uses the SAME benefit/cost the Summary hero used (M6 round 10).
+      var lr = liveROI(intake, liveFeas, liveAdv, roi);
+      if (lr){ roi = { p10: lr.p10, p50: lr.p50, p90: lr.p90, usd: lr.usd, value: lr.value, cost: lr.cost, payback: roi.payback }; }
+    }
+    var composite = (summary && summary.composite != null)
+      ? summary.composite
+      : liveComposite(liveFeas);   // never null now (neutral 3.0 default)
     var p50 = roi.p50, p10 = roi.p10, p90 = roi.p90;
     var payback = roi.payback;
     // Derived economics — same model as summary.html (#5). Used for the
@@ -719,14 +865,22 @@ p { margin:0 0 1rem; }
     // We now (a) derive percentages from the modeled economics when the
     // committed values are missing, and (b) always show the modeled DOLLAR
     // value alongside each percentile so the Brief is never blank.
-    var netVal = (econ.annualValue * 2) - econ.implCost; // 24-month net benefit
-    var derivedP50 = econ.implCost > 0 ? Math.round((netVal / econ.implCost) * 100) : null;
-    if (p50 == null || isNaN(p50)) p50 = derivedP50;
-    if (p10 == null || isNaN(p10)) p10 = (p50 != null ? Math.round(p50 * 0.55) : null);
-    if (p90 == null || isNaN(p90)) p90 = (p50 != null ? Math.round(p50 * 1.6)  : null);
-    // Dollar value of the 24-month net benefit at each percentile.
-    function roiDollars(pct){ return (pct == null || isNaN(pct)) ? null : econ.implCost * (pct / 100); }
-    var d10 = roiDollars(p10), d50 = roiDollars(p50), d90 = roiDollars(p90);
+    // M6 FIX: the Brief KPI band MUST mirror the Summary hero's persisted
+    // Monte Carlo triple (gaic_summary.roi) so the two can never diverge.
+    // We do NOT recompute a synthetic band here (the old derivedP50 path
+    // produced the notorious +206/+374/+598 fallback triple whenever the
+    // persisted roi was absent). If the live roi is missing, show '—'.
+    var roiUsd = (roi && roi.usd) || {};
+    // Prefer the dollar figures that travelled with the persisted sim; only
+    // if the sim carried percentages but no usd do we dollarise from econ.
+    function roiDollars(pct, stored){
+      if (stored != null && !isNaN(Number(stored))) return Number(stored);
+      if (pct == null || isNaN(pct)) return null;
+      return (roi && roi.cost != null && !isNaN(Number(roi.cost)))
+        ? Number(roi.cost) * (pct / 100)
+        : (econ.implCost > 0 ? econ.implCost * (pct / 100) : null);
+    }
+    var d10 = roiDollars(p10, roiUsd.p10), d50 = roiDollars(p50, roiUsd.p50), d90 = roiDollars(p90, roiUsd.p90);
     // Combined 'pct · $value' cell content (falls back gracefully).
     function pctDollar(pct, dol){
       var pc = fmtPct(pct), ds = fmtUsd(dol);
@@ -746,23 +900,36 @@ p { margin:0 0 1rem; }
     // deferral, not an authorisation to proceed (H1).
     var recommendationLine = v.key === 'nogo'
       ? 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. Risk &amp; Assurance held a <b>blocking objection</b> over an unremediated data-privacy gate. The committee’s decision is to <b>defer</b>: no deployment is authorised until the remediation steps in Section 3 are complete and Gate 5 is re-scored.'
-      : 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.';
+      : v.key === 'go'
+        ? 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. All four perspectives aligned in <b>unanimous support</b> with no outstanding gate. The recommendation is to <b>proceed</b> under the standard governance cadence set out in Section 3.'
+        : 'The Executive Review Panel deliberated across four independent perspectives — <b>Business Sponsor</b>, <b>Risk &amp; Assurance</b>, <b>Chief Information Officer</b>, and <b>Committee Chair</b> — over seven turns of structured debate. The recommendation is to <b>proceed</b> under the governance conditions set out in Section 3.';
 
-    // Section 3 heading + intro + action list swing between remediation
-    // (NO-GO) and conditions-precedent (CONDITIONAL GO) framings (H1).
-    var sec3Title = v.key === 'nogo' ? 'Remediation &amp; Next Steps' : 'Conditions &amp; Next Steps';
+    // Section 3 heading + intro + action list swing across all THREE verdicts:
+    // remediation (NO-GO), conditions-precedent (CONDITIONAL GO), or a plain
+    // governance cadence with NO binding condition (GO). DEF-02: a GO must never
+    // borrow the CONDITIONAL 'binding condition' / 'condition precedent' framing.
+    var sec3Title = v.key === 'nogo' ? 'Remediation &amp; Next Steps'
+                  : v.key === 'go'   ? 'Next Steps &amp; Governance'
+                  : 'Conditions &amp; Next Steps';
     var sec3Intro = v.key === 'nogo'
       ? '<b>Deferred pending remediation:</b> ' + esc(BINDING_CONDITION)
-      : '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
+      : v.key === 'go'
+        ? '<b>No binding conditions</b> — the committee’s approval is unconditional. The steps below are standard delivery governance, not gating requirements.'
+        : '<b>Binding condition:</b> ' + esc(BINDING_CONDITION);
     var sec3List = v.key === 'nogo'
       ? '<li>Close the outstanding <b>data-privacy gate</b> at Gate 5 and re-score readiness to READY or CONDITIONAL before the committee re-convenes — this is a <b>prerequisite</b>, not a post-award condition.</li>'
         + '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions (GDPR Article 46 adequacy) as evidence for re-scoring.</li>'
         + '<li>Do <b>not</b> commence infrastructure work or contract signature while the gate is open; <b>Change Freeze Protocol CF-7</b> remains in force.</li>'
         + fillEcon('<li>Re-submit to the committee for a fresh verdict once the gate is closed; the {{SAVINGS}} business case is preserved by remediating rather than proceeding into a breach.</li>')
-      : '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
-        + '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
-        + '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
-        + '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>';
+      : v.key === 'go'
+        ? '<li>Proceed to delivery planning under the <b>standard governance cadence</b> — no condition precedent applies to contract signature.</li>'
+          + '<li>Provision inference workloads on <b>Assured Workloads</b> Tier-1 compliant regions as the recommended (not mandated) deployment baseline.</li>'
+          + '<li>Absorb standard onboarding inside Phase 1 to preserve the ROI timeline.</li>'
+          + '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>'
+        : '<li>Execute the data residency clause locking inference workloads to <b>Assured Workloads</b> Tier-1 compliant regions as a <b>condition precedent to contract signature</b> (GDPR Article 46 adequacy).</li>'
+          + '<li>Invoke <b>Change Freeze Protocol CF-7</b> on the API gateway modernisation before any infrastructure work commences — no parallel change requests during the six-week readiness runway.</li>'
+          + '<li>Absorb the six-week infrastructure runway inside Phase 1 to preserve the 18-month ROI timeline.</li>'
+          + '<li>Mandate a committee progress review at the <b>90-day ROI dashboard</b> checkpoint.</li>';
 
     var html =
       '<div class="brief__head">'
@@ -793,7 +960,7 @@ p { margin:0 0 1rem; }
       +   '<div class="brief__sectitle">2 · Business Case &amp; ROI</div>'
       +   '<div class="brief__kpis">'
       +     '<div class="brief__kpi"><div class="brief__kpi-k">P10 · Conservative</div><div class="brief__kpi-v" id="briefP10">' + pctDollar(p10, d10) + '</div></div>'
-      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected ROI</div><div class="brief__kpi-v" id="briefP50">' + pctDollar(p50, d50) + '</div></div>'
+      +     '<div class="brief__kpi is-p50"><div class="brief__kpi-k">P50 · Expected 24-mo net return</div><div class="brief__kpi-v" id="briefP50">' + pctDollar(p50, d50) + '</div></div>'
       +     '<div class="brief__kpi"><div class="brief__kpi-k">P90 · Optimistic</div><div class="brief__kpi-v" id="briefP90">' + pctDollar(p90, d90) + '</div></div>'
       +   '</div>'
       +   '<p>The deterministic Monte Carlo projection (Gate 5) places <b>expected ROI at ' + fmtPct(p50) + ' (' + fmtUsd(d50) + ')</b> over the 24-month horizon, with a conservative-to-optimistic band of ' + fmtPct(p10) + ' to ' + fmtPct(p90) + ' (' + fmtUsd(d10) + ' to ' + fmtUsd(d90) + '). Modeled annual value is <b>' + fmtUsd(econ.annualValue) + '</b> against a modeled cost of <b>' + fmtUsd(econ.implCost) + '</b>'
@@ -906,6 +1073,9 @@ p { margin:0 0 1rem; }
     var fromDemo = summary.fromDemo && intake.fromDemo;
     document.getElementById('wsEval').innerHTML =
       'Evaluating: <b>' + esc(nm) + '</b>' + (fromDemo ? ' (demo)' : '');
+    // Bug #4: clearly label demo data so it isn't mistaken for a real case.
+    var _demoBanner = document.getElementById('demoBanner');
+    if (_demoBanner) _demoBanner.style.display = fromDemo ? 'block' : 'none';
     renderSteps();
     streamTurns(animate);
   }
@@ -1005,6 +1175,7 @@ p { margin:0 0 1rem; }
     DEMO_INTAKE: DEMO_INTAKE, DEMO_SUMMARY: DEMO_SUMMARY,
     deriveVerdict: deriveVerdict,
     loadIntake: loadIntake, loadSummary: loadSummary,
+    caseEconomics: caseEconomics,
     currentVerdict: currentVerdict,
     buildBrief: buildBrief,
     esc: esc, fmtPct: fmtPct, fmtUsd: fmtUsd,

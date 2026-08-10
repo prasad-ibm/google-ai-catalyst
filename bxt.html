@@ -213,9 +213,9 @@ p { margin:0 0 1rem; }
   <div class="gc-header__right">
     <button class="gc-btn gc-btn--primary gc-btn--sm" id="btnNewUseCase">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+    <a class="gc-iconbtn" href="setup.html" title="Onboard New Organisation" aria-label="Onboard New Organisation" data-gearlink="1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    </a>
     <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
     </button>
@@ -244,6 +244,9 @@ p { margin:0 0 1rem; }
         <p class="banner__desc">Business × Experience × Technology pre-filter. <b>Why:</b> before spending analytical effort on full feasibility scoring, we check the use case is balanced across all three IBM BXT lenses — a strong idea must create business value, deliver a great human experience, and be technically viable.</p>
       </div>
     </div>
+
+    <!-- Demo-data banner (shown only when no real intake/?id= is present) -->
+    <div id="demoBanner" style="display:none;margin:0 0 12px;padding:10px 14px;border:1px solid #f9ab00;background:rgba(249,171,0,.12);border-radius:8px;color:#fdd663;font-size:13px;">⚠️ Demo data — this is a sample use case. <a href="intake.html" style="color:#8ab4f8;font-weight:600;">Start a real use case from Intake →</a></div>
 
     <!-- Workspace context chip -->
     <div class="wschip">🏢 <b>Intel</b> — <span id="wsEval">Evaluating: —</span></div>
@@ -639,6 +642,10 @@ p { margin:0 0 1rem; }
     // eval line
     var nm = (s && s.name) ? s.name : 'Untitled use case';
     document.getElementById('wsEval').innerHTML = 'Evaluating: <b>' + escapeHtml(nm) + '</b>' + (loaded.fromDemo ? ' (demo)' : '');
+
+    // Bug #4: clearly label demo data so it isn't mistaken for a real case.
+    var _demoBanner = document.getElementById('demoBanner');
+    if (_demoBanner) _demoBanner.style.display = loaded.fromDemo ? 'block' : 'none';
 
     ['B','X','T'].forEach(function(k){
       var d = scores[k];

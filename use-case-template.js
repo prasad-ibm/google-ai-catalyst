@@ -54,6 +54,11 @@ const TEMPLATE_COLUMNS = [
   'addnotes',
   // lifecycle
   'stage',
+  // v2 lifecycle columns:
+  //   status       = 'active' (in-pipeline, default) or 'completed' (delivered)
+  //   delivered_at = YYYY-MM-DD delivery date; only meaningful when completed
+  'status',
+  'delivered_at',
 ];
 
 // The 5 Intel use cases, mapped from scripts/seed-intel.js into the flat
@@ -223,6 +228,45 @@ const TEMPLATE_ROWS = [
     delivery: 'Build (engineer it)',
     addnotes: 'Advisory-only phase 1; no automated batch holds until 3 months ground-truth validation',
     stage: 'intake',
+  },
+  {
+    // v2 EXAMPLE: a COMPLETED / delivered use case. Set status='completed' and
+    // delivered_at to the go-live date. A completed row auto-defaults its stage
+    // to 'panel' when stage is left blank, and surfaces in the Dashboard's
+    // 2026 'Delivered' storyline rather than the active pipeline.
+    workspace_id: '',
+    name: 'Automated Invoice Matching (DELIVERED EXAMPLE)',
+    department: 'Finance',
+    executive_sponsor: 'CFO',
+    submitted_by: 'Finance Automation Team',
+    contact_email: 'ap-automation@intel.com',
+    description: 'Three-way PO/GRN/invoice matching with Document AI. Delivered to production Q1 2026; ~85% of invoices now auto-matched without touch.',
+    driver: 'Cost-to-serve + cycle time',
+    value: '85% touchless match rate',
+    users: '600 AP + procurement staff',
+    align: 'Finance operational excellence',
+    justif: 'Realized $4.1M annual savings; 9-day → 2-day cycle',
+    maturity: 'Delivered — live in production',
+    spend: '$5,200,000/yr (pre-automation)',
+    volume: '1.2M invoices/yr',
+    pain: 'Manual matching backlog',
+    tools: 'ERP + legacy OCR',
+    sources: 'ERP, supplier portal, PO/GRN tables',
+    dataavail: 'Readily available & clean',
+    integrations: 'Document AI; BigQuery; ERP connector',
+    realtime: 'No',
+    technotes: 'Delivered on Document AI + reconciliation service',
+    sensitivity: 'Medium',
+    autonomy: 'Automated w/ exception review',
+    pii: 'true',
+    audit: 'Yes',
+    adoption: 'High',
+    change: 'Low',
+    delivery: 'Build (engineer it)',
+    addnotes: 'Delivered example row — shows how to mark a completed use case.',
+    stage: 'panel',
+    status: 'completed',
+    delivered_at: '2026-03-15',
   },
 ];
 

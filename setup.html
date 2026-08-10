@@ -255,7 +255,7 @@ p { margin:0 0 1rem; }
   <span class="gc-header__product">Enterprise Advantage</span>
   <div class="gc-header__right">
     <button class="gc-btn gc-btn--primary gc-btn--sm" id="btnNewUseCase">+ New Use Case</button>
-    <span class="gc-select">WORKSPACE ▾</span>
+    <span class="gc-select">INTEL ▾</span>
     <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
@@ -1045,7 +1045,20 @@ p { margin:0 0 1rem; }
   // ================= NAV BUTTONS =================
   document.getElementById("btnBack").addEventListener("click", function () { if (current > 0) goTo(current - 1); });
   document.getElementById("btnNext").addEventListener("click", function () {
-    if (current < TOTAL - 1) { goTo(current + 1); }
+    if (current < TOTAL - 1) {
+      // L2: gate per-step advancement on that step's required fields, so the
+      // wizard can't be click-through with everything blank. Step 7 (docs) is
+      // optional and never blocks.
+      if (!stepDone(current)) {
+        var need = STEP_FIELDS[current].filter(function(k){ return !isFilled(k); });
+        showSetupError("Complete the required fields on this step before continuing.");
+        var firstBad = need[0] && document.querySelector('[data-field="' + need[0] + '"]');
+        if (firstBad && firstBad.scrollIntoView) firstBad.scrollIntoView({block:'center'});
+        return;
+      }
+      showSetupError("");
+      goTo(current + 1);
+    }
     else {
       // Bug #1: block finishing while required fields are missing; show which
       // steps are incomplete instead of silently saving a blank profile.

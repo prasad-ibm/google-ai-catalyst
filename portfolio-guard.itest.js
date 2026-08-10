@@ -153,6 +153,8 @@ async function main() {
     ok('unevaluated case: roi_p50 null (fixes +407%)', rowA.roi_p50 === null);
     ok('unevaluated case: roi_p90 null (read guard)', rowA.roi_p90 === null);
     ok('unevaluated case: quadrant null (M4 — no Quick Win on intake)', rowA.quadrant === null);
+    ok('unevaluated case: feasibility_composite null (M5 — no 3.9 leak)', rowA.feasibility_composite === null);
+    ok('unevaluated case: advisory_tier null (M5 — no Extend leak)', rowA.advisory_tier === null);
     ok('unevaluated case: verdict null', rowA.verdict === null);
     ok('unevaluated case: stage stays intake', rowA.stage === 'intake');
     ok('contract row has no leaked risk_tier field', !('risk_tier' in rowA));

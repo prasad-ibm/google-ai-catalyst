@@ -265,4 +265,38 @@ ok('COND band label CONDITIONAL GO', dC.getElementById('verdictLabel').textConte
 apiC.buildBrief();
 ok('COND brief verdict line CONDITIONAL GO', /CONDITIONAL GO/.test(dC.getElementById('briefVerdictLine').textContent));
 
+console.log('\n== 20. DEF-02: READY -> GO is COHERENT (no Unanimous-over-Conditional contradiction) ==');
+// The round-11 defect: a GO banner + "Unanimous approval" badge rendered OVER
+// Conditional stances and a binding condition (borrowed from the COND script).
+// A true GO must be unanimous Support with NO binding condition, and the chair
+// must NOT impose a condition precedent.
+const domGo2 = newDom(Object.assign({}, SUMMARY, { readiness:'READY' }), INTAKE);
+const apiG = domGo2.window.__panel;
+const dG = domGo2.window.document;
+apiG.run(false);
+ok('GO band label GO', dG.getElementById('verdictLabel').textContent === 'GO');
+ok('GO badge is "Unanimous approval"', /Unanimous approval/i.test(dG.getElementById('verdictBand').textContent));
+ok('GO stances are unanimous Support/Support/Support', apiG.STANCES.map(s=>s.value).join(',') === 'Support,Support,Support');
+ok('GO has NO Conditional stance', !apiG.STANCES.some(s=>s.value==='Conditional'));
+ok('GO has NO Against stance', !apiG.STANCES.some(s=>s.value==='Against'));
+ok('GO has NO binding condition', !apiG.BINDING_CONDITION);
+ok('GO condition line reads "No binding conditions"', /No binding conditions/i.test(dG.getElementById('verdictCond').textContent));
+ok('GO condition line does NOT say "Binding condition:"', !/Binding condition:/.test(dG.getElementById('verdictCond').textContent));
+ok('GO chair (T7) does NOT impose a condition precedent', !/condition precedent/i.test(apiG.DELIBERATION[6].say));
+ok('GO chair (T7) issues unconditional GO', /unconditional/i.test(apiG.DELIBERATION[6].say) && /\bGO\b/.test(apiG.DELIBERATION[6].say));
+ok('GO chair (T7) does NOT say CONDITIONAL GO', !/CONDITIONAL GO/.test(apiG.DELIBERATION[6].say));
+ok('GO DOM has 3 stance--support chips', dG.querySelectorAll('#verdictStances .stance--support').length === 3);
+ok('GO DOM has NO stance--conditional chip', dG.querySelectorAll('#verdictStances .stance--conditional').length === 0);
+apiG.buildBrief();
+ok('GO brief verdict line says GO', /\bGO\b/.test(dG.getElementById('briefVerdictLine').textContent));
+ok('GO brief verdict line NOT CONDITIONAL GO', !/CONDITIONAL GO/.test(dG.getElementById('briefVerdictLine').textContent));
+// A GO brief may SAY 'no binding conditions' (correct copy); it must not IMPOSE one.
+var goBriefTxt = dG.getElementById('brief').textContent;
+// Must not IMPOSE a condition. 'Binding condition:' as a label imposes one;
+// 'no condition precedent applies' / 'no binding conditions' are negations (OK).
+ok('GO brief does NOT impose a binding condition', !/binding condition:/i.test(goBriefTxt));
+ok('GO brief does NOT impose a condition precedent',
+  !/as a (\S+\s){0,3}?condition precedent/i.test(goBriefTxt));
+ok('GO brief affirms unconditional approval', /no binding conditions|unconditional/i.test(goBriefTxt));
+
 finish();

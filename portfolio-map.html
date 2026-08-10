@@ -172,9 +172,9 @@ p { margin:0 0 1rem; }
   <div class="gc-header__right">
     <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
     <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+    <a class="gc-iconbtn" href="setup.html" title="Onboard New Organisation" aria-label="Onboard New Organisation" data-gearlink="1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    </a>
     <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
     </button>
@@ -198,11 +198,16 @@ p { margin:0 0 1rem; }
       </div>
     </div>
 
+    <!-- Shared filter bar (populated by assets/filter-bar.js) -->
+    <div class="filterbar" id="filterBar"></div>
+
     <!-- Loading banner -->
     <div class="loading" id="loading">Loading portfolio map…</div>
 
     <!-- Department sections injected here -->
     <div id="content" class="hidden"></div>
+    <div class="lazy-sentinel" id="mapSentinel"></div>
+    <div class="lazy-status mono" id="mapStatus"></div>
 
     <!-- Empty state -->
     <div id="empty" class="empty hidden">
@@ -214,6 +219,8 @@ p { margin:0 0 1rem; }
 </main>
 
 <script src="assets/api-client.js"></script>
+<script src="assets/filter-bar.js"></script>
+<script src="assets/lazy-list.js"></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
 (function () {
@@ -223,12 +230,16 @@ p { margin:0 0 1rem; }
 
   // ---------- DOM refs ----------
   var el = {
-    loading:  document.getElementById('loading'),
-    content:  document.getElementById('content'),
-    empty:    document.getElementById('empty'),
-    wsPicker: document.getElementById('wsPicker'),
-    wsChip:   document.getElementById('wsChip'),
+    loading:   document.getElementById('loading'),
+    content:   document.getElementById('content'),
+    mapSentinel: document.getElementById('mapSentinel'),
+    mapStatus:   document.getElementById('mapStatus'),
+    empty:     document.getElementById('empty'),
+    wsPicker:  document.getElementById('wsPicker'),
+    wsChip:    document.getElementById('wsChip'),
+    filterBar: document.getElementById('filterBar'),
   };
+  var filters = null; // GAIC_FILTERS controller (set in BOOT)
 
   // ---------- helpers ----------
   function esc(s) {
@@ -313,7 +324,7 @@ p { margin:0 0 1rem; }
       '</div>' +
       '<div class="card__meta">' +
         '<div class="meta"><div class="meta__k">Quadrant</div>' + metaVal(r.quadrant) + '</div>' +
-        '<div class="meta"><div class="meta__k">ROI P50</div>' + roiVal + '</div>' +
+        '<div class="meta"><div class="meta__k">24-mo net % (P50)</div>' + roiVal + '</div>' +
         '<div class="meta"><div class="meta__k">Advisory Tier</div>' + metaVal(r.advisory_tier) + '</div>' +
         '<div class="meta"><div class="meta__k">Stage</div>' + metaVal(r.stage, true) + '</div>' +
       '</div>' +
@@ -358,8 +369,27 @@ p { margin:0 0 1rem; }
     el.content.classList.remove('hidden');
 
     var groups = groupByDepartment(rows);
+
+    // Lazy/chunked render: paint the first few department sections, then load
+    // the rest on scroll (or via a Show-more button). Keeps 300 rows across
+    // many departments fast. Falls back to full render if the module is absent.
+    if (window.GAIC_LAZY && el.mapSentinel) {
+      if (!mapLazy) {
+        mapLazy = window.GAIC_LAZY.create({
+          mount: el.content,
+          sentinel: el.mapSentinel,
+          status: el.mapStatus,
+          chunk: 4,
+          noun: 'department',
+          renderItem: deptSectionHTML
+        });
+      }
+      mapLazy.setItems(groups);
+      return;
+    }
     el.content.innerHTML = groups.map(deptSectionHTML).join('');
   }
+  var mapLazy = null;
 
   // ============================================================
   //  DATA LOADING — API first, with 401 -> /login redirect
@@ -387,7 +417,13 @@ p { margin:0 0 1rem; }
   }
 
   function loadPortfolio(wsId) {
-    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
+    var q;
+    if (window.GAIC_FILTERS) {
+      var fstate = filters ? filters.getState() : window.GAIC_FILTERS.readURL();
+      q = window.GAIC_FILTERS.toQuery(fstate, wsId);
+    } else {
+      q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
+    }
     return apiFetch('/portfolio' + q).catch(function (e) {
       if (e && e.message === 'unauthorized') throw e;
       if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
@@ -430,6 +466,7 @@ p { margin:0 0 1rem; }
     }
     STATE.selectedWs = ws;
     if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
+    if (filters) filters.refreshFacets(wsId);
     el.content.classList.add('hidden');
     el.empty.classList.add('hidden');
     el.loading.classList.remove('hidden');
@@ -443,6 +480,30 @@ p { margin:0 0 1rem; }
   el.wsPicker.addEventListener('change', function () {
     selectAndLoad(this.value || null);
   });
+
+  // ---------- filter bar ----------
+  // Mount the shared filter bar; on any filter change, reload the portfolio for
+  // the current workspace and re-render. Also refresh facet counts when the
+  // workspace changes (wired inside selectAndLoad via filters.refreshFacets).
+  function mountFilters(wsId) {
+    if (!window.GAIC_FILTERS || !el.filterBar) return;
+    filters = window.GAIC_FILTERS.mount({
+      el: el.filterBar,
+      apiFetch: apiFetch,
+      wsId: wsId,
+      onChange: function () {
+        var id = STATE.selectedWs ? STATE.selectedWs.id : null;
+        el.content.classList.add('hidden');
+        el.empty.classList.add('hidden');
+        el.loading.classList.remove('hidden');
+        el.loading.textContent = 'Loading portfolio map…';
+        loadPortfolio(id).then(render).catch(function (e) {
+          if (e && e.message === 'unauthorized') return;
+          el.loading.textContent = 'Could not load portfolio map.';
+        });
+      }
+    });
+  }
 
   // ============================================================
   //  THEME TOGGLE (light/dark) — mirrors the rest of the app
@@ -483,6 +544,7 @@ p { margin:0 0 1rem; }
     STATE.selectedWs = intel;
     populatePicker();
     var wsId = intel ? intel.id : null;
+    mountFilters(wsId);
     return loadPortfolio(wsId).then(render);
   }).catch(function (e) {
     if (e && e.message === 'unauthorized') return; // redirecting

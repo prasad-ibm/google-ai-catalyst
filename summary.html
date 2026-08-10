@@ -215,9 +215,9 @@ p { margin:0 0 1rem; }
   <div class="gc-header__right">
     <button class="gc-btn gc-btn--primary gc-btn--sm">+ New Use Case</button>
     <span class="gc-select">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+    <a class="gc-iconbtn" href="setup.html" title="Onboard New Organisation" aria-label="Onboard New Organisation" data-gearlink="1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    </a>
     <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
     </button>
@@ -250,8 +250,11 @@ p { margin:0 0 1rem; }
       </div>
     </div>
 
+    <!-- Demo-data banner (shown only when no real intake/?id= is present) -->
+    <div id="demoBanner" style="display:none;margin:0 0 12px;padding:10px 14px;border:1px solid #f9ab00;background:rgba(249,171,0,.12);border-radius:8px;color:#fdd663;font-size:13px;">⚠️ Demo data — this is a sample use case. <a href="intake.html" style="color:#8ab4f8;font-weight:600;">Start a real use case from Intake →</a></div>
+
     <!-- Workspace context chip -->
-    <div class="wschip">🏢 <b>Acme Financial Services</b> — <span id="wsEval">Evaluating: —</span></div>
+    <div class="wschip">🏢 <b id="wsName">Intel</b> — <span id="wsEval">Evaluating: —</span></div>
 
     <!-- ============ 1. MONTE CARLO ROI HERO ============ -->
     <div class="roi" id="roiBand">
@@ -287,7 +290,7 @@ p { margin:0 0 1rem; }
           <div class="meter__tick" id="meterP50" style="left:50%"><span>P50</span></div>
           <div class="meter__tick" id="meterP90" style="left:100%"><span>P90</span></div>
         </div>
-        <div class="meter__scale"><span id="scaleLo">—</span><span>ROI % over 24 months</span><span id="scaleHi">—</span></div>
+        <div class="meter__scale"><span id="scaleLo">—</span><span>24-mo benefit-to-cost (net % of implementation cost)</span><span id="scaleHi">—</span></div>
       </div>
     </div>
 
@@ -447,8 +450,14 @@ p { margin:0 0 1rem; }
     var sigmaBenefit = clamp(0.42 - 0.05 * (comp - 3), 0.14, 0.55); // rel. std-dev on benefit
     var sigmaCost    = clamp(0.30 - 0.03 * (comp - 3), 0.10, 0.45); // rel. std-dev on cost (overruns)
 
-    // Deterministic seed from the material inputs.
-    var seedStr = [intake && intake.name, feas && feas.composite, advisory && advisory.tier, value, cost, trials].join('|');
+    // Deterministic seed from the material inputs PLUS the use-case id (M5).
+    // Without the id, two distinct cases whose name/composite/tier/value/cost
+    // happen to match would produce a byte-identical P10/P50/P90 triple
+    // (this collided FE Test UC with Quality Defect Prediction). The id makes
+    // every distinct record's simulation unique while staying deterministic.
+    var ucId = null;
+    try { ucId = localStorage.getItem('gaic_use_case_id'); } catch(e){}
+    var seedStr = [ucId, intake && intake.name, feas && feas.composite, advisory && advisory.tier, value, cost, trials].join('|');
     var rng = mulberry32(hashSeed(seedStr));
 
     var samples = new Array(trials);
@@ -507,26 +516,34 @@ p { margin:0 0 1rem; }
     };
   }
 
-  // 2) Google Cloud Adoption Framework for AI (feasibility pillars → Strategy/Ready/Govern/Adopt)
+  // 2) Google Cloud Adoption Framework for AI
+  // Google's published CAF uses four themes — Learn / Lead / Scale / Secure —
+  // assessed across Tactical -> Strategic -> Transformational maturity phases
+  // (cloud.google.com/adoption-framework). Feasibility pillars map to themes:
+  //   Lead   <- strategic pillar (executive mandate / strategy)
+  //   Scale  <- technical pillar (ability to scale AI technically)
+  //   Secure <- org/governance pillar (controls, risk, security)
+  //   Learn  <- citizen-dev / skills signal (capability to learn & adopt)
   function fwCAF(feas, advisory){
     var p = (feas && feas.pillars) || { strategic:3.4, technical:3.3, org:3.4 };
-    var strategy = pct5(p.strategic);
-    var ready    = pct5(p.technical);
-    var govern   = pct5(p.org);
-    // Adopt readiness: citizen-dev suitability signals how quickly the org can adopt.
-    var adopt = (feas && feas.citizenDev && typeof feas.citizenDev.pct === 'number') ? feas.citizenDev.pct : 55;
-    var score = Math.round((strategy + ready + govern + adopt) / 4);
+    var lead   = pct5(p.strategic);
+    var scale  = pct5(p.technical);
+    var secure = pct5(p.org);
+    // Learn: citizen-dev suitability signals how quickly the org can learn & adopt.
+    var learn = (feas && feas.citizenDev && typeof feas.citizenDev.pct === 'number') ? feas.citizenDev.pct : 55;
+    var score = Math.round((lead + scale + secure + learn) / 4);
+    var phase = score > 75 ? 'Transformational' : (score >= 50 ? 'Strategic' : 'Tactical');
     var tier = (advisory && advisory.tier) || 'Extend';
     return {
       key:'caf', name:'Google Cloud Adoption Framework', score: score,
       color:'var(--g-green)', colorHex:'#34A853',
       metrics: [
-        { label:'Strategy', val:strategy, max:100, colorHex:'#34A853' },
-        { label:'Ready',    val:ready,    max:100, colorHex:'#81c995' },
-        { label:'Govern',   val:govern,   max:100, colorHex:'#FBBC04' },
-        { label:'Adopt',    val:adopt,    max:100, colorHex:'#1a73e8' }
+        { label:'Learn',  val:learn,  max:100, colorHex:'#1a73e8' },
+        { label:'Lead',   val:lead,   max:100, colorHex:'#34A853' },
+        { label:'Scale',  val:scale,  max:100, colorHex:'#81c995' },
+        { label:'Secure', val:secure, max:100, colorHex:'#FBBC04' }
       ],
-      foot: 'CAF readiness <b>' + score + '/100</b> · platform path <b>' + tier + '</b>.'
+      foot: 'CAF readiness <b>' + score + '/100</b> · maturity <b>' + phase + '</b> · platform path <b>' + tier + '</b>.'
     };
   }
 
@@ -706,15 +723,24 @@ p { margin:0 0 1rem; }
       var p10 = Number(ps.roi.p10 != null ? ps.roi.p10 : roi.p10);
       var p50 = Number(ps.roi.p50);
       var p90 = Number(ps.roi.p90 != null ? ps.roi.p90 : roi.p90);
-      // Rescale the persisted net-USD figures proportionally so the meter/USD lines stay coherent.
+      // M7: pin the econ BASIS to the case. Prefer the committed value/cost that
+      // travelled with the persisted summary (roi_value/roi_cost) over the fresh
+      // Monte-Carlo recompute, so the displayed value & cost are identical on
+      // every load regardless of ambient intake/feasibility/advisory state.
+      var basisValue = (ps.roi.value != null && !isNaN(Number(ps.roi.value))) ? Number(ps.roi.value) : roi.value;
+      var basisCost  = (ps.roi.cost  != null && !isNaN(Number(ps.roi.cost)))  ? Number(ps.roi.cost)  : roi.cost;
+      // M8: recompute the net-USD band on the COMMITTED percentiles using the
+      // SAME basis as usdAt() (line ~477): net dollars = ROI% / 100 * cost.
+      // Using value (annual benefit) here overstated the figure ~100x (a $120K
+      // cost at +19846% rendered $2,540M instead of the correct ~$23.8M).
       roi = {
         p10: p10, p50: p50, p90: p90, mean: p50,
         usd: {
-          p10: Math.round(roi.value * p10 / 100),
-          p50: Math.round(roi.value * p50 / 100),
-          p90: Math.round(roi.value * p90 / 100)
+          p10: Math.round(basisCost * p10 / 100),
+          p50: Math.round(basisCost * p50 / 100),
+          p90: Math.round(basisCost * p90 / 100)
         },
-        trials: roi.trials, value: roi.value, cost: roi.cost
+        trials: roi.trials, value: basisValue, cost: basisCost
       };
     }
 
@@ -764,6 +790,11 @@ p { margin:0 0 1rem; }
           roi_p10: model.roi.p10,
           roi_p50: model.roi.p50,
           roi_p90: model.roi.p90,
+          // Persist the econ BASIS (M7) so panel/brief reload the SAME value &
+          // cost the case was evaluated with — never re-derive from ambient
+          // localStorage. caseEconomics() prefers these over any recompute.
+          roi_value: model.roi.value,
+          roi_cost: model.roi.cost,
           frameworks: payload.frameworks,
           governance: payload.governance,
           readiness: payload.readiness
@@ -904,6 +935,12 @@ p { margin:0 0 1rem; }
       var model = run(opts || undefined);
       var rerun = document.getElementById('btnRerun');
       if (rerun) rerun.addEventListener('click', function(){ run(opts || undefined); });
+      // Bug #4: label demo data. Demo is active only when NOT deep-linked and the
+      // localStorage intake is empty (loadIntake() falls back to DEMO_INTAKE).
+      var _fromDemo = false;
+      try { _fromDemo = !opts && loadIntake().fromDemo === true; } catch(e){ _fromDemo = false; }
+      var _demoBanner = document.getElementById('demoBanner');
+      if (_demoBanner) _demoBanner.style.display = _fromDemo ? 'block' : 'none';
       // expose for downstream + tests
       window.__sum = window.__sum || {};
       window.__sum.model = model;
@@ -942,9 +979,37 @@ p { margin:0 0 1rem; }
     clamp: clamp, round1: round1, fmtPct: fmtPct, fmtUsd: fmtUsd
   };
 
+  // ---- Bug #2/#6: resolve the REAL workspace name for the chip ----
+  // Defensive: leaves the 'Intel' fallback when element/API/network unavailable.
+  // Only lists workspaces when no id is cached (no redundant round-trip).
+  function resolveWorkspaceName(){
+    try {
+      var el = document.getElementById('wsName');
+      if (!el) return;
+      var cachedName = null, cachedId = null;
+      try { cachedName = localStorage.getItem('gaic_workspace_name'); } catch(e1){}
+      try { cachedId = localStorage.getItem('gaic_workspace_id'); } catch(e2){}
+      if (cachedName){ el.textContent = cachedName; return; }
+      if (cachedId) return;
+      var api = window.GAIC_API;
+      if (!api || typeof api.listWorkspaces !== 'function') return;
+      api.listWorkspaces().then(function(list){
+        if (!Array.isArray(list) || !list.length) return;
+        var ws = null;
+        for (var i=0;i<list.length;i++){ if (list[i] && /intel/i.test(String(list[i].name||''))){ ws = list[i]; break; } }
+        if (!ws) ws = list[0];
+        if (ws && ws.name){
+          el.textContent = ws.name;
+          try { localStorage.setItem('gaic_workspace_name', ws.name); } catch(e3){}
+          if (ws.id != null){ try { localStorage.setItem('gaic_workspace_id', ws.id); } catch(e4){} }
+        }
+      }).catch(function(){});
+    } catch(e){}
+  }
+
   if (typeof document !== 'undefined' && document.getElementById('roiBand')){
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ init(); resolveWorkspaceName(); });
+    else { init(); resolveWorkspaceName(); }
   }
 })();
 </script>

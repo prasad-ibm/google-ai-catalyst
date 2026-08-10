@@ -239,7 +239,7 @@ setTimeout(() => {
         !new RegExp(m.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).test(html)));
 
       console.log('\n== 11. intake.html submit navigates to bxt.html + writes gaic_intake ==');
-      ok('intake submit sets window.location to bxt.html', /window\.location\.href\s*=\s*['"]bxt\.html['"]/.test(intakeHtml));
+      ok('intake submit navigates to bxt.html (with minted ?id=)', /bxt\.html\?id=/.test(intakeHtml) || /window\.location\.href\s*=\s*['"]bxt\.html['"]/.test(intakeHtml));
       ok('intake no longer uses the old alert', !/Submitted to BXT Gate\. \(Prototype/.test(intakeHtml));
       ok('intake persists to gaic_intake on submit', /localStorage\.setItem\(LS_KEY/.test(intakeHtml) && /LS_KEY\s*=\s*['"]gaic_intake['"]/.test(intakeHtml));
 

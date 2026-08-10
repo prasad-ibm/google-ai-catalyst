@@ -74,9 +74,13 @@ const dashDoc = dashDom.window.document;
 ok('window.__dash exposed', !!dash);
 const kpiEls = Array.from(dashDoc.querySelectorAll('.kpi'));
 const avgKpi = kpiEls.find(function (n) {
-  var k = n.querySelector('.kpi__k'); return k && /Avg P50 ROI/.test(k.textContent);
+  var k = n.querySelector('.kpi__k');
+  // Current label is "Avg P50 net return"; earlier it was "Avg P50 ROI".
+  // Either is acceptable — what matters is it is an AVG-based P50 KPI and
+  // NOT the old summed "Portfolio P50 ROI".
+  return k && /Avg P50/.test(k.textContent) && !/Portfolio P50/.test(k.textContent);
 });
-ok('KPI relabelled to "Avg P50 ROI" (not "Portfolio P50 ROI")', !!avgKpi);
+ok('KPI is avg-based P50 (not summed "Portfolio P50 ROI")', !!avgKpi);
 const dashP50Text = avgKpi ? avgKpi.querySelector('.kpi__v').textContent.trim() : '';
 // Single evaluated case -> average == that case's own P50 == +336%.
 ok('Dashboard Avg P50 shows +336% (avg==single case p50): ' + dashP50Text, dashP50Text === '+336%');

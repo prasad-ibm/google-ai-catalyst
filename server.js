@@ -17,6 +17,21 @@ app.use(express.json({ limit: '4mb' }));
 // as a UTF-8 string on req.body. JSON bodies are handled by express.json above.
 app.use(express.text({ type: 'text/csv', limit: '8mb' }));
 
+// Body-parser error handler. A malformed JSON payload makes express.json throw
+// a SyntaxError (type: 'entity.parse.failed'); an oversized body throws with
+// type: 'entity.too.large'. Without this, Express serves its default HTML 400
+// page, breaking the app-wide {"error":...} JSON contract (QA bug). Catch those
+// body-parser errors here and respond in JSON; anything else is re-thrown.
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.parse.failed' || (err instanceof SyntaxError && 'body' in err))) {
+    return res.status(400).json({ error: 'invalid JSON body' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'request body too large' });
+  }
+  return next(err);
+});
+
 // Attach req.user from the signed Postgres-backed session cookie.
 app.use(auth.sessionMiddleware());
 
@@ -317,28 +332,60 @@ app.get('/api/workspaces/:id', async (req, res) => {
 const USE_CASE_INSERT_COLS = [
   'workspace_id', 'name', 'department', 'executive_sponsor', 'submitted_by',
   'contact_email', 'description', 'business_context', 'current_state',
-  'technical_context', 'risk_compliance', 'stage',
+  'technical_context', 'risk_compliance', 'stage', 'status', 'delivered_at',
 ];
+
+// v2 lifecycle: normalize an incoming status. Only 'completed' (a.k.a.
+// 'delivered') and 'active' are recognized; anything else falls back to active.
+// When a row is marked completed we default the stage to 'panel' so it also
+// surfaces as fully-progressed in the pipeline views.
+function normalizeStatus(v) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  if (s === 'completed' || s === 'delivered' || s === 'done') return 'completed';
+  return 'active';
+}
+// Accept common date inputs (YYYY-MM-DD, or blank). Returns null when unparseable
+// so a bad date never blocks the row — it just imports without a delivered date.
+function normalizeDeliveredAt(v) {
+  if (v == null || String(v).trim() === '') return null;
+  const d = new Date(String(v).trim());
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
 
 // Map a flat intake body (single create OR one bulk row) into the ordered
 // column values for an INSERT into use_cases. jsonb blobs are JSON-stringified.
 // This is the SINGLE source of truth so bulk rows behave identically to single
 // create. `workspaceId` overrides body.workspace_id when supplied (bulk fallback).
+// Field length caps (H4): reject/clamp abusive input lengths so a single record
+// cannot break the Dashboard/Compare layout or bloat the DB. Names are capped
+// hard at 200 chars; other short text fields are clamped defensively.
+const NAME_MAX = 200;
+const SHORT_MAX = 400;
+function capStr(v, max) {
+  if (v == null) return null;
+  const s = String(v);
+  return s.length > max ? s.slice(0, max) : s;
+}
+
 function buildUseCaseValues(body, workspaceId) {
   const ctx = mapUseCaseContexts(body);
   return [
     workspaceId ?? body.workspace_id,
-    body.name ?? null,
-    body.dept ?? body.department ?? null,
-    body.sponsor ?? body.executive_sponsor ?? null,
-    body.submitter ?? body.submitted_by ?? null,
-    body.email ?? body.contact_email ?? null,
-    body.desc ?? body.description ?? null,
+    capStr(body.name ?? null, NAME_MAX),
+    capStr(body.dept ?? body.department ?? null, SHORT_MAX),
+    capStr(body.sponsor ?? body.executive_sponsor ?? null, SHORT_MAX),
+    capStr(body.submitter ?? body.submitted_by ?? null, SHORT_MAX),
+    capStr(body.email ?? body.contact_email ?? null, SHORT_MAX),
+    capStr(body.desc ?? body.description ?? null, 8000),
     ctx.business_context === null ? null : JSON.stringify(ctx.business_context),
     ctx.current_state === null ? null : JSON.stringify(ctx.current_state),
     ctx.technical_context === null ? null : JSON.stringify(ctx.technical_context),
     ctx.risk_compliance === null ? null : JSON.stringify(ctx.risk_compliance),
-    body.stage ?? 'intake',
+    // Lifecycle: a 'completed' row defaults its stage to 'panel' (fully
+    // progressed) unless an explicit stage was supplied.
+    body.stage ?? (normalizeStatus(body.status) === 'completed' ? 'panel' : 'intake'),
+    normalizeStatus(body.status),
+    normalizeDeliveredAt(body.delivered_at ?? body.delivered ?? null),
   ];
 }
 
@@ -695,12 +742,14 @@ app.put('/api/use-cases/:id/summary', async (req, res) => {
     // intake-only case (defends against future callers).
     const roiOk = roiEligible(effectiveStage);
     const sql = `
-      INSERT INTO evaluation_summaries (use_case_id, roi_p10, roi_p50, roi_p90, frameworks, governance, readiness)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO evaluation_summaries (use_case_id, roi_p10, roi_p50, roi_p90, roi_value, roi_cost, frameworks, governance, readiness)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       ON CONFLICT (use_case_id) DO UPDATE SET
         roi_p10 = EXCLUDED.roi_p10,
         roi_p50 = EXCLUDED.roi_p50,
         roi_p90 = EXCLUDED.roi_p90,
+        roi_value = EXCLUDED.roi_value,
+        roi_cost = EXCLUDED.roi_cost,
         frameworks = EXCLUDED.frameworks,
         governance = EXCLUDED.governance,
         readiness = EXCLUDED.readiness
@@ -710,6 +759,10 @@ app.put('/api/use-cases/:id/summary', async (req, res) => {
       roiOk ? toNumOrNull(b.roi_p10) : null,
       roiOk ? toNumOrNull(b.roi_p50) : null,
       roiOk ? toNumOrNull(b.roi_p90) : null,
+      // M7: persist the committed econ basis alongside the percentiles so the
+      // case's value & cost are pinned and reloaded identically on every view.
+      roiOk ? toNumOrNull(b.roi_value) : null,
+      roiOk ? toNumOrNull(b.roi_cost) : null,
       b.frameworks === undefined || b.frameworks === null ? null : JSON.stringify(b.frameworks),
       b.governance === undefined || b.governance === null ? null : JSON.stringify(b.governance),
       b.readiness ?? null,
@@ -755,12 +808,24 @@ app.put('/api/use-cases/:id/verdict', async (req, res) => {
 
 app.get('/api/portfolio', async (req, res) => {
   try {
-    const { workspace_id } = req.query;
+    const { workspace_id, department, sponsor, stage, status, q } = req.query;
+    // Pagination: opt-in. When neither limit nor offset is supplied the
+    // endpoint behaves EXACTLY as before (returns a bare array of all rows) so
+    // existing callers are unaffected (back-compat). When limit/offset ARE
+    // supplied, the response becomes { rows, total, limit, offset } so the
+    // client can page through 300+ use cases without shipping them all at once.
+    const paged = req.query.limit != null || req.query.offset != null;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
     const base = `
       SELECT uc.id,
              uc.name,
              uc.stage,
+             uc.status,
+             uc.delivered_at,
              uc.department,
+             uc.executive_sponsor,
              f.composite       AS feasibility_composite,
              f.quadrant        AS quadrant,
              f.risk_tier       AS risk_tier,
@@ -778,12 +843,28 @@ app.get('/api/portfolio', async (req, res) => {
         LEFT JOIN advisory_results a    ON a.use_case_id = uc.id
         LEFT JOIN evaluation_summaries s ON s.use_case_id = uc.id
         LEFT JOIN panel_verdicts p      ON p.use_case_id = uc.id`;
-    let r;
-    if (workspace_id) {
-      r = await query(base + ' WHERE uc.workspace_id = $1 ORDER BY uc.created_at DESC', [workspace_id]);
-    } else {
-      r = await query(base + ' ORDER BY uc.created_at DESC');
+
+    // Build WHERE from optional filters. Each is parameterized (no SQL
+    // injection — payloads store/compare as inert text, per the QA security
+    // findings). Filtering happens server-side so 300 rows never all ship.
+    const where = [];
+    const params = [];
+    function add(clause, val) { params.push(val); where.push(clause.replace('?', '$' + params.length)); }
+    if (workspace_id) add('uc.workspace_id = ?', workspace_id);
+    if (department)    add('uc.department = ?', department);
+    if (sponsor)       add('uc.executive_sponsor = ?', sponsor);
+    if (stage)         add('uc.stage = ?', stage);
+    if (status)        add('uc.status = ?', status);
+    if (q)             add('uc.name ILIKE ?', '%' + String(q).trim() + '%');
+    const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+    let total = null;
+    if (paged) {
+      const countRes = await query('SELECT COUNT(*)::int AS n FROM use_cases uc' + whereSql, params);
+      total = countRes.rows[0].n;
     }
+    const pageSql = paged ? ` LIMIT ${limit} OFFSET ${offset}` : '';
+    const r = await query(base + whereSql + ' ORDER BY uc.created_at DESC' + pageSql, params);
 
     // Canonical portfolio row shape (see CONTRACT.md). Enforced in ONE place so
     // Dashboard / Kanban / Summary all read identical values:
@@ -807,32 +888,67 @@ app.get('/api/portfolio', async (req, res) => {
       const evaluated = roiEligible(row.stage) && row.roi_p50 != null;
       return {
         id: row.id,
-        name: row.name,
+        // DEF-03: defensive read-side clip. Ingest already caps names at
+        // NAME_MAX, but legacy rows (or writes from outside this app) may carry
+        // an oversized name that would bloat the payload and break Compare /
+        // Dashboard layout. Clip here so the API can never emit one.
+        name: capStr(row.name, NAME_MAX),
         department: row.department,
         stage: row.stage,
-        feasibility_composite: row.feasibility_composite,
-        // Quadrant is a post-evaluation artifact: suppress it for un-evaluated
-        // cases so the portfolio map / table never place an intake-only case in
-        // a quadrant (M4).
+        // Feasibility, quadrant and advisory tier are post-evaluation artifacts:
+        // suppress ALL of them for un-evaluated cases so an intake-only case
+        // (e.g. 'FE Test UC') never leaks a feasibility score (3.9), a quadrant
+        // (Quick Win) or an advisory tier (Extend) copied/seeded from a sibling
+        // (M3/M4/M5).
+        feasibility_composite: evaluated ? row.feasibility_composite : null,
         quadrant: evaluated ? row.quadrant : null,
-        advisory_tier: row.advisory_tier,
+        advisory_tier: evaluated ? row.advisory_tier : null,
         recommended_platform: row.recommended_platform,
         roi_p10: evaluated ? row.roi_p10 : null,
         roi_p50: evaluated ? row.roi_p50 : null,
         roi_p90: evaluated ? row.roi_p90 : null,
         // Canonical verdict = committed panel verdict (null if never committed).
         verdict: row.verdict == null ? null : row.verdict,
+        // v2 lifecycle: expose executive sponsor (for the Exec Sponsor filter),
+        // the lifecycle status ('active' | 'completed'), and the delivery date
+        // so the Dashboard can tell the 2026 'delivered' story.
+        executive_sponsor: row.executive_sponsor == null ? null : row.executive_sponsor,
+        status: row.status || 'active',
+        delivered_at: row.delivered_at == null ? null : row.delivered_at,
       };
     });
+    // Back-compat: unpaged callers get a bare array (unchanged). Paged callers
+    // get an envelope with total/limit/offset for pagination controls.
+    if (paged) return res.json({ rows, total, limit, offset });
     return res.json(rows);
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* Boot                                                                       */
-/* -------------------------------------------------------------------------- */
+// Filter facets: distinct departments, sponsors, stages, statuses with counts,
+// so the shared filter bar can render options (e.g. "HR (12)") without pulling
+// every row. Honors workspace_id if supplied. Scales to 300+ cases.
+app.get('/api/portfolio/facets', async (req, res) => {
+  try {
+    const { workspace_id } = req.query;
+    const wsSql = workspace_id ? ' WHERE workspace_id = $1' : '';
+    const wsParams = workspace_id ? [workspace_id] : [];
+    async function facet(col) {
+      const r = await query(
+        `SELECT ${col} AS value, COUNT(*)::int AS count FROM use_cases${wsSql}` +
+        ` GROUP BY ${col} ORDER BY count DESC, ${col} ASC`, wsParams);
+      return r.rows.filter((x) => x.value != null && String(x.value).trim() !== '');
+    }
+    const [departments, sponsors, stages, statuses] = await Promise.all([
+      facet('department'), facet('executive_sponsor'), facet('stage'), facet('status'),
+    ]);
+    const totalRes = await query('SELECT COUNT(*)::int AS n FROM use_cases' + wsSql, wsParams);
+    return res.json({ departments, sponsors, stages, statuses, total: totalRes.rows[0].n });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 /* -------------------------------------------------------------------------- */
 /* Boot                                                                       */
@@ -877,3 +993,8 @@ if (require.main === module) {
 module.exports = app;
 module.exports.start = start;
 module.exports.pool = pool;
+// Exported for unit tests (DEF-03 name-clip): the same helpers the API and
+// bulk/CSV ingest use to cap oversized names.
+module.exports.capStr = capStr;
+module.exports.buildUseCaseValues = buildUseCaseValues;
+module.exports.NAME_MAX = NAME_MAX;

@@ -140,13 +140,16 @@ ok('all-equal values -> no highlights',
     { roi_p50: 50 }, { roi_p50: 50 }, { roi_p50: 50 },
   ]).best).length === 0);
 
-console.log('\n== 4. resolveSelection cap + unknown drop ==');
+console.log('\n== 4. resolveSelection (v2: unlimited by default, optional cap) ==');
 const byId = {};
 PORTFOLIO.forEach(function (r) { byId[r.id] = r; });
 ok('resolves ids in order', C.resolveSelection(['uc-2', 'uc-1'], byId).map(function(r){return r.id;}).join(',') === 'uc-2,uc-1');
 ok('drops unknown ids', C.resolveSelection(['uc-1', 'nope', 'uc-3'], byId).length === 2);
-ok('caps at 4 (5 ids -> 4 rows)',
-  C.resolveSelection(['uc-1','uc-2','uc-3','uc-4','uc-5'], byId).length === 4);
+ok('v2: UNLIMITED (5 ids -> 5 rows, no cap)',
+  C.resolveSelection(['uc-1','uc-2','uc-3','uc-4','uc-5'], byId).length === 5);
+ok('optional cap arg limits result (cap=4 -> 4 rows)',
+  C.resolveSelection(['uc-1','uc-2','uc-3','uc-4','uc-5'], byId, 4).length === 4);
+ok('RADAR_CAP === 4', C.RADAR_CAP === 4);
 
 console.log('\n== 5. End-to-end render: N columns for N selected ids ==');
 dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3' });
@@ -171,7 +174,8 @@ ok('col header links to summary.html?id=uc-1',
 console.log('\n== 7. best-value highlight applied in DOM ==');
 // Find the ROI P50 row (labels are uppercased via CSS but textContent keeps source case).
 let rows = Array.prototype.slice.call(doc.querySelectorAll('#cmpTable tbody tr'));
-let p50row = rows.filter(function (tr) { return /ROI P50/i.test(tr.querySelector('.attr').textContent); })[0];
+// Label is "24-mo net return % (P50)" (was "ROI P50" in an earlier build).
+let p50row = rows.filter(function (tr) { return /P50/i.test(tr.querySelector('.attr').textContent); })[0];
 ok('ROI P50 row exists', !!p50row);
 let p50cells = p50row.querySelectorAll('td.val');
 // cases order uc-1(45), uc-2(60), uc-3(15) -> best is index1, worst is index2
@@ -180,24 +184,27 @@ ok('worst cell (uc-3, 15%) has is-worst', p50cells[2].classList.contains('is-wor
 ok('middle cell (uc-1) has neither',
   !p50cells[0].classList.contains('is-best') && !p50cells[0].classList.contains('is-worst'));
 
-console.log('\n== 8. up-to-4 cap on selection chips ==');
-dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3,uc-4' });
+console.log('\n== 8. v2 picker: unlimited selection (5 ids -> 5 columns) ==');
+dom = newDom({ url: 'https://example.com/compare.html?ids=uc-1,uc-2,uc-3,uc-4,uc-5' });
 await tick(); await tick();
 doc = dom.window.document;
-let checked = doc.querySelectorAll('#selChips input[type=checkbox]:checked');
-ok('4 chips checked', checked.length === 4);
-let disabled = doc.querySelectorAll('#selChips input[type=checkbox]:disabled');
-ok('remaining chip(s) disabled at cap', disabled.length === (PORTFOLIO.length - 4));
-ok('hint shows the cap message', /Maximum of 4/.test(doc.getElementById('selHint').textContent));
-ok('4 case columns rendered', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 4);
+let listRows = doc.querySelectorAll('#selList .sellist__row');
+ok('scrollable list renders one row per portfolio item', listRows.length === PORTFOLIO.length);
+let checkedRows = doc.querySelectorAll('#selList .sellist__row.is-checked');
+ok('all 5 selected rows marked is-checked (no cap)', checkedRows.length === 5);
+let pills = doc.querySelectorAll('#selPills .selpill');
+ok('5 selected pills shown', pills.length === 5);
+ok('hint mentions radars show first 4', /radars show the first 4/i.test(doc.getElementById('selHint').textContent));
+ok('5 case columns rendered in table (unlimited)', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 5);
 
 console.log('\n== 9. empty state when nothing selected ==');
 dom = newDom({ url: 'https://example.com/compare.html' });
 await tick(); await tick();
 doc = dom.window.document;
 ok('emptyCompare visible with no ids', !doc.getElementById('emptyCompare').classList.contains('hidden'));
-ok('empty message text present', /Select up to 4 use cases to compare\./.test(doc.getElementById('emptyCompare').textContent));
 ok('comparison table section hidden', doc.getElementById('cmpSec').classList.contains('hidden'));
+ok('list still renders all rows with nothing selected', doc.querySelectorAll('#selList .sellist__row').length === PORTFOLIO.length);
+ok('no pills when nothing selected', doc.querySelectorAll('#selPills .selpill').length === 0);
 
 console.log('\n== 10. URL ?ids= round-trip (restore + write on toggle) ==');
 dom = newDom({ url: 'https://example.com/compare.html?ids=uc-3,uc-5' });
@@ -207,17 +214,17 @@ let cols = doc.querySelectorAll('#cmpTable thead th[data-id]');
 ok('restored 2 columns from URL', cols.length === 2);
 ok('restored order uc-3 then uc-5',
   cols[0].getAttribute('data-id') === 'uc-3' && cols[1].getAttribute('data-id') === 'uc-5');
-// toggle a new selection -> URL updates via replaceState
-let cbUc1 = doc.querySelector('#selChips input[value="uc-1"]');
-cbUc1.checked = true;
-cbUc1.dispatchEvent(new dom.window.Event('change'));
+// v2: toggle a new selection by CLICKING its list row -> URL updates via replaceState
+function clickRow(id) {
+  var row = doc.querySelector('#selList .sellist__row[data-id="' + id + '"]');
+  row.dispatchEvent(new dom.window.Event('click'));
+}
+clickRow('uc-1');
 await tick();
-ok('URL now includes uc-1 after toggle', /ids=[^&]*uc-1/.test(dom.window.location.search));
+ok('URL now includes uc-1 after row click', /ids=[^&]*uc-1/.test(dom.window.location.search));
 ok('now 3 columns after adding uc-1', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 3);
-// deselect uc-3 -> URL drops it
-let cbUc3 = doc.querySelector('#selChips input[value="uc-3"]');
-cbUc3.checked = false;
-cbUc3.dispatchEvent(new dom.window.Event('change'));
+// deselect uc-3 by clicking its (now checked) row -> URL drops it
+clickRow('uc-3');
 await tick();
 ok('URL drops uc-3 after deselect', !/ids=[^&]*uc-3/.test(dom.window.location.search));
 ok('readIdsFromURL parses comma list', C.readIdsFromURL().length >= 0); // sanity (fn callable)
@@ -304,6 +311,103 @@ if (typeof dom.window.Chart === 'function') {
   // Guard: if the stub somehow didn't stick, do not fail the suite.
   ok('Chart stub guard: #radarSec hidden', doc.getElementById('radarSec').classList.contains('hidden'));
 }
+
+console.log('\n== 16. Preset model (pure) ==');
+dom = newDom();
+C = dom.window.GAIC_COMPARE;
+['presetTopRoi','presetGoOnly','presetByDept','departmentsOf'].forEach(function (fn) {
+  ok('exposes ' + fn + '()', typeof C[fn] === 'function');
+});
+// Top ROI: p50 ranking is uc-2(60),uc-1(45),uc-5(40),uc-4(30),uc-3(15)
+ok('presetTopRoi(default 5) ranks by roi_p50 desc',
+  C.presetTopRoi(PORTFOLIO).join(',') === 'uc-2,uc-1,uc-5,uc-4,uc-3');
+ok('presetTopRoi(n=2) takes top 2', C.presetTopRoi(PORTFOLIO, 2).join(',') === 'uc-2,uc-1');
+// GO-only: uc-1 and uc-5 have verdict GO (uc-2 is CONDITIONAL GO -> excluded)
+ok('presetGoOnly returns only GO verdicts', C.presetGoOnly(PORTFOLIO).sort().join(',') === 'uc-1,uc-5');
+// By dept: exact match, case-insensitive
+ok('presetByDept("Legal") -> uc-2', C.presetByDept(PORTFOLIO, 'Legal').join(',') === 'uc-2');
+ok('presetByDept case-insensitive', C.presetByDept(PORTFOLIO, 'legal').join(',') === 'uc-2');
+ok('presetByDept unknown dept -> empty', C.presetByDept(PORTFOLIO, 'Nope').length === 0);
+ok('departmentsOf returns distinct sorted', C.departmentsOf(PORTFOLIO).length === 5);
+
+console.log('\n== 17. Preset DOM wiring + radar cap (table unlimited, radars first 4) ==');
+dom = newDom({ chartStub: true });
+await tick(); await tick();
+doc = dom.window.document;
+// Click GO-only preset -> selects uc-1 + uc-5 (2 columns)
+doc.getElementById('presetGo').dispatchEvent(new dom.window.Event('click'));
+await tick();
+ok('GO-only preset selects 2 columns', doc.querySelectorAll('#cmpTable thead th[data-id]').length === 2);
+ok('GO-only preset marks the button on', doc.getElementById('presetGo').classList.contains('is-on'));
+// Click Top ROI -> selects 5 (all) -> table 5 columns, radars capped at 4
+doc.getElementById('presetTopRoi').dispatchEvent(new dom.window.Event('click'));
+await tick();
+ok('Top ROI selects all 5 -> 5 table columns (unlimited)',
+  doc.querySelectorAll('#cmpTable thead th[data-id]').length === 5);
+if (typeof dom.window.Chart === 'function') {
+  ok('radars capped at first 4 (4 canvases for 5 selected)',
+    doc.querySelectorAll('#radarSec canvas').length === 4);
+  ok('radar note visible when selection exceeds cap',
+    !doc.getElementById('radarNote').classList.contains('hidden'));
+  ok('radar note names the overflow count',
+    /All\s*<b>5<\/b>/.test(doc.getElementById('radarNote').innerHTML));
+}
+// By department dropdown -> Risk & Compliance -> uc-1 only
+let dsel = doc.getElementById('presetDept');
+ok('dept dropdown populated (1 placeholder + 5 depts)', dsel.querySelectorAll('option').length === 6);
+dsel.value = 'Risk & Compliance';
+dsel.dispatchEvent(new dom.window.Event('change'));
+await tick();
+ok('By-dept preset selects only uc-1 (Risk & Compliance)',
+  doc.querySelectorAll('#cmpTable thead th[data-id]').length === 1);
+// Clear -> empties selection
+doc.getElementById('presetClear').dispatchEvent(new dom.window.Event('click'));
+await tick();
+ok('Clear preset empties the comparison', doc.getElementById('cmpSec').classList.contains('hidden'));
+ok('Clear removes ids from URL', !/ids=[^&]+/.test(dom.window.location.search));
+// Search filters the list
+dom = newDom();
+await tick(); await tick();
+doc = dom.window.document;
+let search = doc.getElementById('selSearch');
+search.value = 'legal';
+search.dispatchEvent(new dom.window.Event('input'));
+await tick();
+ok('search "legal" filters list to 1 row (uc-2)',
+  doc.querySelectorAll('#selList .sellist__row').length === 1);
+search.value = 'zzzz';
+search.dispatchEvent(new dom.window.Event('input'));
+await tick();
+ok('search with no match shows empty note',
+  doc.querySelector('#selList .sellist__empty') !== null);
+
+console.log('\n== 18. Long-name overflow (DEF-03): clamp in pills / table / list ==');
+// A pathologically long use-case name must never break the layout: it is
+// clamped with CSS ellipsis everywhere it is rendered (header, pills, list).
+const LONG = 'X'.repeat(300);
+const LONG_PORTFOLIO = [
+  { id: 'uc-long', name: LONG, department: 'Ops', stage: 'panel',
+    feasibility_composite: 3.0, roi_p10: 1, roi_p50: 2, roi_p90: 3,
+    verdict: 'GO', quadrant: 'Quick Win', advisory_tier: 'Pilot',
+    recommended_platform: 'Vertex AI', citizen_dev_pct: 10 },
+].concat(PORTFOLIO);
+dom = newDom({ portfolio: LONG_PORTFOLIO, url: 'https://example.com/compare.html?ids=uc-long' });
+await tick(); await tick();
+doc = dom.window.document;
+// The selected pill wraps its name in a dedicated clamp element (not a bare span)
+// so a 300-char name cannot stretch the pill row.
+const pillName = doc.querySelector('#selPills .selpill .selpill__name');
+ok('selected pill name uses .selpill__name clamp element', pillName !== null);
+ok('.selpill__name holds the full (untruncated) text \u2014 CSS does the clamping',
+  pillName && pillName.textContent.length === 300);
+// The .selpill__name rule must exist in the stylesheet with an ellipsis clamp.
+const cssText = html;
+ok('.selpill__name CSS rule defines a max-width', /\.selpill__name\s*\{[^}]*max-width/.test(cssText));
+ok('.selpill__name CSS rule ellipsis-clamps overflow',
+  /\.selpill__name\s*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));
+// Table header + selection list already clamp (H4) \u2014 assert they still do.
+ok('table header .cmphd__name ellipsis-clamps', /\.cmphd__name[^{]*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));
+ok('selection list .sellist__name ellipsis-clamps', /\.sellist__name[^{]*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));
 
 console.log('\n---------------------------------------------');
 console.log('  RESULT: ' + pass + ' passed, ' + fail + ' failed');

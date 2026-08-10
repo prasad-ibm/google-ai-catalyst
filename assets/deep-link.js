@@ -168,7 +168,13 @@
     var roi = {
       p10: (s.roi_p10 == null ? undefined : Number(s.roi_p10)),
       p50: (s.roi_p50 == null ? undefined : Number(s.roi_p50)),
-      p90: (s.roi_p90 == null ? undefined : Number(s.roi_p90))
+      p90: (s.roi_p90 == null ? undefined : Number(s.roi_p90)),
+      // M7: carry the committed econ BASIS (value/cost) through the DB reload so
+      // panel.html caseEconomics() shows the SAME inputs the case was evaluated
+      // with, instead of re-deriving from ambient localStorage. Only present
+      // once summary.html has persisted them via saveGate('summary', ...).
+      value: (s.roi_value == null ? undefined : Number(s.roi_value)),
+      cost:  (s.roi_cost  == null ? undefined : Number(s.roi_cost))
     };
     return {
       useCase: (intake && intake.name) || undefined,

@@ -61,8 +61,8 @@ test('columns include the four intake context groups (flat keys mapUseCaseContex
   }
 });
 
-test('there are exactly 5 Intel example rows', () => {
-  assert.strictEqual(TEMPLATE_ROWS.length, 5);
+test('there are 5 active Intel example rows + 1 completed/delivered example', () => {
+  assert.strictEqual(TEMPLATE_ROWS.length, 6);
   const names = TEMPLATE_ROWS.map((r) => r.name);
   assert.deepStrictEqual(names, [
     'AskHR',
@@ -70,7 +70,17 @@ test('there are exactly 5 Intel example rows', () => {
     'Demand Forecasting & Supply Chain Planning',
     'Predictive Asset Maintenance',
     'Quality Defect Prediction & Root Cause Analysis',
+    'Automated Invoice Matching (DELIVERED EXAMPLE)',
   ]);
+});
+
+test('lifecycle columns exist and the completed example is well-formed', () => {
+  assert.ok(TEMPLATE_COLUMNS.includes('status'), 'status column present');
+  assert.ok(TEMPLATE_COLUMNS.includes('delivered_at'), 'delivered_at column present');
+  const completed = TEMPLATE_ROWS.find((r) => r.status === 'completed');
+  assert.ok(completed, 'a completed example row exists');
+  assert.strictEqual(completed.delivered_at, '2026-03-15');
+  assert.strictEqual(completed.stage, 'panel');
 });
 
 test('csvEscape quotes fields with comma, quote, or newline and doubles quotes', () => {
@@ -82,10 +92,10 @@ test('csvEscape quotes fields with comma, quote, or newline and doubles quotes',
   assert.strictEqual(csvEscape(undefined), '');
 });
 
-test('buildTemplateCsv produces a header + 5 data rows, all with the same column count', () => {
+test('buildTemplateCsv produces a header + 6 data rows, all with the same column count', () => {
   const csv = buildTemplateCsv();
   const parsed = parseCsv(csv);
-  assert.strictEqual(parsed.length, 6, 'expected 1 header + 5 rows');
+  assert.strictEqual(parsed.length, 7, 'expected 1 header + 6 rows');
   assert.deepStrictEqual(parsed[0], TEMPLATE_COLUMNS);
   for (let i = 1; i < parsed.length; i++) {
     assert.strictEqual(parsed[i].length, TEMPLATE_COLUMNS.length, 'row ' + i + ' column count mismatch');

@@ -179,9 +179,9 @@ p { margin:0 0 1rem; }
   <div class="gc-header__right">
     <a class="gc-btn gc-btn--primary gc-btn--sm" href="intake.html">+ New Use Case</a>
     <span class="gc-select" id="wsChip">WORKSPACE ▾</span>
-    <button class="gc-iconbtn" title="AI Model Settings" aria-label="AI Model Settings">
+    <a class="gc-iconbtn" href="setup.html" title="Onboard New Organisation" aria-label="Onboard New Organisation" data-gearlink="1">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-    </button>
+    </a>
     <button class="gc-iconbtn" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
     </button>
@@ -205,6 +205,9 @@ p { margin:0 0 1rem; }
       </div>
     </div>
 
+    <!-- Shared filter bar (populated by assets/filter-bar.js) -->
+    <div class="filterbar" id="filterBar"></div>
+
     <!-- Loading / error banner -->
     <div class="loading" id="loading">Loading pipeline…</div>
 
@@ -221,6 +224,8 @@ p { margin:0 0 1rem; }
 </main>
 
 <script src="assets/api-client.js"></script>
+<script src="assets/filter-bar.js"></script>
+<script src="assets/lazy-list.js"></script>
 <script src="assets/auth-ui.js" defer></script>
 <script>
 (function () {
@@ -230,12 +235,14 @@ p { margin:0 0 1rem; }
 
   // ---------- DOM refs ----------
   var el = {
-    loading:  document.getElementById('loading'),
-    board:    document.getElementById('board'),
-    empty:    document.getElementById('empty'),
-    wsPicker: document.getElementById('wsPicker'),
-    wsChip:   document.getElementById('wsChip'),
+    loading:   document.getElementById('loading'),
+    board:     document.getElementById('board'),
+    empty:     document.getElementById('empty'),
+    wsPicker:  document.getElementById('wsPicker'),
+    wsChip:    document.getElementById('wsChip'),
+    filterBar: document.getElementById('filterBar'),
   };
+  var filters = null; // GAIC_FILTERS controller (set in BOOT)
 
   // ---------- helpers ----------
   function esc(s) {
@@ -334,7 +341,13 @@ p { margin:0 0 1rem; }
   }
 
   function loadPortfolio(wsId) {
-    var q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
+    var q;
+    if (window.GAIC_FILTERS) {
+      var fstate = filters ? filters.getState() : window.GAIC_FILTERS.readURL();
+      q = window.GAIC_FILTERS.toQuery(fstate, wsId);
+    } else {
+      q = wsId ? ('?workspace_id=' + encodeURIComponent(wsId)) : '';
+    }
     return apiFetch('/portfolio' + q).catch(function (e) {
       if (e && e.message === 'unauthorized') throw e;
       if (window.GAIC_API && typeof window.GAIC_API.listPortfolio === 'function') {
@@ -399,19 +412,48 @@ p { margin:0 0 1rem; }
     COLUMNS.forEach(function (c) { buckets[c.key] = []; });
     rows.forEach(function (r) { buckets[columnFor(r)].push(r); });
 
+    // Render the column shells first (empty bodies + a per-column sentinel).
     el.board.innerHTML = COLUMNS.map(function (c) {
       var items = buckets[c.key];
-      var body = items.length
-        ? items.map(cardHTML).join('')
-        : '<div class="col__empty">— empty —</div>';
       return '<section class="col" data-col="' + c.key + '">' +
         '<div class="col__head">' +
           '<span class="col__title"><span class="col__dot is-' + c.key + '"></span>' + esc(c.label) + '</span>' +
           '<span class="col__count">' + items.length + '</span>' +
         '</div>' +
-        '<div class="col__body">' + body + '</div>' +
+        '<div class="col__body" data-col-body="' + c.key + '">' +
+          (items.length ? '' : '<div class="col__empty">— empty —</div>') +
+        '</div>' +
+        '<div class="lazy-sentinel" data-col-sentinel="' + c.key + '"></div>' +
       '</section>';
     }).join('');
+
+    // Fill each column body — lazily when the shared module is present so a
+    // single verdict column with ~150 cards stays fast; otherwise render all.
+    destroyColLazy();
+    COLUMNS.forEach(function (c) {
+      var items = buckets[c.key];
+      if (!items.length) return;
+      var body = el.board.querySelector('[data-col-body="' + c.key + '"]');
+      var sentinel = el.board.querySelector('[data-col-sentinel="' + c.key + '"]');
+      if (window.GAIC_LAZY && body && sentinel) {
+        colLazy.push(window.GAIC_LAZY.create({
+          mount: body,
+          sentinel: sentinel,
+          chunk: 30,
+          noun: 'card',
+          renderItem: cardHTML
+        }).setItems(items));
+      } else if (body) {
+        body.innerHTML = items.map(cardHTML).join('');
+      }
+    });
+  }
+
+  // Per-column lazy controllers (recreated on each render).
+  var colLazy = [];
+  function destroyColLazy() {
+    colLazy.forEach(function (c) { try { c.destroy && c.destroy(); } catch (e) {} });
+    colLazy = [];
   }
 
   // ============================================================
@@ -438,6 +480,7 @@ p { margin:0 0 1rem; }
     }
     STATE.selectedWs = ws;
     if (ws) el.wsChip.textContent = String(ws.name || 'WORKSPACE').toUpperCase() + ' ▾';
+    if (filters) filters.refreshFacets(wsId);
     el.board.classList.add('hidden');
     el.empty.classList.add('hidden');
     el.loading.classList.remove('hidden');
@@ -451,6 +494,27 @@ p { margin:0 0 1rem; }
   el.wsPicker.addEventListener('change', function () {
     selectAndLoad(this.value || null);
   });
+
+  // ---------- filter bar ----------
+  function mountFilters(wsId) {
+    if (!window.GAIC_FILTERS || !el.filterBar) return;
+    filters = window.GAIC_FILTERS.mount({
+      el: el.filterBar,
+      apiFetch: apiFetch,
+      wsId: wsId,
+      onChange: function () {
+        var id = STATE.selectedWs ? STATE.selectedWs.id : null;
+        el.board.classList.add('hidden');
+        el.empty.classList.add('hidden');
+        el.loading.classList.remove('hidden');
+        el.loading.textContent = 'Loading pipeline…';
+        loadPortfolio(id).then(render).catch(function (e) {
+          if (e && e.message === 'unauthorized') return;
+          el.loading.textContent = 'Could not load pipeline.';
+        });
+      }
+    });
+  }
 
   // ============================================================
   //  THEME TOGGLE (light/dark) — mirrors the rest of the app
@@ -476,6 +540,7 @@ p { margin:0 0 1rem; }
     STATE.selectedWs = intel;
     populatePicker();
     var wsId = intel ? intel.id : null;
+    mountFilters(wsId);
     return loadPortfolio(wsId).then(render);
   }).catch(function (e) {
     if (e && e.message === 'unauthorized') return; // redirecting

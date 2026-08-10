@@ -214,3 +214,190 @@ p { margin: 0 0 1rem; }
   .gc-section { padding: 48px 20px; }
   .gc-section h2 { font-size: 26px; }
 }
+
+
+/* ============================================================
+   Shared filter bar (assets/filter-bar.js -> window.GAIC_FILTERS)
+   Used by dashboard.html, portfolio-map.html, kanban.html.
+   ============================================================ */
+.filterbar {
+  margin: 0 0 20px;
+}
+.filterbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+.filterbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 150px;
+}
+.filterbar__field--search { flex: 1 1 220px; min-width: 200px; }
+.filterbar__lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.filterbar__select,
+.filterbar__search {
+  height: 38px;
+  padding: 0 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.filterbar__select:focus,
+.filterbar__search:focus {
+  border-color: var(--g-blue);
+  box-shadow: 0 0 0 3px var(--g-blue-l);
+}
+.filterbar__clear {
+  height: 38px;
+  padding: 0 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+}
+.filterbar__clear:hover {
+  color: var(--text);
+  border-color: var(--g-blue);
+}
+@media (max-width: 620px) {
+  .filterbar__field { min-width: 0; flex: 1 1 45%; }
+  .filterbar__field--search { flex: 1 1 100%; }
+}
+
+
+/* ============================================================
+   2026 Delivered storyline (dashboard.html #deliveredSec)
+   ============================================================ */
+.delivered {
+  border-left: 3px solid var(--g-green, #34a853);
+}
+.kpis--delivered { margin-bottom: 18px; }
+.dvd { display: flex; flex-direction: column; gap: 10px; }
+.dvd__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) minmax(80px, 4fr) minmax(120px, auto);
+  align-items: center;
+  gap: 12px;
+}
+.dvd__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dvd__track {
+  height: 10px;
+  background: var(--surface-2, #f1f3f4);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dvd__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--g-green, #34a853), var(--g-blue, #4285f4));
+  border-radius: 999px;
+  min-width: 4px;
+  transition: width .3s ease;
+}
+.dvd__meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-align: right;
+  white-space: nowrap;
+}
+.dvd__meta b { color: var(--text); font-size: 13px; }
+.dvd__avg { color: var(--text-muted); margin-left: 4px; }
+@media (max-width: 560px) {
+  .dvd__row { grid-template-columns: 1fr; gap: 4px; }
+  .dvd__meta { text-align: left; }
+}
+
+
+/* ============================================================
+   Lazy / chunked list rendering (assets/lazy-list.js -> GAIC_LAZY)
+   ============================================================ */
+.lazy-sentinel { height: 1px; width: 100%; }
+.lazy-status {
+  padding: 10px 2px 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .05em;
+  color: var(--text-muted);
+  text-align: center;
+}
+.lazy-more {
+  display: inline-block;
+  margin: 12px auto 2px;
+  padding: 9px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+.lazy-more:hover { border-color: var(--g-blue); color: var(--g-blue); }
+.lazy-more[hidden] { display: none; }
+.lazy-more-wrap { text-align: center; }
+
+
+/* ==========================================================================
+   LIGHT THEME (DEF-07 fix)
+   One shared override, keyed on BOTH toggle mechanisms in use across pages:
+     - [data-theme="light"]  (panel.html, summary.html, index.html)
+     - body.theme-light      (dashboard, compare, kanban, portfolio-map)
+   Only semantic surface/text/border/shadow tokens flip; brand accents stay.
+   ========================================================================== */
+:root[data-theme="light"],
+html[data-theme="light"],
+[data-theme="light"],
+body.theme-light {
+  --bg:        #f6f8fc;
+  --bg-hero:   #eef2fb;
+  --surface:   #ffffff;
+  --surface-2: #f1f3f9;
+  --surface-3: #e6e9f2;
+  --border:    #d3d8e3;
+  --border-soft: rgba(20,24,35,0.10);
+
+  --text:       #1a1f2b;
+  --text-muted: rgba(26,31,43,0.66);
+  --text-dim:   rgba(26,31,43,0.45);
+
+  --g-blue-l:  #1a73e8;
+
+  --shadow-1:  0 1px 2px rgba(20,30,60,0.10), 0 0 0 1px var(--border);
+  --shadow-2:  0 2px 10px rgba(20,30,60,0.12), 0 1px 0 rgba(255,255,255,0.5) inset;
+
+  color-scheme: light;
+}

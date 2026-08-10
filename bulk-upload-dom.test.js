@@ -88,6 +88,11 @@ async function main() {
   // Preview should reflect 2 parsed rows.
   const previewText = window.document.getElementById(MODAL).textContent;
   ok('parse preview shows 2 rows', /Parsed\s*2\s*rows/i.test(previewText));
+  // DEF-04: client-side pre-validation flags the blank-name row before upload.
+  ok('preview warns about 1 row missing name', /1 row missing a required "name"/i.test(previewText));
+  ok('countMissingName helper returns 1', window.GAIC_BULK && window.GAIC_BULK.countMissingName([{name:'x'},{name:''},{name:'  '}]) === 2);
+  // warn-and-allow: submit stays enabled so the server can still skip bad rows.
+  ok('submit still enabled despite blank-name warning', !window.document.querySelector('#gbuSubmit').disabled);
 
   // Submit.
   const submitBtn = window.document.querySelector('#gbuSubmit');

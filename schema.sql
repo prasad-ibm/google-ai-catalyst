@@ -48,9 +48,24 @@ CREATE TABLE IF NOT EXISTS use_cases (
   technical_context  jsonb,
   risk_compliance    jsonb,
   stage              text DEFAULT 'intake',
+  status             text DEFAULT 'active',
+  delivered_at       date,
   created_at         timestamptz DEFAULT now(),
   updated_at         timestamptz DEFAULT now()
 );
+
+-- v2 lifecycle migration (idempotent): existing databases created before the
+-- Completed/Delivered lifecycle need these two columns added. ADD COLUMN IF
+-- NOT EXISTS is a no-op when they already exist, so this is safe on every boot.
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS status       text DEFAULT 'active';
+ALTER TABLE use_cases ADD COLUMN IF NOT EXISTS delivered_at date;
+
+-- v2 scale indexes: filtering by department / executive sponsor / stage / status
+-- stays fast at 130–500+ rows.
+CREATE INDEX IF NOT EXISTS idx_use_cases_department  ON use_cases (department);
+CREATE INDEX IF NOT EXISTS idx_use_cases_sponsor     ON use_cases (executive_sponsor);
+CREATE INDEX IF NOT EXISTS idx_use_cases_stage       ON use_cases (stage);
+CREATE INDEX IF NOT EXISTS idx_use_cases_status      ON use_cases (status);
 
 -- 3. BXT gate scores
 CREATE TABLE IF NOT EXISTS bxt_scores (
@@ -97,6 +112,11 @@ CREATE TABLE IF NOT EXISTS evaluation_summaries (
   roi_p10     numeric,
   roi_p50     numeric,
   roi_p90     numeric,
+  -- M7: committed econ BASIS pinned to the case at evaluation time. Panel/brief
+  -- reload value & cost from here so displayed inputs are identical on every
+  -- load, instead of re-deriving from ambient intake/feasibility/advisory state.
+  roi_value   numeric,
+  roi_cost    numeric,
   frameworks  jsonb,
   governance  jsonb,
   readiness   text,

@@ -68,6 +68,18 @@
       });
     },
 
+    /* List all workspaces. Resolves to an array (empty on any failure) so
+     * callers can safely pick one (e.g. the Intel workspace) without a null
+     * guard. Used by intake to resolve a valid workspace_id when the user has
+     * not completed setup (no cached gaic_workspace_id). */
+    listWorkspaces: function () {
+      return req('GET', '/workspaces').then(function (list) {
+        return Array.isArray(list) ? list : [];
+      }).catch(function () {
+        return [];
+      });
+    },
+
     createUseCase: function (obj) {
       return req('POST', '/use-cases', obj).catch(function () {
         _ls.set('gaic_intake', obj);

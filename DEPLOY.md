@@ -1,76 +1,107 @@
-# Deploying Google AI Catalyst to Railway
+# Deploy AI-catalyst-v2 → GitHub + new Railway project
 
-This app is built for **one-shot, clean deploys**. There is **no manual migration
-step** — on every boot the server:
-
-1. Applies `schema.sql` (idempotent `CREATE TABLE IF NOT EXISTS`) → the 7 data tables.
-2. Ensures the auth tables and seeds the `sandboxuser` login.
-3. Starts listening on Railway's injected `PORT`.
-4. Answers the health check at `GET /api/health`.
-
-So a fresh database self-provisions with zero extra commands.
+**Repo:** https://github.com/prasad-ibm/AI-catalyst-v2
+**Local folder:** `C:\ai-catalyst-v2`
 
 ---
 
-## 1. Create the services
+## 0. Unzip
+Extract the zip so the files land directly in `C:\ai-catalyst-v2`
+(you should see `server.js`, `package.json`, `schema.sql` at the top level —
+NOT inside an extra nested folder).
 
-In your Railway project:
-
-- **Add a PostgreSQL database** (New → Database → PostgreSQL).
-- **Add this app** (New → GitHub Repo → `prasad-ibm/google-ai-catalyst`).
-
-## 2. Set the app's environment variables
-
-On the **app service** → **Variables**, add:
-
-| Variable | Value |
-| --- | --- |
-| `DATABASE_URL` | `${{ Postgres.DATABASE_URL }}` (reference your Postgres service) |
-| `SESSION_SECRET` | a long random string — generate with:<br>`node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-
-> `PORT` is injected by Railway automatically — do **not** set it.
-> Optional: `SEED_USER` / `SEED_PASSWORD` override the default `sandboxuser` / `IntelUser1!`.
-
-> **Note on the reference name:** `${{ Postgres.DATABASE_URL }}` assumes your
-> database service is named `Postgres`. If it's named differently (e.g.
-> `Google AI Catalyst`), use that exact name: `${{ Google AI Catalyst.DATABASE_URL }}`.
-
-## 3. Deploy
-
-Railway reads `railway.json`:
-
-- **Builder:** Nixpacks (auto-detects Node from `engines.node >= 20`).
-- **Install:** `npm ci` (uses the committed `package-lock.json`).
-- **Start:** `npm start` → `node server.js` (self-provisions, then listens).
-- **Health check:** `GET /api/health` (expects `{ "ok": true, "db": true }`).
-
-Push to `main` (or click **Deploy**). The build installs deps, the server boots,
-provisions the DB, and the health check passes. Done.
-
-## 4. Log in
-
-Open the deployed URL → you'll be redirected to `/login.html`.
-
-- **Username:** `sandboxuser`
-- **Password:** `IntelUser1!`
-
-## Optional: seed the Intel demo data
-
-To populate the Intel enterprise + 5 fully-scored use cases, run once (locally
-against the public `DATABASE_URL`, or as a Railway one-off command):
-
-```bash
-node scripts/seed-intel.js
+```cmd
+cd C:\ai-catalyst-v2
+dir            REM confirm server.js / package.json are here
 ```
 
+> The zip does NOT include `node_modules` or `.env` (you regenerate both).
+> Run `npm install` locally only if you want to run/test before deploying.
+
 ---
 
-## Troubleshooting
+## 1. One-shot deploy (recommended)
 
-- **Build fails on `npm ci` with "Missing … from lock file":** the lockfile is out
-  of sync with `package.json`. Run `npm install` locally, commit the updated
-  `package-lock.json`, and redeploy. (Already fixed in this repo.)
-- **Health check fails / `db:false`:** `DATABASE_URL` is wrong or the Postgres
-  service isn't linked. Verify the reference variable resolves.
-- **`no pg_hba.conf entry / SSL` errors:** hosted Postgres requires SSL (on by
-  default here). Only set `PGSSLMODE=disable` for a local non-SSL database (CI does this).
+Everything below is pre-wired to your repo + project name — no arguments needed.
+
+**Windows (cmd / PowerShell):**
+```cmd
+cd C:\ai-catalyst-v2
+scripts\deploy-new.cmd
+```
+
+**macOS / Linux / WSL / Git-Bash:**
+```bash
+cd /path/to/ai-catalyst-v2
+scripts/deploy-new.sh
+```
+
+The script runs 6 steps:
+1. `git init` (if needed) → strips `.env` from staging → commit → set `origin` to
+   `https://github.com/prasad-ibm/AI-catalyst-v2.git` → push `main`.
+2. Install the Railway CLI (`npm i -g @railway/cli`) if it's missing.
+3. `railway login` (opens a browser).
+4. `railway init` (new project **ai-catalyst-v2**) + add a **Postgres** database.
+5. Set env vars — `DATABASE_URL=${{Postgres.DATABASE_URL}}`, a freshly generated
+   `SESSION_SECRET`, `AI_PROVIDER=scripted` — then `railway up` to deploy.
+6. `railway run npm run migrate` to create the tables from `schema.sql`.
+
+---
+
+## 2. Manual steps (if you prefer to run them yourself)
+
+```cmd
+cd C:\ai-catalyst-v2
+git init -b main
+git add -A
+git commit -m "v2 Scale release"
+git remote add origin https://github.com/prasad-ibm/AI-catalyst-v2.git
+git push -u origin main
+
+npm i -g @railway/cli
+railway login
+railway init --name ai-catalyst-v2
+railway add --database postgres
+railway variables --set "DATABASE_URL=${{Postgres.DATABASE_URL}}" --set "SESSION_SECRET=REPLACE_WITH_LONG_RANDOM" --set "AI_PROVIDER=scripted"
+railway up
+railway run npm run migrate
+railway domain
+```
+
+Generate a strong `SESSION_SECRET`:
+```cmd
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+### Alternative: auto-deploy from GitHub (instead of `railway up`)
+In the Railway dashboard → **New Project → Deploy from GitHub repo →**
+select `prasad-ibm/AI-catalyst-v2`. Add a **PostgreSQL** service, set the same
+three variables on the app service, then every `git push` auto-deploys.
+Run the one-time migration from the app service shell: `npm run migrate`.
+
+---
+
+## 3. After it's live
+
+| Task | Command |
+|---|---|
+| Get public URL | `railway domain` |
+| Open in browser | `railway open` |
+| Health check | visit `https://YOUR-APP.up.railway.app/api/health` (expects `{ ok: true, db: true }`) |
+| Seed the demo Intel workspace | `railway run node scripts/seed-intel.js` |
+| Re-run migration (safe/idempotent) | `railway run npm run migrate` |
+
+Notes:
+- The new Postgres starts **empty** — register an account in the app, then
+  upload use cases (or run the seed script above).
+- You do **not** need `scripts/normalize-dept-sponsor.sql` on a fresh DB — that
+  was a one-time cleanup for the ~130 rows carried in the OLD database.
+- Optional AI features: set `AI_PROVIDER=gemini` + `GEMINI_API_KEY=...` in
+  Railway variables (see `.env.example`). Default `scripted` runs fully offline.
+
+---
+
+## 4. CI (already included)
+`.github/workflows/ci.yml` runs every suite on push to `main` against an
+ephemeral Postgres. It's advisory-only (never blocks). To make it blocking,
+set `continue-on-error: false` and change the final `exit 0` to `exit $fail`.

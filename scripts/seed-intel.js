@@ -93,7 +93,7 @@ const USE_CASES = [
   {
     name: 'Demand Forecasting & Supply Chain Planning',
     department: 'Supply Chain',
-    executive_sponsor: 'COO',
+    executive_sponsor: 'ET-DCG',
     submitted_by: 'Supply Chain Planning',
     contact_email: 'supplychain@intel.com',
     description: 'Enriches integrated business planning with external signals — weather, macro, competitor pricing. 15–25% inventory reduction; 10–15% service level improvement over static statistical models.',
@@ -196,7 +196,27 @@ async function insertUseCase(wsId, uc) {
   return r.rows[0].id;
 }
 
+// M5: an evaluation is only genuine when the case has actually run the gates.
+// Legacy seed/live rows for placeholder cases (stage='intake' or the "FE Test
+// UC" test artifact) previously carried Monte-Carlo triples (e.g. the
+// byte-identical 1920/829/3501 shared by "FE Test UC" and "Quality Defect
+// Prediction"), which the portfolio 'evaluated' guard could not null. We never
+// seed evaluation/advisory/feasibility/verdict rows for such cases so the guard
+// treats them as unevaluated. Live DBs are cleaned via
+// scripts/backfill-unevaluated.sql.
+function isGenuinelyEvaluated(uc) {
+  const stage = (uc.stage || 'panel');
+  const name  = (uc.name || '');
+  if (stage === 'intake') return false;
+  if (/^\s*FE Test UC\s*$/i.test(name)) return false;
+  return true;
+}
+
 async function insertGates(ucId, uc) {
+  if (!isGenuinelyEvaluated(uc)) {
+    console.log('  SKIP eval rows (unevaluated):', uc.name);
+    return;
+  }
   const b = uc.bxt;
   await query(`INSERT INTO bxt_scores (use_case_id,business_score,experience_score,technology_score,verdict,detail)
     VALUES ($1,$2,$3,$4,$5,$6)`, [ucId, b.business_score, b.experience_score, b.technology_score, b.verdict, JSON.stringify(b.detail)]);
