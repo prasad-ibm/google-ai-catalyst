@@ -27,7 +27,7 @@ const ctrl = GAIC_LAZY.create({
   mount: tb,
   items: rows,
   chunk: 50,
-  noun: 'use cases',
+  noun: 'use case', // SINGULAR — the module pluralises based on count (matches dashboard/portfolio callers)
   status: status,
   renderItem: function (r) { return '<tr class="r" data-id="' + r.id + '"><td>' + r.name + '</td></tr>'; }
 });
@@ -37,6 +37,7 @@ ok('renders only first chunk (50 of 130)', tb.querySelectorAll('tr.r').length ==
 ok('rendered() == 50', ctrl.rendered() === 50);
 ok('total() == 130', ctrl.total() === 130);
 ok('status shows "showing 50 of 130"', /showing 50 of 130 use cases/.test(status.textContent));
+ok('status pluralises noun (use cases) with singular noun input', /use cases/.test(status.textContent) && !/use case(?!s)/.test(status.textContent));
 
 console.log('\n== a "Show more" button exists ==');
 const moreBtn = doc.querySelector('.lazy-more');
@@ -48,7 +49,16 @@ ctrl.showMore();
 ok('now 100 rows', tb.querySelectorAll('tr.r').length === 100);
 ctrl.showMore();
 ok('now 130 rows (all)', tb.querySelectorAll('tr.r').length === 130);
-ok('status shows final "130 use cases"', /(^|\s)130 use cases/.test(status.textContent));
+// DEF-12: after full expansion the label must reflect the rendered count (N),
+// stay in the "showing N of M" form (not collapse), and pluralise correctly.
+ok('DEF-12: full-expansion label reads "showing 130 of 130 use cases"', status.textContent === 'showing 130 of 130 use cases');
+
+console.log('\n== DEF-12: singular noun only when total === 1 ==');
+ctrl.setItems(rows.slice(0, 1));
+ok('single item -> "showing 1 of 1 use case" (singular)', status.textContent === 'showing 1 of 1 use case');
+ctrl.setItems(rows); // restore 130 for subsequent tests
+ctrl.showMore(); ctrl.showMore();
+ok('re-expanded label back to "showing 130 of 130 use cases"', status.textContent === 'showing 130 of 130 use cases');
 
 console.log('\n== sentinel hidden once exhausted ==');
 const sentinel = doc.querySelector('.lazy-sentinel');

@@ -62,9 +62,12 @@
     function _wire() {
       function updateStatus() {
         if (!opts.status) return;
-        opts.status.textContent = count >= items.length
-          ? (items.length + ' ' + noun)
-          : ('showing ' + count + ' of ' + items.length + ' ' + noun);
+        // `noun` is the SINGULAR form (callers pass 'use case', 'department', 'card').
+        // Pluralise on the total (items.length): singular only when there's exactly 1.
+        var label = items.length === 1 ? noun : (noun + 's');
+        // Always keep the "showing N of M" form so the rendered count (N) stays
+        // visible after full expansion — e.g. "showing 307 of 307 use cases".
+        opts.status.textContent = 'showing ' + count + ' of ' + items.length + ' ' + label;
       }
 
       function ensureSentinel() {

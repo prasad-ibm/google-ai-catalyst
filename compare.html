@@ -220,6 +220,10 @@ p { margin:0 0 1rem; }
     display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text);
     background:rgba(66,133,244,.12); border:1px solid rgba(66,133,244,.45);
     border-radius:100px; padding:5px 8px 5px 12px;
+    /* Defence-in-depth (DEF-03): even if unclamped text ever reaches the pill
+       directly (not wrapped in .selpill__name), cap the pill and ellipsis-clip
+       so a long label can never stretch/wrap the selected-pills row. */
+    max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   /* Long-name overflow (DEF-03): clamp the pill label so a 200+ char name
      cannot stretch or wrap the selected-pills row. */

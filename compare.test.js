@@ -405,6 +405,10 @@ const cssText = html;
 ok('.selpill__name CSS rule defines a max-width', /\.selpill__name\s*\{[^}]*max-width/.test(cssText));
 ok('.selpill__name CSS rule ellipsis-clamps overflow',
   /\.selpill__name\s*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));
+// Defence-in-depth (DEF-03): the pill container itself also clamps overflow so
+// long text reaching the pill unwrapped can never blow out the row.
+ok('.selpill container CSS rule clamps overflow (belt-and-suspenders)',
+  /\.selpill\s*\{[^}]*overflow\s*:\s*hidden/.test(cssText));
 // Table header + selection list already clamp (H4) \u2014 assert they still do.
 ok('table header .cmphd__name ellipsis-clamps', /\.cmphd__name[^{]*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));
 ok('selection list .sellist__name ellipsis-clamps', /\.sellist__name[^{]*\{[^}]*text-overflow\s*:\s*ellipsis/.test(cssText));

@@ -133,6 +133,13 @@ Log in first (browser session cookie). Then in the browser console or with the s
 
 ---
 
+## 7b. Round-12 closures (fixed & verified)
+- **DEF-13 (HIGH) — self-polluting taxonomy via bulk import (CLOSED):** the bulk-import path did **not** validate `department`, so junk values (e.g. `NotARealDept`) inserted, appeared in `/facets` (14→15), and the DEF-06 dynamic merge then leaked them into the intake authoring dropdown. Fix: introduced `departments.js` as the single source of truth for the canonical **14** departments; the bulk-import loop now runs each row's department through `resolveDepartment()` — canonical values pass through, unknown/blank **coerce to `null`** (excluded from facets). Junk can no longer become a facet or dropdown option. Verify: bulk-import a bad department → it is coerced (not surfaced); facets stay at **14**; intake dropdown stays **14**. Guarded cleanup for the pre-existing junk row lives in `scripts/cleanup-round12.sql` (run manually against v2; aborts unless exactly one `66fceda0…`/`NotARealDept` row matches). Tests: `bulk-upload-departments.test.js` 6/6, `intake-dept.test.js` 33/33.
+- **DEF-12 (LOW) — portfolio row-count label stale after Show-more (CLOSED):** the shared `assets/lazy-list.js` `updateStatus()` had a collapse branch that read `307 use case` on full expansion and never pluralised. Fix: always emit `showing N of M <noun>` (N tracks the rendered count) and pluralise on the total (singular only when count===1). Now: `showing 50 of 307 use case` → after expand `showing 307 of 307 use cases`; single item → `showing 1 of 1 use case`. Positive side effect: kanban (`card`) and portfolio-map (`department`) labels pluralise consistently too. Test: `lazy-list.test.js` 24/24.
+- **DEF-03 (reduced, LOW) — Compare selection-pill overflow, defence-in-depth (CLOSED):** added a CSS clamp to the `.selpill` container itself (`max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap`) so long text reaching the pill unwrapped can never blow out the selected-pills row. Belt-and-suspenders on top of the round-11 `.selpill__name` clamp + 200-char ingest clip. Test: `compare.test.js` 113/113.
+
+---
+
 ## 8. Known / by-design (not defects)
 - The demo login (`sandboxuser`) and demo data are shared — multiple testers may see each other's edits in the same workspace. For isolated testing, create your own workspace via **Setup**.
 - Radar **Score Breakdown** intentionally caps at **4** charts; the full comparison is always in the table below.

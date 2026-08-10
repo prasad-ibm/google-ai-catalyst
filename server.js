@@ -9,6 +9,9 @@ const auth = require('./auth');
 const ai = require('./ai-service');
 const { buildTemplateCsv, parseCsv } = require('./use-case-template');
 const { roiEligible, stageRank, ROI_MIN_STAGE } = require('./stage');
+// DEF-13: canonical department taxonomy — the single source of truth shared by
+// the bulk-import validation below and asserted against the intake dropdown.
+const { resolveDepartment } = require('./departments');
 
 const app = express();
 app.use(cors());
@@ -485,6 +488,15 @@ app.post('/api/use-cases/bulk', async (req, res) => {
         if (!rowWorkspaceId) {
           throw new Error('workspace_id is required (row or body)');
         }
+        // DEF-13: validate the department against the canonical 14, mirroring the
+        // intake authoring rule. An unrecognized (or blank) value is coerced to
+        // null rather than persisted verbatim — null is excluded from
+        // /api/portfolio/facets, so junk like 'NotARealDept' can never surface
+        // as a spurious facet and then leak back into the intake dropdown via
+        // the DEF-06 dynamic merge. Overwrite BOTH aliases buildUseCaseValues
+        // reads (`dept`/`department`) so the coerced value is what gets stored.
+        row.department = resolveDepartment(row.dept ?? row.department);
+        delete row.dept;
         // Validate the workspace exists. Reuse the cached batch check when the
         // row uses the batch-level workspace_id.
         if (rowWorkspaceId === workspaceId && batchWorkspaceValid !== null) {
