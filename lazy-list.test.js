@@ -66,6 +66,19 @@ ok('sentinel hidden after all rendered', sentinel && sentinel.style.display === 
 ctrl.showMore(); // no-op past end
 ok('no over-render past end (still 130)', tb.querySelectorAll('tr.r').length === 130);
 
+console.log('\n== R12-N1: Show-more button hidden/disabled at full expansion ==');
+// count === total (130 of 130): the button must not linger reading "Show N more".
+const moreBtnExhausted = doc.querySelector('.lazy-more');
+ok('R12-N1: button hidden when count === total', !!moreBtnExhausted && moreBtnExhausted.hidden === true);
+ok('R12-N1: button disabled when count === total', !!moreBtnExhausted && moreBtnExhausted.disabled === true);
+ok('R12-N1: no stale "Show N more" text at exhaustion', !!moreBtnExhausted && !/Show \d+ more/.test(moreBtnExhausted.textContent));
+// ...and it comes back when there is more to show again.
+ctrl.setItems(rows); // 50 of 130 -> more available
+const moreBtnAgain = doc.querySelector('.lazy-more');
+ok('R12-N1: button shown again when more remain', !!moreBtnAgain && moreBtnAgain.hidden === false && moreBtnAgain.disabled === false && /Show \d+ more/.test(moreBtnAgain.textContent));
+ctrl.showMore(); ctrl.showMore(); // re-exhaust for subsequent tests (back to 130)
+ok('R12-N1: button hidden again after re-exhausting', doc.querySelector('.lazy-more').hidden === true);
+
 console.log('\n== appended rows keep data attributes (delegation-friendly) ==');
 ok('last row is UC-129', tb.querySelector('tr.r:last-child td').textContent === 'UC-129');
 ok('row 60 has data-id', tb.querySelectorAll('tr.r')[60].getAttribute('data-id') === '60');

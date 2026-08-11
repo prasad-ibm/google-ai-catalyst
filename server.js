@@ -208,6 +208,58 @@ function mapUseCaseContexts(body) {
   return { business_context, current_state, technical_context, risk_compliance };
 }
 
+// R12-N4 fix: decide EXACTLY which use_cases columns a PUT body should update.
+// Only a column whose value is explicitly carried by the request body is
+// returned; anything absent is omitted so the existing DB value is preserved.
+// A jsonb context group is carried when its grouped key OR any of its flat
+// intake keys is present. An explicitly-provided value (including null or "")
+// is honored as an intentional write.
+// Exported for isolated unit testing (see put-merge.test.js) — takes no DB.
+function selectUseCaseUpdate(body) {
+  body = body || {};
+  const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
+  const anyHas = (keys) => keys.some(has);
+
+  const CTX_GROUPS = {
+    business_context: ['driver', 'value', 'users', 'align', 'justif'],
+    current_state: ['maturity', 'spend', 'volume', 'pain', 'tools'],
+    technical_context: ['sources', 'dataavail', 'integrations', 'realtime', 'technotes'],
+    risk_compliance: ['sensitivity', 'autonomy', 'pii', 'audit', 'adoption', 'change', 'delivery', 'addnotes'],
+  };
+
+  // Scalar columns: [dbColumn, [aliasKeysInPreferenceOrder]]. The column is
+  // updated only if at least one of its aliases is actually present in body.
+  const SCALARS = [
+    ['name', ['name']],
+    ['department', ['dept', 'department']],
+    ['executive_sponsor', ['sponsor', 'executive_sponsor']],
+    ['submitted_by', ['submitter', 'submitted_by']],
+    ['contact_email', ['email', 'contact_email']],
+    ['description', ['desc', 'description']],
+    ['stage', ['stage']],
+    ['status', ['status']],
+    ['delivered_at', ['delivered_at']],
+  ];
+
+  const out = {};
+
+  for (const [col, aliases] of SCALARS) {
+    if (!anyHas(aliases)) continue; // field not carried -> do not write
+    // Use the first alias actually present so an explicit null/"" is honored.
+    const key = aliases.find(has);
+    out[col] = body[key];
+  }
+
+  for (const [col, flatKeys] of Object.entries(CTX_GROUPS)) {
+    const carried = has(col) || anyHas(flatKeys);
+    if (!carried) continue; // group not carried -> preserve existing blob
+    const grouped = mapUseCaseContexts(body)[col];
+    out[col] = grouped; // may be null if group present but empty (intentional)
+  }
+
+  return out;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Health                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -411,6 +463,19 @@ app.post('/api/use-cases', async (req, res) => {
     const ws = await query('SELECT id FROM workspaces WHERE id = $1', [body.workspace_id]);
     if (!ws.rows.length) return res.status(400).json({ error: 'workspace_id does not reference an existing workspace' });
 
+    // DEF-13 (reopened at API layer): coerce the department against the canonical
+    // 14 BEFORE insert, mirroring the bulk path (see /api/use-cases/bulk). A
+    // single POST authored outside the intake form (curl, integration, a stale
+    // client) could otherwise persist an invalid ('NotARealDept'), empty (''),
+    // case-variant ('finance') or injection ('<img onerror>') department
+    // verbatim — which then surfaces as a spurious /facets entry and leaks back
+    // into the intake dropdown via the DEF-06 dynamic merge. resolveDepartment
+    // normalizes recognized values to their canonical spelling and coerces
+    // anything else to null (excluded from facets). Overwrite BOTH aliases
+    // buildUseCaseValues reads (`dept`/`department`) so the coerced value wins.
+    body.department = resolveDepartment(body.dept ?? body.department);
+    delete body.dept;
+
     const row = await insertUseCase(body);
     return res.status(201).json(row);
   } catch (err) {
@@ -524,12 +589,35 @@ app.post('/api/use-cases/bulk', async (req, res) => {
 app.get('/api/use-cases', async (req, res) => {
   try {
     const { workspace_id } = req.query;
-    let r;
-    if (workspace_id) {
-      r = await query('SELECT * FROM use_cases WHERE workspace_id = $1 ORDER BY created_at DESC', [workspace_id]);
-    } else {
-      r = await query('SELECT * FROM use_cases ORDER BY created_at DESC');
-    }
+
+    // R12-N2: OPT-IN pagination, mirroring /api/portfolio. Parse ?limit and
+    // ?offset as positive integers. When ?limit is present we clamp it to a
+    // sane max (500) and append a parameterized LIMIT (and OFFSET when a valid
+    // ?offset is supplied). Non-numeric / negative values are ignored
+    // gracefully. When neither is present the behaviour is UNCHANGED: return
+    // ALL rows (no LIMIT/OFFSET) so existing callers are unaffected.
+    const USE_CASES_LIMIT_MAX = 500;
+    const rawLimit = parseInt(req.query.limit, 10);
+    const rawOffset = parseInt(req.query.offset, 10);
+    const hasLimit = Number.isInteger(rawLimit) && rawLimit > 0;
+    const hasOffset = Number.isInteger(rawOffset) && rawOffset > 0;
+    const limit = hasLimit ? Math.min(rawLimit, USE_CASES_LIMIT_MAX) : null;
+    const offset = hasOffset ? rawOffset : null;
+
+    const where = [];
+    const params = [];
+    function add(clause, val) { params.push(val); where.push(clause.replace('?', '$' + params.length)); }
+    if (workspace_id) add('workspace_id = ?', workspace_id);
+    const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
+
+    // Append LIMIT/OFFSET only when opted in. Parameterized (never interpolated)
+    // so the values stay inert, matching the app-wide no-SQL-injection rule.
+    let pageSql = '';
+    if (limit != null) { params.push(limit); pageSql += ' LIMIT $' + params.length; }
+    if (offset != null) { params.push(offset); pageSql += ' OFFSET $' + params.length; }
+
+    const sql = 'SELECT * FROM use_cases' + whereSql + ' ORDER BY created_at DESC' + pageSql;
+    const r = await query(sql, params);
     return res.json(r.rows);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -580,28 +668,32 @@ app.put('/api/use-cases/:id', async (req, res) => {
     if (!exists.rows.length) return res.status(404).json({ error: 'use case not found' });
 
     const body = req.body || {};
-    const ctx = mapUseCaseContexts(body);
 
-    const fieldMap = {
-      name: body.name,
-      department: body.dept ?? body.department,
-      executive_sponsor: body.sponsor ?? body.executive_sponsor,
-      submitted_by: body.submitter ?? body.submitted_by,
-      contact_email: body.email ?? body.contact_email,
-      description: body.desc ?? body.description,
-      business_context: ctx.business_context,
-      current_state: ctx.current_state,
-      technical_context: ctx.technical_context,
-      risk_compliance: ctx.risk_compliance,
-      stage: body.stage,
-    };
+    // R12-N4: Build the UPDATE SET list from ONLY the columns the request body
+    // actually carried. A jsonb context group is "carried" when its grouped key
+    // is present OR at least one of its flat intake keys is present; otherwise
+    // it is omitted entirely so the existing blob is preserved (a partial PUT
+    // like {stage:'archived'} must never NULL the four detail blobs).
+    // selectUseCaseUpdate is exported for isolated unit testing (put-merge.test.js).
     const jsonbCols = new Set(['business_context', 'current_state', 'technical_context', 'risk_compliance']);
+    const fieldMap = selectUseCaseUpdate(body);
+
+    // DEF-13 (reopened at API layer): coerce the department against the canonical
+    // 14, but ONLY when it was actually carried by this PUT. selectUseCaseUpdate
+    // already applies R12-N4 presence-gating — `department` appears in fieldMap
+    // iff the body carried `dept` or `department` — so coercing in-place here
+    // preserves that discipline exactly: a partial PUT that omits department
+    // never touches the stored value. When present, an invalid/empty/case-variant
+    // /injection value is normalized to canonical-or-null (mirroring POST + bulk)
+    // instead of being written verbatim and leaking into /facets via DEF-06.
+    if (Object.prototype.hasOwnProperty.call(fieldMap, 'department')) {
+      fieldMap.department = resolveDepartment(fieldMap.department);
+    }
 
     const setClauses = [];
     const params = [];
     let i = 1;
     for (const [col, val] of Object.entries(fieldMap)) {
-      if (val === undefined) continue;
       setClauses.push(`${col} = $${i}`);
       params.push(jsonbCols.has(col) && val !== null ? JSON.stringify(val) : val);
       i++;
@@ -617,6 +709,39 @@ app.put('/api/use-cases/:id', async (req, res) => {
     params.push(id);
     const sql = `UPDATE use_cases SET ${setClauses.join(', ')} WHERE id = $${i} RETURNING *`;
     const r = await query(sql, params);
+    return res.json(r.rows[0]);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// R12-N3 (HIGH): SOFT DELETE for use cases. There was previously no DELETE
+// route, so records could never be removed. We archive rather than physically
+// delete to preserve the audit trail, matching the app's existing 'archived'
+// lifecycle concept (`stage` is the lifecycle column per schema.sql, default
+// 'intake'; `status` mirrors the active/archived flag). We flip BOTH stage and
+// status to 'archived' in one UPDATE.
+//
+// Idempotent: the WHERE clause matches the row by id REGARDLESS of its current
+// stage, so archiving an already-archived row still updates (rowCount=1) and
+// returns 200 — never a spurious 404. 404 is returned only when NO row has the
+// given id.
+//
+// Child rows (bxt_scores, feasibility_scores, advisory_results,
+// evaluation_summaries, panel_verdicts) are intentionally left in place under
+// soft-delete: they remain keyed to the archived parent and require no physical
+// cleanup. (A hard DELETE would cascade via ON DELETE CASCADE, but that is not
+// what soft-delete does.)
+app.delete('/api/use-cases/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const sql = `
+      UPDATE use_cases
+         SET stage = 'archived', status = 'archived', updated_at = now()
+       WHERE id = $1
+      RETURNING *`;
+    const r = await query(sql, [id]);
+    if (!r.rowCount) return res.status(404).json({ error: 'use case not found' });
     return res.json(r.rows[0]);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -868,6 +993,26 @@ app.get('/api/portfolio', async (req, res) => {
     if (stage)         add('uc.stage = ?', stage);
     if (status)        add('uc.status = ?', status);
     if (q)             add('uc.name ILIKE ?', '%' + String(q).trim() + '%');
+
+    // R12-N5: by DEFAULT exclude archived rows (stage='archived' OR
+    // status='archived') so soft-deleted records never leak onto the portfolio
+    // map. Two opt-ins bypass the exclusion:
+    //   - ?include_archived=1|true -> return archived alongside active (no guard)
+    //   - an explicit ?status=archived request -> the caller is deliberately
+    //     asking for archived rows, so don't fight the status filter with the
+    //     default guard (the status='archived' filter above already narrows to
+    //     archived; adding the exclusion would return nothing).
+    // The facet vocabulary is computed by a SEPARATE, unfiltered query
+    // (/api/portfolio/facets), so 'archived' remains a selectable filter value
+    // with its count regardless of this default result-set exclusion.
+    const includeArchivedRaw = String(req.query.include_archived == null ? '' : req.query.include_archived)
+      .trim().toLowerCase();
+    const includeArchived = includeArchivedRaw === '1' || includeArchivedRaw === 'true';
+    const statusIsArchived = String(status == null ? '' : status).trim().toLowerCase() === 'archived';
+    if (!includeArchived && !statusIsArchived) {
+      where.push("uc.stage <> 'archived' AND uc.status <> 'archived'");
+    }
+
     const whereSql = where.length ? ' WHERE ' + where.join(' AND ') : '';
 
     let total = null;
@@ -1010,3 +1155,5 @@ module.exports.pool = pool;
 module.exports.capStr = capStr;
 module.exports.buildUseCaseValues = buildUseCaseValues;
 module.exports.NAME_MAX = NAME_MAX;
+// Exported for R12-N4 isolated unit test (put-merge.test.js): pure body->columns selector.
+module.exports.selectUseCaseUpdate = selectUseCaseUpdate;

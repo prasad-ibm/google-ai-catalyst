@@ -14,11 +14,12 @@
  * Example values are drawn faithfully from scripts/seed-intel.js.
  */
 
-// Column order = CSV column order. `workspace_id` is left blank in the example
-// rows (the PM / bulk endpoint supplies it); `stage` defaults to 'intake'.
+// Column order = CSV column order. `workspace_id` is intentionally NOT a
+// template column: the bulk endpoint / import modal supplies it out-of-band
+// (batch workspace_id or ?workspace_id=), so a blank per-row column was dead
+// weight that only confused hand-editors. `stage` defaults to 'intake'.
 const TEMPLATE_COLUMNS = [
   // use_cases identity
-  'workspace_id',
   'name',
   'department',
   'executive_sponsor',
@@ -65,7 +66,6 @@ const TEMPLATE_COLUMNS = [
 // template columns. Every column is populated so the file doubles as a guide.
 const TEMPLATE_ROWS = [
   {
-    workspace_id: '',
     name: 'AskHR',
     department: 'HR',
     executive_sponsor: 'CHRO',
@@ -98,7 +98,6 @@ const TEMPLATE_ROWS = [
     stage: 'intake',
   },
   {
-    workspace_id: '',
     name: 'Contract Leakage',
     department: 'Procurement',
     executive_sponsor: 'CPO',
@@ -131,7 +130,6 @@ const TEMPLATE_ROWS = [
     stage: 'intake',
   },
   {
-    workspace_id: '',
     name: 'Demand Forecasting & Supply Chain Planning',
     department: 'Supply Chain',
     executive_sponsor: 'COO',
@@ -164,9 +162,10 @@ const TEMPLATE_ROWS = [
     stage: 'intake',
   },
   {
-    workspace_id: '',
     name: 'Predictive Asset Maintenance',
-    department: 'Assets Maintenance',
+    // Canonical taxonomy has no 'Assets Maintenance'; asset-maintenance is a
+    // Manufacturing function. Non-canonical values null out on import.
+    department: 'Manufacturing',
     executive_sponsor: 'VP Manufacturing',
     submitted_by: 'Reliability Engineering',
     contact_email: 'reliability@intel.com',
@@ -197,9 +196,9 @@ const TEMPLATE_ROWS = [
     stage: 'intake',
   },
   {
-    workspace_id: '',
     name: 'Quality Defect Prediction & Root Cause Analysis',
-    department: 'Manufacturing / Quality',
+    // Canonical 'Quality' (was 'Manufacturing / Quality', which nulled on import).
+    department: 'Quality',
     executive_sponsor: 'VP Quality',
     submitted_by: 'Quality Engineering',
     contact_email: 'quality@intel.com',
@@ -234,7 +233,6 @@ const TEMPLATE_ROWS = [
     // delivered_at to the go-live date. A completed row auto-defaults its stage
     // to 'panel' when stage is left blank, and surfaces in the Dashboard's
     // 2026 'Delivered' storyline rather than the active pipeline.
-    workspace_id: '',
     name: 'Automated Invoice Matching (DELIVERED EXAMPLE)',
     department: 'Finance',
     executive_sponsor: 'CFO',

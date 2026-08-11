@@ -99,10 +99,18 @@
         var remaining = items.length - count;
         if (remaining > 0) {
           sentinel.style.display = '';
+          moreBtn.hidden = false;
           moreBtn.textContent = 'Show ' + Math.min(chunk, remaining) + ' more (' + remaining + ' remaining)';
           moreBtn.disabled = false;
         } else {
+          // Exhausted (count === total): don't leave a stale "Show N more"
+          // button behind. Hide the container AND explicitly hide/disable the
+          // button itself — a caller-supplied sentinel may host other content,
+          // so relying on the container's display alone isn't enough (R12-N1).
           sentinel.style.display = 'none';
+          moreBtn.hidden = true;
+          moreBtn.disabled = true;
+          moreBtn.textContent = '';
         }
       }
 

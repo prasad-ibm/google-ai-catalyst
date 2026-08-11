@@ -48,8 +48,44 @@ railway variables --set "SESSION_SECRET=!SESSION_SECRET!"
 railway variables --set "AI_PROVIDER=scripted"
 railway up || goto :fail
 
-echo ==^> [6/6] Running DB migration (schema.sql) against the new Postgres
+echo ==^> [6/7] Running DB migration (schema.sql) against the new Postgres
 railway run npm run migrate || goto :fail
+
+REM -------------------------------------------------------------------------
+REM [7/7] OPTIONAL, GUARDED one-time cleanup (DEF-13 round-12 junk row).
+REM scripts\cleanup-round12.sql purges the ONE pre-existing junk use_cases row
+REM ('NotARealDept' / id 66fceda0...) that inflated /api/portfolio/facets from
+REM 14 -> 15 departments. Only needed on a DB migrated from the round-12
+REM snapshot; a brand-new Postgres created by this script does NOT contain it,
+REM so this step is OPT-IN and OFF by default. The SQL is self-guarded and
+REM idempotent (aborts on >1 match, no-op if the row is absent), safe to re-run.
+REM Enable by setting RUN_CLEANUP_ROUND12=1 before running this script:
+REM     set RUN_CLEANUP_ROUND12=1 ^&^& scripts\deploy-new.cmd
+REM -------------------------------------------------------------------------
+if "%RUN_CLEANUP_ROUND12%"=="1" (
+  echo ==^> [7/8] Running GUARDED cleanup-round12.sql (RUN_CLEANUP_ROUND12=1)
+  railway run psql "%%DATABASE_URL%%" -f scripts/cleanup-round12.sql || goto :fail
+) else (
+  echo ==^> [7/8] Skipping optional cleanup-round12.sql ^(set RUN_CLEANUP_ROUND12=1 to run it^)
+  echo            Only needed if this DB still has the round-12 'NotARealDept' junk row.
+)
+
+REM -------------------------------------------------------------------------
+REM [8/8] OPTIONAL, GUARDED round-13 QA cleanup.
+REM scripts\cleanup-round13.sql hard-deletes throwaway QA use_cases left by
+REM round-13 testing, matched by sentinel name prefixes 'ZZ-QA-%%' /
+REM 'ZZ-ARCHIVED-QA%%'. Transaction-wrapped with a MAX_QA_ROWS ceiling guard;
+REM safe + idempotent. Only needed on a DB that carried round-13 QA scratch
+REM data. OPT-IN / OFF by default. Enable with RUN_CLEANUP_ROUND13=1:
+REM     set RUN_CLEANUP_ROUND13=1 ^&^& scripts\deploy-new.cmd
+REM -------------------------------------------------------------------------
+if "%RUN_CLEANUP_ROUND13%"=="1" (
+  echo ==^> [8/8] Running GUARDED cleanup-round13.sql (RUN_CLEANUP_ROUND13=1)
+  railway run psql "%%DATABASE_URL%%" -f scripts/cleanup-round13.sql || goto :fail
+) else (
+  echo ==^> [8/8] Skipping optional cleanup-round13.sql ^(set RUN_CLEANUP_ROUND13=1 to run it^)
+  echo            Only needed if this DB still has round-13 QA scratch rows (ZZ-QA-* names).
+)
 
 echo.
 echo DONE. Optional next steps:

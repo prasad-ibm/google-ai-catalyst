@@ -13,9 +13,12 @@
 --     invalid department "NotARealDept" — no real use case matches either.
 --   * Gate tables (bxt_scores, feasibility_scores, advisory_results,
 --     evaluation_summaries, panel_verdicts) cascade via ON DELETE CASCADE.
---   * Wrapped in a transaction with a pre/post count and a guard that ABORTS
---     unless exactly 1 row matches, so a mistyped predicate can never wipe
---     real data.
+--   * Wrapped in a transaction with a pre/post count and a guard.
+--   * IDEMPOTENT / SAFE TO RUN TWICE: the guard aborts only if MORE than one
+--     row matches (an ambiguous, dangerous predicate). 0 rows is treated as
+--     "already clean" — a no-op that commits without error — and exactly 1 row
+--     is the expected first-run case. So re-running after a successful purge
+--     simply does nothing instead of raising.
 --
 -- !!! DO NOT run blindly against the live Railway DB. Review the preview
 -- !!! output first; COMMIT only if remaining_junk_rows = 0 and the deleted
@@ -34,7 +37,8 @@ WHERE id::text LIKE '66fceda0%'
   AND department = 'NotARealDept'
 ORDER BY created_at;
 
--- 2. Guard: abort unless exactly 1 row matches (protects against a bad predicate).
+-- 2. Guard: abort only if MORE than 1 row matches (a bad/over-broad predicate).
+--    0 matches = already clean (idempotent no-op); 1 match = expected first run.
 DO $$
 DECLARE n int;
 BEGIN
@@ -42,8 +46,11 @@ BEGIN
   FROM use_cases
   WHERE id::text LIKE '66fceda0%'
     AND department = 'NotARealDept';
-  IF n <> 1 THEN
-    RAISE EXCEPTION 'Expected exactly 1 junk row to delete, found %. Aborting for safety.', n;
+  IF n > 1 THEN
+    RAISE EXCEPTION 'Expected at most 1 junk row to delete, found %. Aborting for safety.', n;
+  END IF;
+  IF n = 0 THEN
+    RAISE NOTICE 'No junk row matches (66fceda0.../NotARealDept) — already clean, nothing to do.';
   END IF;
 END $$;
 

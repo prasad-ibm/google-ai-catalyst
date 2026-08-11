@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const { resolveDepartment } = require('./departments');
 
 const html = fs.readFileSync(path.join(__dirname, 'intake.html'), 'utf8');
 
@@ -111,6 +112,34 @@ const noFetch = () => Promise.resolve({ ok:false, json:()=>Promise.resolve(null)
   ok('dept no longer missing once set', g.missingRequired().map(function(r){return r.key;}).indexOf('dept') === -1);
   ok('validateRequired() passes with all required set', g.validateRequired() === true);
   domReq.window.close();
+
+  // ---- Test D: DEF-13 — server-side alias resolution for bulk import ----
+  // resolveDepartment() is the single source of truth the bulk-import path uses
+  // to coerce incoming department strings. Common abbreviations must resolve to
+  // a canonical value (so legitimate rows aren't silently dropped), canonical
+  // values must still pass through, and genuine junk must still become null.
+  console.log('\n== D. DEF-13 resolveDepartment alias resolution ==');
+  ok("'HR' resolves to 'Human Resources' (QA must-have)",
+     resolveDepartment('HR') === 'Human Resources');
+  ok("'  hr ' trims + folds case to 'Human Resources'",
+     resolveDepartment('  hr ') === 'Human Resources');
+  ok("'research and development' resolves to 'R&D'",
+     resolveDepartment('research and development') === 'R&D');
+  ok("'Information Technology' resolves to 'IT'",
+     resolveDepartment('Information Technology') === 'IT');
+  ok("'InfoSec' resolves to 'Security'",
+     resolveDepartment('InfoSec') === 'Security');
+  ok("'Purchasing' resolves to 'Procurement'",
+     resolveDepartment('Purchasing') === 'Procurement');
+  ok("canonical 'Finance' still resolves to itself",
+     resolveDepartment('Finance') === 'Finance');
+  ok("canonical 'R&D' still resolves to itself",
+     resolveDepartment('R&D') === 'R&D');
+  ok("junk 'NotARealDept' still resolves to null",
+     resolveDepartment('NotARealDept') === null);
+  ok("unknown 'Ops' still resolves to null",
+     resolveDepartment('Ops') === null);
+  ok('blank string still resolves to null', resolveDepartment('   ') === null);
 
   console.log('\n---------------------------------------------');
   console.log('  RESULT: '+pass+' passed, '+fail+' failed');
