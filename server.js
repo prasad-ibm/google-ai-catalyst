@@ -13,6 +13,20 @@ const { roiEligible, stageRank, ROI_MIN_STAGE } = require('./stage');
 // the bulk-import validation below and asserted against the intake dropdown.
 const { resolveDepartment } = require('./departments');
 
+// R14-N2: shared UUID validator. Every /api/use-cases/:id route binds `:id`
+// straight into a `WHERE id = $1` on a uuid column. A malformed :id (e.g.
+// 'not-a-uuid') made Postgres throw `invalid input syntax for type uuid`,
+// which the catch-blocks returned VERBATIM as a 500 body — leaking the column
+// type + DB engine and turning a client error into a server error. We now
+// validate :id up front and return a GENERIC 400 BEFORE issuing any query, so
+// no DB error text can ever reach the client. RFC-4122-ish: 8-4-4-4-12 hex,
+// case-insensitive (Postgres accepts either case; we don't gate on version/
+// variant nibbles since the DB is the ultimate authority for real rows).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function isValidUuid(id) {
+  return typeof id === 'string' && UUID_RE.test(id);
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
@@ -542,10 +556,22 @@ app.post('/api/use-cases/bulk', async (req, res) => {
     const results = [];
     let inserted = 0;
     let failed = 0;
+    // R14-N3: count rows whose submitted department was silently coerced
+    // (dropped to null, or re-mapped via alias/case-normalization). The
+    // per-row `warnings` array makes each one visible; this total is the
+    // trivial roll-up so a caller can flag "N rows had department issues"
+    // without scanning every result.
+    let coerced = 0;
 
     for (let i = 0; i < rows.length; i++) {
       const row = trimRow(rows[i] || {});
       const rowWorkspaceId = row.workspace_id ? String(row.workspace_id).trim() : (workspaceId || null);
+      // R14-N3: capture the RAW submitted department BEFORE resolveDepartment()
+      // coerces it, so we can report when a non-empty value was silently
+      // dropped to null or rewritten to a canonical/alias spelling. Coercion
+      // BEHAVIOR is unchanged — this only makes it VISIBLE.
+      const rawDept = row.dept ?? row.department;
+      const warnings = [];
       try {
         if (!row.name) {
           throw new Error('name is required');
@@ -562,6 +588,18 @@ app.post('/api/use-cases/bulk', async (req, res) => {
         // reads (`dept`/`department`) so the coerced value is what gets stored.
         row.department = resolveDepartment(row.dept ?? row.department);
         delete row.dept;
+        // R14-N3: surface silent department coercion. Only meaningful when the
+        // raw value was non-empty; a blank/absent department already resolves
+        // to null legitimately and is not a "lost" value worth warning about.
+        const rawDeptStr = rawDept == null ? '' : String(rawDept).trim();
+        if (rawDeptStr !== '') {
+          if (row.department === null) {
+            warnings.push(`department "${rawDeptStr}" not canonical → null`);
+          } else if (row.department !== rawDeptStr) {
+            // Alias or case/whitespace normalization changed the stored value.
+            warnings.push(`department "${rawDeptStr}" normalized → "${row.department}"`);
+          }
+        }
         // Validate the workspace exists. Reuse the cached batch check when the
         // row uses the batch-level workspace_id.
         if (rowWorkspaceId === workspaceId && batchWorkspaceValid !== null) {
@@ -573,14 +611,19 @@ app.post('/api/use-cases/bulk', async (req, res) => {
 
         const created = await insertUseCase(row, rowWorkspaceId);
         inserted++;
-        results.push({ row: i, ok: true, id: created.id, name: created.name });
+        if (warnings.length) coerced++;
+        // Attach `warnings` only when there is something to report, so
+        // clean rows keep their existing minimal shape.
+        const result = { row: i, ok: true, id: created.id, name: created.name };
+        if (warnings.length) result.warnings = warnings;
+        results.push(result);
       } catch (err) {
         failed++;
         results.push({ row: i, ok: false, error: err.message });
       }
     }
 
-    return res.status(200).json({ inserted, failed, results });
+    return res.status(200).json({ inserted, failed, coerced, results });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -638,6 +681,9 @@ app.get('/api/use-cases/template.csv', (req, res) => {
 app.get('/api/use-cases/:id', async (req, res) => {
   try {
     const id = req.params.id;
+    // R14-N2: reject a malformed id with a generic 400 BEFORE any query, so
+    // Postgres' 'invalid input syntax for type uuid' can never leak as a 500.
+    if (!isValidUuid(id)) return res.status(400).json({ error: 'invalid use case id' });
     const uc = await query('SELECT * FROM use_cases WHERE id = $1', [id]);
     if (!uc.rows.length) return res.status(404).json({ error: 'use case not found' });
 
@@ -664,6 +710,8 @@ app.get('/api/use-cases/:id', async (req, res) => {
 app.put('/api/use-cases/:id', async (req, res) => {
   try {
     const id = req.params.id;
+    // R14-N2: malformed id -> generic 400 before touching the DB.
+    if (!isValidUuid(id)) return res.status(400).json({ error: 'invalid use case id' });
     const exists = await query('SELECT id FROM use_cases WHERE id = $1', [id]);
     if (!exists.rows.length) return res.status(404).json({ error: 'use case not found' });
 
@@ -735,6 +783,8 @@ app.put('/api/use-cases/:id', async (req, res) => {
 app.delete('/api/use-cases/:id', async (req, res) => {
   try {
     const id = req.params.id;
+    // R14-N2: malformed id -> generic 400 before touching the DB.
+    if (!isValidUuid(id)) return res.status(400).json({ error: 'invalid use case id' });
     const sql = `
       UPDATE use_cases
          SET stage = 'archived', status = 'archived', updated_at = now()
@@ -753,6 +803,14 @@ app.delete('/api/use-cases/:id', async (req, res) => {
 /* -------------------------------------------------------------------------- */
 
 async function ensureUseCase(id, res) {
+  // R14-N2: guard the shared gate helper used by the 4 sub-resource PUTs
+  // (/:id/bxt, /:id/feasibility, /:id/advisory, /:id/summary, /:id/verdict).
+  // A malformed id short-circuits to a generic 400 before any query runs, so
+  // no raw 'invalid input syntax for type uuid' Postgres error can surface.
+  if (!isValidUuid(id)) {
+    res.status(400).json({ error: 'invalid use case id' });
+    return false;
+  }
   const uc = await query('SELECT id FROM use_cases WHERE id = $1', [id]);
   if (!uc.rows.length) {
     res.status(404).json({ error: 'use case not found' });
@@ -1157,3 +1215,6 @@ module.exports.buildUseCaseValues = buildUseCaseValues;
 module.exports.NAME_MAX = NAME_MAX;
 // Exported for R12-N4 isolated unit test (put-merge.test.js): pure body->columns selector.
 module.exports.selectUseCaseUpdate = selectUseCaseUpdate;
+// Exported for R14-N2 isolated unit test (uuid-guard.test.js): the shared
+// UUID validator every /api/use-cases/:id route uses to reject malformed ids.
+module.exports.isValidUuid = isValidUuid;
