@@ -1,4 +1,4 @@
-/* DEF-06: canonical 14 static departments + dynamic facet merge.
+/* DEF-06: canonical 16 static departments + dynamic facet merge.
  * Verifies the intake Department dropdown ships the fixed canonical list
  * and that JS parses the /api/portfolio/facets response, merging any extra
  * (real/custom) departments while deduping against the canonical set.
@@ -17,8 +17,8 @@ function ok(name, cond){ if(cond){ pass++; console.log('  \u2713 '+name); } else
 // Canonical department taxonomy (DEF-06). Membership asserted, not order.
 const CANONICAL = [
   'Human Resources','Finance','Procurement','Supply Chain','Data Center Group',
-  'Manufacturing','Quality','Sales','Marketing','Legal','IT','Customer Support',
-  'R&D','Security'
+  'Client Computing','Foundry','Manufacturing','Quality','Sales','Marketing',
+  'Legal','IT','Customer Support','R&D','Security'
 ];
 
 function realOptions(sel){
@@ -61,13 +61,13 @@ const noFetch = () => Promise.resolve({ ok:false, json:()=>Promise.resolve(null)
 
 (async () => {
   // ---- Test A: static canonical list, no network merge ----
-  console.log('\n== A. Canonical 14 static departments (no network) ==');
+  console.log('\n== A. Canonical 16 static departments (no network) ==');
   const domStatic = makeDom(noFetch);
   await wait(150);
   const selS = domStatic.window.document.getElementById('f_dept');
   ok('f_dept select exists', !!selS);
   const optsS = realOptions(selS);
-  ok('exactly 14 canonical departments render', optsS.length === 14);
+  ok('exactly 16 canonical departments render', optsS.length === 16);
   CANONICAL.forEach(d => ok('canonical present: '+d, optsS.includes(d)));
   ok('placeholder option "Select…" present', selS.options[0].textContent.trim() === 'Select\u2026');
   ok('no duplicate entries (case-insensitive)',
@@ -87,7 +87,7 @@ const noFetch = () => Promise.resolve({ ok:false, json:()=>Promise.resolve(null)
   ok('padded "  Aerospace  " trimmed + deduped (appears once)',
      optsM.filter(o => o === 'Aerospace').length === 1);
   ok('empty facet value ignored', !optsM.some(o => o === ''));
-  ok('total = 14 canonical + 2 new = 16', optsM.length === 16);
+  ok('total = 16 canonical + 2 new = 18', optsM.length === 18);
   ok('all entries unique (case-insensitive)',
      new Set(optsM.map(s=>s.toLowerCase())).size === optsM.length);
   domMerge.window.close();

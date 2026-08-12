@@ -26,6 +26,8 @@ const CANONICAL_DEPARTMENTS = Object.freeze([
   'Procurement',
   'Supply Chain',
   'Data Center Group',
+  'Client Computing',
+  'Foundry',
   'Manufacturing',
   'Quality',
   'Sales',

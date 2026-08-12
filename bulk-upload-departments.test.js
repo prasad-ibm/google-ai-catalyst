@@ -2,7 +2,7 @@
 
 /*
  * DEF-13 (HIGH): the bulk-import path must validate `department` against the
- * canonical 14-item taxonomy and coerce anything unrecognized to null, exactly
+ * canonical 16-item taxonomy and coerce anything unrecognized to null, exactly
  * as the intake authoring dropdown constrains it. This closes the self-polluting
  * facet loop (bulk junk -> facets 14->15 -> DEF-06 dynamic merge -> intake
  * dropdown option 15).
@@ -12,7 +12,7 @@
  *   (B) buildUseCaseValues() — the single mapping shared by single-create and
  *       bulk — is exercised the way the bulk loop calls it (dept pre-resolved),
  *       proving a junk department lands as NULL in the INSERT values.
- *   (C) Parity guard: the canonical list in departments.js matches the 14
+ *   (C) Parity guard: the canonical list in departments.js matches the 16
  *       <option> values shipped in intake.html #f_dept, so the two can never
  *       drift into a second hardcoded copy.
  *
@@ -45,7 +45,7 @@ test('resolveDepartment: exact canonical values pass through unchanged', () => {
     assert.strictEqual(resolveDepartment(d), d, `${d} resolves to itself`);
     assert.strictEqual(isCanonicalDepartment(d), true);
   }
-  assert.strictEqual(CANONICAL_DEPARTMENTS.length, 14, 'exactly 14 canonical departments');
+  assert.strictEqual(CANONICAL_DEPARTMENTS.length, 16, 'exactly 16 canonical departments');
 });
 
 test('resolveDepartment: case-insensitive and whitespace-trimmed match', () => {
@@ -166,7 +166,7 @@ test('template: no dead blank workspace_id column (UI/bulk endpoint supplies it)
   assert.ok(rows.length >= 5, 'template still parses >= 5 example rows');
 });
 
-test('canonical list matches the 14 options in intake.html #f_dept', () => {
+test('canonical list matches the 16 options in intake.html #f_dept', () => {
   const html = fs.readFileSync(path.join(__dirname, 'intake.html'), 'utf8');
 
   // Isolate the #f_dept <select> block, then pull every option's TEXT content
