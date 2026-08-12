@@ -108,8 +108,22 @@ function norm(v) {
 }
 function asObj(v) { if (v == null) return null; if (typeof v === 'string') { try { return JSON.parse(v); } catch { return null; } } return v; }
 
+// Coerce any date-ish value (ISO string, JS Date object, or driver output) to
+// a plain YYYY-MM-DD so a real Date column and an ISO string compare equal.
+function toIsoDate(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);   // already ISO
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? s : d.toISOString().slice(0, 10);
+}
 function diffScalar(field, exp, act) {
-  const e = norm(exp), a = norm(field === 'delivered_at' && act ? String(act).slice(0, 10) : act);
+  if (field === 'delivered_at') {
+    const e = toIsoDate(exp), a = toIsoDate(act);
+    return e === a ? null : { field, expected: e, actual: a };
+  }
+  const e = norm(exp), a = norm(act);
   return e === a ? null : { field, expected: e, actual: a };
 }
 function diffJsonb(col, exp, act) {

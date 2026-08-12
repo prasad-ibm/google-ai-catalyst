@@ -12,6 +12,43 @@ const { roiEligible, stageRank, ROI_MIN_STAGE } = require('./stage');
 // DEF-13: canonical department taxonomy — the single source of truth shared by
 // the bulk-import validation below and asserted against the intake dropdown.
 const { resolveDepartment } = require('./departments');
+const { deriveEvaluation } = require('./evaluate');
+const { rankOf: _stageRank } = (() => { const o=['intake','bxt','feasibility','advisory','summary','panel','approved']; return { rankOf: s => { const i=o.indexOf(String(s||'').trim().toLowerCase()); return i<0?0:i; } }; })();
+const _SUMMARY_RANK = 4;
+
+// Auto-evaluate a freshly-inserted case: derive feasibility + summary + verdict
+// deterministically (evaluate.js) and persist all three, advancing stage to
+// 'summary' when below it so the server ROI gate surfaces the tiles. Best-effort
+// and non-fatal: a derivation/persist error must NOT fail the row insert.
+async function persistEvaluation(row) {
+  try {
+    const ev = deriveEvaluation(row.id, row);
+    const f = ev.feasibility, s = ev.summary, v = ev.verdict;
+    await query(
+      `INSERT INTO feasibility_scores (use_case_id, composite, quadrant, risk_tier, citizen_dev_pct, criteria, pillars)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (use_case_id) DO UPDATE SET composite=EXCLUDED.composite, quadrant=EXCLUDED.quadrant,
+         risk_tier=EXCLUDED.risk_tier, citizen_dev_pct=EXCLUDED.citizen_dev_pct, criteria=EXCLUDED.criteria, pillars=EXCLUDED.pillars`,
+      [row.id, f.composite, f.quadrant, f.risk_tier, f.citizen_dev_pct, JSON.stringify(f.criteria), JSON.stringify(f.pillars)]);
+    await query(
+      `INSERT INTO evaluation_summaries (use_case_id, roi_p10, roi_p50, roi_p90, frameworks, governance, readiness)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (use_case_id) DO UPDATE SET roi_p10=EXCLUDED.roi_p10, roi_p50=EXCLUDED.roi_p50,
+         roi_p90=EXCLUDED.roi_p90, frameworks=EXCLUDED.frameworks, governance=EXCLUDED.governance, readiness=EXCLUDED.readiness`,
+      [row.id, s.roi_p10, s.roi_p50, s.roi_p90, JSON.stringify(s.frameworks), JSON.stringify(s.governance), s.readiness]);
+    await query(
+      `INSERT INTO panel_verdicts (use_case_id, verdict, binding_condition)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (use_case_id) DO UPDATE SET verdict=EXCLUDED.verdict, binding_condition=EXCLUDED.binding_condition`,
+      [row.id, v.verdict, v.binding_condition]);
+    if (_stageRank(row.stage) < _SUMMARY_RANK) {
+      await query(`UPDATE use_cases SET stage='summary' WHERE id=$1`, [row.id]);
+    }
+  } catch (e) {
+    // Non-fatal: the case still exists; it just won't be pre-evaluated.
+    if (process.env.NODE_ENV !== 'test') console.error('persistEvaluation failed for', row && row.id, '-', e.message);
+  }
+}
 
 // R14-N2: shared UUID validator. Every /api/use-cases/:id route binds `:id`
 // straight into a `WHERE id = $1` on a uuid column. A malformed :id (e.g.
@@ -460,12 +497,18 @@ function buildUseCaseValues(body, workspaceId) {
 
 // Insert one use case row and return the created record. Shared by single
 // create and bulk upload so mapping/columns never drift between the two.
-async function insertUseCase(body, workspaceId) {
+async function insertUseCase(body, workspaceId, opts) {
   const values = buildUseCaseValues(body, workspaceId);
   const placeholders = USE_CASE_INSERT_COLS.map((_, i) => `$${i + 1}`);
   const sql = `INSERT INTO use_cases (${USE_CASE_INSERT_COLS.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING *`;
   const r = await query(sql, values);
-  return r.rows[0];
+  const row = r.rows[0];
+  // Auto-evaluate when requested (bulk import) so the case is dashboard-visible
+  // immediately with feasibility + ROI + verdict — no manual backfill needed.
+  if (opts && opts.autoEvaluate && row && row.id) {
+    await persistEvaluation(row);
+  }
+  return row;
 }
 
 app.post('/api/use-cases', async (req, res) => {
@@ -609,7 +652,7 @@ app.post('/api/use-cases/bulk', async (req, res) => {
           if (!ws.rows.length) throw new Error('workspace_id does not reference an existing workspace');
         }
 
-        const created = await insertUseCase(row, rowWorkspaceId);
+        const created = await insertUseCase(row, rowWorkspaceId, { autoEvaluate: true });
         inserted++;
         if (warnings.length) coerced++;
         // Attach `warnings` only when there is something to report, so
